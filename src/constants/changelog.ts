@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.3',
+    date: '2026-04-22',
+    summary: 'Fix: runtime dependencies were missing from package.json, breaking Vercel build.',
+    details: [
+      'First Vercel build failed with TS2307 "Cannot find module" for react-i18next, supabase-js, clsx, etc.',
+      'Root cause: initial background npm install saved to node_modules but not package.json',
+      'Reinstalled with explicit --save, all runtime deps now declared',
+      'Build verified locally (250kb JS / 8kb CSS)',
+    ],
+  },
+  {
     version: '0.1.2',
     date: '2026-04-22',
     summary: 'Phase 0 wrap-up: googleapis installed (Phase 2 prep), shadcn/ui components.json configured, initial push to GitHub.',
