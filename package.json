@@ -1,7 +1,7 @@
 {
   "name": "knit-app",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "googleapis": "^171.4.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },

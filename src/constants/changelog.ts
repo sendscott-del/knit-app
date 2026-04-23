@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.2',
+    date: '2026-04-22',
+    summary: 'Phase 0 wrap-up: googleapis installed (Phase 2 prep), shadcn/ui components.json configured, initial push to GitHub.',
+    details: [
+      'googleapis npm package added for Phase 2 Sheets integration (server-side only)',
+      'components.json configured for shadcn/ui CLI — slate base, @/components, @/lib/utils aliases',
+      'Repo pushed to sendscott-del/knit-app on GitHub',
+    ],
+  },
+  {
     version: '0.1.1',
     date: '2026-04-22',
     summary: 'Phase 0 architectural decision: consolidate Knit into shared Scott\'s Apps Supabase project with knit_ table prefix.',
