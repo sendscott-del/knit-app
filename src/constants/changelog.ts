@@ -7,6 +7,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.0',
+    date: '2026-04-22',
+    summary: 'Phase 1 database foundation — all 16 knit_ tables, RLS, seeds, TypeScript types.',
+    details: [
+      'Migration 1.1: knit_stakes, knit_wards, knit_admin_users + knit_current_admin() SECURITY DEFINER helper',
+      'Migration 1.2: knit_members, knit_interest_tags, knit_participation_styles + member join tables',
+      'Migration 1.3: knit_availability_baselines, knit_availability_exceptions',
+      'Migration 1.4: knit_friends, knit_companionships, knit_outings, knit_outing_suggestions',
+      'Migration 1.5: knit_notifications_log, knit_google_sheet_bindings',
+      'Migration 1.6: seeded 7 participation styles + 47 global interest tags',
+      'Migration 1.7: generated TypeScript types into src/lib/database.types.ts, Supabase client now typed',
+      'Migration 1.8: advisor fixes — function search_path locked, auth.uid() wrapped for initplan caching, covering indexes added, FOR ALL policies split into INSERT/UPDATE/DELETE on knit_wards + knit_interest_tags to remove overlap with FOR SELECT',
+      'All knit_ tables are RLS-enabled; admin scope enforced via knit_current_admin() helper',
+    ],
+  },
+  {
     version: '0.1.3',
     date: '2026-04-22',
     summary: 'Fix: runtime dependencies were missing from package.json, breaking Vercel build.',
