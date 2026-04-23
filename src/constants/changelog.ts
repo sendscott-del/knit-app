@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.1',
+    date: '2026-04-22',
+    summary: 'Phase 1 Slice A — admin auth + router shell. Sign in via Supabase magic link, role-aware dashboard.',
+    details: [
+      'React Router with routes: / (Landing), /admin/login, /admin/callback, /admin (protected), /m/:id/:token, /me',
+      'AuthProvider wraps the app; useAuth + useAdmin hooks',
+      'AdminLayout checks knit_admin_users; shows "not yet provisioned" screen for signed-in users without an admin row',
+      'Admin dashboard shows role + scope + placeholder tabs for the Phase 1 milestones still to come',
+      'vercel.json adds SPA rewrites so deep links (e.g. /admin/login) work on refresh',
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-04-22',
     summary: 'Phase 1 database foundation — all 16 knit_ tables, RLS, seeds, TypeScript types.',
