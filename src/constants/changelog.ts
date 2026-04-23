@@ -7,6 +7,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.0',
+    date: '2026-04-22',
+    summary: 'Phase 1 Slice B — Members + Friends tabs with add/list/remove. Admins can seed a real ward.',
+    details: [
+      'Added knit_members.phone column for pre-Tidings manual entries (nullable + indexed partial)',
+      'Regenerated TypeScript types',
+      '/admin/members: list + inline add form (display name, phone, language, ward)',
+      '/admin/friends: list + inline add form (name, nickname, phone, language, teaching status, typical availability)',
+      'AdminLayout sub-nav with Dashboard / Members / Friends tabs',
+      'Dashboard cards for Members and Friends now link to their tabs',
+      'Stake-level admins see a ward picker; WML has ward auto-selected',
+      'Shared .form-input Tailwind component for consistent form styling',
+    ],
+  },
+  {
     version: '0.2.1',
     date: '2026-04-22',
     summary: 'Phase 1 Slice A — admin auth + router shell. Sign in via Supabase magic link, role-aware dashboard.',

@@ -2233,6 +2233,7 @@ export type Database = {
           onboarding_completed_at: string | null
           opted_out_at: string | null
           paused_until: string | null
+          phone: string | null
           preferred_name: string | null
           tidings_member_id: string | null
           token_issued_at: string | null
@@ -2249,6 +2250,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           opted_out_at?: string | null
           paused_until?: string | null
+          phone?: string | null
           preferred_name?: string | null
           tidings_member_id?: string | null
           token_issued_at?: string | null
@@ -2265,6 +2267,7 @@ export type Database = {
           onboarding_completed_at?: string | null
           opted_out_at?: string | null
           paused_until?: string | null
+          phone?: string | null
           preferred_name?: string | null
           tidings_member_id?: string | null
           token_issued_at?: string | null

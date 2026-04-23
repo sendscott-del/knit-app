@@ -1,4 +1,4 @@
-import { useOutletContext } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import type { AdminProfile } from '@/lib/useAdmin'
 
 type Ctx = { profile: AdminProfile }
@@ -21,11 +21,17 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <PlaceholderCard
+        <LinkCard
+          to="/admin/members"
           title="Members"
-          body={isWardScope ? 'Invite members, see who\'s active, review availability.' : 'See member engagement across the stake.'}
+          body={
+            isWardScope
+              ? "Invite members, see who's active, review availability."
+              : 'See member engagement across the stake.'
+          }
         />
-        <PlaceholderCard
+        <LinkCard
+          to="/admin/friends"
           title="Friends being taught"
           body="Roster of people the missionaries are fellowshipping."
         />
@@ -52,12 +58,25 @@ function greeting(label: string) {
   return `${prefix}, ${name}`
 }
 
+function LinkCard({ to, title, body }: { to: string; title: string; body: string }) {
+  return (
+    <Link
+      to={to}
+      className="block rounded-xl border border-slate-200 bg-white p-5 space-y-2 hover:border-slate-400 hover:shadow-sm transition"
+    >
+      <h2 className="font-medium text-slate-900">{title}</h2>
+      <p className="text-sm text-slate-600">{body}</p>
+      <p className="text-xs text-slate-500 pt-2">Open →</p>
+    </Link>
+  )
+}
+
 function PlaceholderCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-2">
       <h2 className="font-medium text-slate-900">{title}</h2>
       <p className="text-sm text-slate-600">{body}</p>
-      <p className="text-xs text-slate-400 pt-2">Coming in Phase 1</p>
+      <p className="text-xs text-slate-400 pt-2">Coming later in Phase 1</p>
     </div>
   )
 }

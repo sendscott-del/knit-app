@@ -55,7 +55,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <NavLink to="/admin" className="text-xl font-semibold text-slate-900 tracking-tight">
+          <NavLink to="/admin" end className="text-xl font-semibold text-slate-900 tracking-tight">
             Knit
           </NavLink>
           <div className="text-sm text-slate-600 hidden sm:block">
@@ -71,6 +71,13 @@ export default function AdminLayout() {
             </button>
           </div>
         </div>
+        <nav className="max-w-6xl mx-auto px-4 sm:px-6 border-t border-slate-100">
+          <ul className="flex items-center gap-1 overflow-x-auto">
+            <TabLink to="/admin" end>Dashboard</TabLink>
+            <TabLink to="/admin/members">Members</TabLink>
+            <TabLink to="/admin/friends">Friends</TabLink>
+          </ul>
+        </nav>
       </header>
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <Outlet context={{ profile }} />
@@ -86,6 +93,34 @@ function RoleLabel({ role }: { role: 'stake_president' | 'stake_missionary_hc' |
     ward_mission_leader: 'Ward Mission Leader',
   } as const
   return <>{labels[role]}</>
+}
+
+function TabLink({
+  to,
+  end,
+  children,
+}: {
+  to: string
+  end?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <li>
+      <NavLink
+        to={to}
+        end={end}
+        className={({ isActive }) =>
+          `inline-block px-4 py-3 text-sm font-medium border-b-2 -mb-px transition ${
+            isActive
+              ? 'border-slate-900 text-slate-900'
+              : 'border-transparent text-slate-600 hover:text-slate-900'
+          }`
+        }
+      >
+        {children}
+      </NavLink>
+    </li>
+  )
 }
 
 function FullPage({ children }: { children: React.ReactNode }) {
