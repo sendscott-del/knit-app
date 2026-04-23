@@ -40,7 +40,7 @@ Match the established pattern from other Gathered apps:
 
 - **Frontend**: React 18 + Vite, TypeScript, Tailwind CSS, shadcn/ui
 - **i18n**: `react-i18next` with `/locales/en/` and `/locales/es/` (Spanish stubbed but not translated in v1)
-- **Backend**: Supabase (separate project: `knit-production`, not shared with other Gathered apps)
+- **Backend**: Supabase shared project `Scott's Apps` (ref: `isogetmvnpimcmouakeg`). Every Knit table is prefixed `knit_` to namespace within the shared DB (e.g., `knit_members`, `knit_wards`, `knit_outings`), following the established `chores_` / `duty_` / `steward_` / `sq_` / `bloom_` pattern. *Original spec called for a separate project; consolidated because free-tier org caps at 2 projects and Tidings occupies the second slot. If/when the org upgrades to Pro, Knit can migrate to its own project with a schema dump.*
 - **Auth**: Supabase Auth for admins (magic link email). Custom token-based access for members.
 - **Deployment**: Vercel
 - **Cron jobs**: Vercel Cron (weekly availability nudge, post-outing check-in, Sheet sync)
@@ -65,6 +65,8 @@ Match the established pattern from other Gathered apps:
 ## 4. Data model
 
 Everything is scoped by `ward_id`. All RLS policies enforce this.
+
+**Table naming:** every Knit table is prefixed `knit_` to namespace within the shared `Scott's Apps` Supabase project. The entity names below (e.g., `stakes`, `members`, `outings`) refer to the logical entity; the actual Postgres table names are `knit_stakes`, `knit_members`, `knit_outings`, and so on. Foreign-key references in this section use the logical name; implement them as `knit_<name>.id`.
 
 ### Entities
 
@@ -486,12 +488,17 @@ Member hits their personal URL (or tap the link again). Lands on `/me` dashboard
 ## 12. Environment variables
 
 ```
-# Supabase
+# Supabase — Scott's Apps shared project (knit_ table prefix)
+# Client-side (needs VITE_ prefix for Vite exposure)
+VITE_SUPABASE_URL                    # https://isogetmvnpimcmouakeg.supabase.co
+VITE_SUPABASE_ANON_KEY               # sb_publishable_... (modern) or legacy anon JWT
+
+# Server-side (serverless functions / cron)
 SUPABASE_URL
 SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_SERVICE_ROLE_KEY            # required for cron RLS bypass + cross-project Tidings read
 
-# Tidings cross-project access
+# Tidings cross-project access (Tidings is a separate Supabase project, ref jdlykebsqafcngpntxma)
 TIDINGS_SUPABASE_URL
 TIDINGS_SUPABASE_SERVICE_ROLE_KEY   # read-only on members table
 TIDINGS_API_BASE                     # for SMS send endpoint
