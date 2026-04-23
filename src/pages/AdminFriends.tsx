@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import AvailabilityGrid from '@/components/AvailabilityGrid'
+import { slotsToString, type Slot } from '@/lib/availability'
 import type { Database } from '@/lib/database.types'
 
 type FriendRow = Database['public']['Tables']['knit_friends']['Row']
@@ -154,7 +156,7 @@ function NewFriendForm({
   const [nickname, setNickname] = useState('')
   const [locale, setLocale] = useState<'en' | 'es'>('en')
   const [teachingStatus, setTeachingStatus] = useState<TeachingStatus>('investigating')
-  const [typicalAvailability, setTypicalAvailability] = useState('')
+  const [availability, setAvailability] = useState<Slot[]>([])
   const [phone, setPhone] = useState('')
   const [wardId, setWardId] = useState(defaultWardId)
   const [saving, setSaving] = useState(false)
@@ -172,6 +174,7 @@ function NewFriendForm({
     }
     setSaving(true)
     setErr(null)
+    const availStr = slotsToString(availability)
     const { error } = await supabase.from('knit_friends').insert({
       ward_id: wardId,
       first_name: firstName.trim(),
@@ -179,7 +182,7 @@ function NewFriendForm({
       nickname: nickname.trim() || null,
       locale,
       teaching_status: teachingStatus,
-      typical_availability: typicalAvailability.trim() || null,
+      typical_availability: availStr || null,
       phone: phone.trim() || null,
     })
     setSaving(false)
@@ -192,7 +195,7 @@ function NewFriendForm({
     setNickname('')
     setLocale('en')
     setTeachingStatus('investigating')
-    setTypicalAvailability('')
+    setAvailability([])
     setPhone('')
     await onCreated()
   }
@@ -258,17 +261,6 @@ function NewFriendForm({
           ))}
         </select>
       </Field>
-      <Field
-        label="Typical availability"
-        hint='Free text — "evenings after 6", "weekends only", etc.'
-      >
-        <input
-          type="text"
-          value={typicalAvailability}
-          onChange={(e) => setTypicalAvailability(e.target.value)}
-          className="form-input"
-        />
-      </Field>
       {wards.length > 1 ? (
         <Field label="Ward" required>
           <select
@@ -287,6 +279,15 @@ function NewFriendForm({
           </select>
         </Field>
       ) : null}
+      <div className="sm:col-span-2 space-y-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-slate-700">Typical availability</span>
+          <span className="text-xs text-slate-500">
+            {slotsToString(availability) || "Tap any slots when the friend is usually free"}
+          </span>
+        </div>
+        <AvailabilityGrid value={availability} onChange={setAvailability} />
+      </div>
       <div className="sm:col-span-2 flex items-center justify-between pt-2">
         {err ? <p className="text-sm text-rose-700">{err}</p> : <span />}
         <button

@@ -3,17 +3,23 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import AvailabilityGrid from '@/components/AvailabilityGrid'
+import { slotsToString, type Slot, type TimeSlot, type DayOfWeek } from '@/lib/availability'
 import type { Database } from '@/lib/database.types'
 
 type MemberRow = Database['public']['Tables']['knit_members']['Row']
+type BaselineRow = Database['public']['Tables']['knit_availability_baselines']['Row']
 type WardRow = { id: string; name: string }
-type MemberWithWard = MemberRow & { ward?: WardRow | null }
+type MemberWithExtras = MemberRow & {
+  ward?: WardRow | null
+  availability?: BaselineRow[] | null
+}
 type Ctx = { profile: AdminProfile }
 
 export default function AdminMembers() {
   const { profile } = useOutletContext<Ctx>()
   const { wards, loading: wardsLoading } = useWardOptions(profile)
-  const [members, setMembers] = useState<MemberWithWard[]>([])
+  const [members, setMembers] = useState<MemberWithExtras[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -23,10 +29,12 @@ export default function AdminMembers() {
     setError(null)
     const { data, error } = await supabase
       .from('knit_members')
-      .select('*, ward:knit_wards(id, name)')
+      .select(
+        '*, ward:knit_wards(id, name), availability:knit_availability_baselines(day_of_week, time_slot)',
+      )
       .order('created_at', { ascending: false })
     if (error) setError(error.message)
-    else setMembers((data as MemberWithWard[]) ?? [])
+    else setMembers((data as MemberWithExtras[]) ?? [])
     setLoading(false)
   }
 
@@ -89,6 +97,7 @@ export default function AdminMembers() {
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">Language</th>
+                <th className="px-4 py-3 font-medium">Available</th>
                 <th className="px-4 py-3 font-medium">Ward</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3"></th>
@@ -97,10 +106,20 @@ export default function AdminMembers() {
             <tbody className="divide-y divide-slate-100">
               {members.map((m) => (
                 <tr key={m.id}>
-                  <td className="px-4 py-3 text-slate-900">{m.preferred_name ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-900">{displayName(m)}</td>
                   <td className="px-4 py-3 text-slate-600">{m.phone ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {m.locale === 'es' ? 'Spanish' : 'English'}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {m.availability && m.availability.length > 0
+                      ? slotsToString(
+                          m.availability.map((r) => ({
+                            day: r.day_of_week as DayOfWeek,
+                            timeSlot: r.time_slot as TimeSlot,
+                          })),
+                        )
+                      : '—'}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{m.ward?.name ?? '—'}</td>
                   <td className="px-4 py-3">
@@ -122,6 +141,12 @@ export default function AdminMembers() {
       </div>
     </div>
   )
+}
+
+function displayName(m: MemberRow): string {
+  if (m.preferred_name) return m.preferred_name
+  const full = [m.first_name, m.last_name].filter(Boolean).join(' ').trim()
+  return full || '—'
 }
 
 function StatusBadge({ member }: { member: MemberRow }) {
@@ -147,7 +172,9 @@ function Badge({
     rose: 'bg-rose-100 text-rose-800',
   }
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${palette[tone]}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${palette[tone]}`}
+    >
       {children}
     </span>
   )
@@ -164,10 +191,12 @@ function NewMemberForm({
   defaultWardId: string
   onCreated: () => void | Promise<void>
 }) {
-  const [preferredName, setPreferredName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
   const [locale, setLocale] = useState<'en' | 'es'>('en')
   const [wardId, setWardId] = useState(defaultWardId)
+  const [availability, setAvailability] = useState<Slot[]>([])
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -183,20 +212,45 @@ function NewMemberForm({
     }
     setSaving(true)
     setErr(null)
-    const { error } = await supabase.from('knit_members').insert({
-      ward_id: wardId,
-      preferred_name: preferredName.trim() || null,
-      phone: phone.trim() || null,
-      locale,
-    })
-    setSaving(false)
-    if (error) {
-      setErr(error.message)
+    const { data: created, error } = await supabase
+      .from('knit_members')
+      .insert({
+        ward_id: wardId,
+        first_name: firstName.trim() || null,
+        last_name: lastName.trim() || null,
+        phone: phone.trim() || null,
+        locale,
+      })
+      .select('id')
+      .single()
+
+    if (error || !created) {
+      setSaving(false)
+      setErr(error?.message ?? 'Failed to save member.')
       return
     }
-    setPreferredName('')
+
+    if (availability.length > 0) {
+      const { error: availErr } = await supabase.from('knit_availability_baselines').insert(
+        availability.map((s) => ({
+          member_id: created.id,
+          day_of_week: s.day,
+          time_slot: s.timeSlot,
+        })),
+      )
+      if (availErr) {
+        setSaving(false)
+        setErr(`Member saved, but availability failed: ${availErr.message}`)
+        return
+      }
+    }
+
+    setSaving(false)
+    setFirstName('')
+    setLastName('')
     setPhone('')
     setLocale('en')
+    setAvailability([])
     await onCreated()
   }
 
@@ -205,13 +259,20 @@ function NewMemberForm({
       onSubmit={submit}
       className="rounded-xl border border-slate-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
-      <Field label="Display name" required>
+      <Field label="First name" required>
         <input
           type="text"
           required
-          value={preferredName}
-          onChange={(e) => setPreferredName(e.target.value)}
-          placeholder="Jane Smith"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          className="form-input"
+        />
+      </Field>
+      <Field label="Last name">
+        <input
+          type="text"
+          value={lastName}
+          onChange={(e) => setLastName(e.target.value)}
           className="form-input"
         />
       </Field>
@@ -252,6 +313,13 @@ function NewMemberForm({
           </select>
         </Field>
       ) : null}
+      <div className="sm:col-span-2 space-y-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-slate-700">Availability</span>
+          <span className="text-xs text-slate-500">{slotsToString(availability) || 'Tap to select times'}</span>
+        </div>
+        <AvailabilityGrid value={availability} onChange={setAvailability} />
+      </div>
       <div className="sm:col-span-2 flex items-center justify-between pt-2">
         {err ? <p className="text-sm text-rose-700">{err}</p> : <span />}
         <button

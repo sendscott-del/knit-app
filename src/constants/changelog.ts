@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.1',
+    date: '2026-04-23',
+    summary: 'Slice C — full names for members + structured day × time-slot availability grid for both members and friends.',
+    details: [
+      'Migration 1.10: knit_members.first_name + last_name columns',
+      'Reusable AvailabilityGrid component (7 days × morning/afternoon/evening cells, 48px touch targets)',
+      'Members form: first + last name, phone, language, ward, availability → writes knit_availability_baselines rows',
+      'Friends form: availability picker replaces free-text typical_availability field; serializes to readable string like "Tue, Thu evenings; Sat mornings"',
+      'Members list now shows an "Available" column with the same readable format',
+      'slotsToString() groups days sharing identical slots for compact display',
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-04-22',
     summary: 'Phase 1 Slice B — Members + Friends tabs with add/list/remove. Admins can seed a real ward.',

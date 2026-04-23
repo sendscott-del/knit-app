@@ -2226,7 +2226,9 @@ export type Database = {
       knit_members: {
         Row: {
           created_at: string
+          first_name: string | null
           id: string
+          last_name: string | null
           locale: Database["public"]["Enums"]["knit_locale"]
           magic_link_token_hash: string | null
           notes: string | null
@@ -2243,7 +2245,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           locale?: Database["public"]["Enums"]["knit_locale"]
           magic_link_token_hash?: string | null
           notes?: string | null
@@ -2260,7 +2264,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           locale?: Database["public"]["Enums"]["knit_locale"]
           magic_link_token_hash?: string | null
           notes?: string | null
