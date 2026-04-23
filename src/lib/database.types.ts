@@ -4069,6 +4069,22 @@ export type Database = {
           admin_ward_id: string
         }[]
       }
+      knit_generate_member_magic_link: {
+        Args: { p_member_id: string }
+        Returns: string
+      }
+      knit_member_self_pause: {
+        Args: { p_member_id: string; p_token: string; p_until: string }
+        Returns: undefined
+      }
+      knit_member_self_read: {
+        Args: { p_member_id: string; p_token: string }
+        Returns: Json
+      }
+      knit_member_token_is_valid: {
+        Args: { p_member_id: string; p_token: string }
+        Returns: boolean
+      }
     }
     Enums: {
       knit_admin_role:

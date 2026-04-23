@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.0',
+    date: '2026-04-23',
+    summary: 'Slice D — member magic link end-to-end. Admin can issue a link; member visits it, sees their dashboard, and can pause.',
+    details: [
+      'Migration 1.11: Postgres RPCs knit_generate_member_magic_link, knit_member_self_read, knit_member_self_pause — token stored as sha256, all crypto server-side, no service role or serverless functions needed',
+      'Admin Members tab: "Invite link" / "New link" button on each row → copy-to-clipboard modal with the personal URL',
+      '/m/:memberId/:token verifies via RPC, stores {memberId, token} in localStorage, redirects to /me',
+      '/me shows name, ward, availability (read-only for now), interest chips, participation styles, and pause buttons (30 / 90 days, unpause)',
+      'Sign out clears localStorage and returns to landing',
+      'Editing availability + interests + styles from /me and the 6-screen onboarding flow come in the next slice',
+    ],
+  },
+  {
     version: '0.3.1',
     date: '2026-04-23',
     summary: 'Slice C — full names for members + structured day × time-slot availability grid for both members and friends.',

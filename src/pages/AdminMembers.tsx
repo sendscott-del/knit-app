@@ -5,6 +5,7 @@ import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
 import { slotsToString, type Slot, type TimeSlot, type DayOfWeek } from '@/lib/availability'
+import { memberInviteUrl } from '@/lib/memberAuth'
 import type { Database } from '@/lib/database.types'
 
 type MemberRow = Database['public']['Tables']['knit_members']['Row']
@@ -23,6 +24,11 @@ export default function AdminMembers() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [inviteLink, setInviteLink] = useState<{
+    memberName: string
+    url: string
+  } | null>(null)
+  const [generating, setGenerating] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
@@ -50,6 +56,28 @@ export default function AdminMembers() {
       return
     }
     await refresh()
+  }
+
+  async function generateInvite(member: MemberWithExtras) {
+    if (
+      member.token_issued_at &&
+      !confirm(
+        'This member already has a link. Generating a new one will invalidate the old one. Continue?',
+      )
+    ) {
+      return
+    }
+    setGenerating(member.id)
+    const { data, error } = await supabase.rpc('knit_generate_member_magic_link', {
+      p_member_id: member.id,
+    })
+    setGenerating(null)
+    if (error || !data) {
+      alert(error?.message ?? 'Could not generate link.')
+      return
+    }
+    const url = memberInviteUrl(window.location.origin, member.id, data as string)
+    setInviteLink({ memberName: displayName(member), url })
   }
 
   return (
@@ -125,7 +153,18 @@ export default function AdminMembers() {
                   <td className="px-4 py-3">
                     <StatusBadge member={m} />
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button
+                      onClick={() => void generateInvite(m)}
+                      disabled={generating === m.id}
+                      className="text-sm text-slate-700 hover:text-slate-900 mr-4 disabled:opacity-50"
+                    >
+                      {generating === m.id
+                        ? 'Generating…'
+                        : m.token_issued_at
+                          ? 'New link'
+                          : 'Invite link'}
+                    </button>
                     <button
                       onClick={() => void remove(m.id)}
                       className="text-sm text-rose-700 hover:text-rose-900"
@@ -138,6 +177,70 @@ export default function AdminMembers() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {inviteLink ? (
+        <InviteLinkModal
+          memberName={inviteLink.memberName}
+          url={inviteLink.url}
+          onClose={() => setInviteLink(null)}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function InviteLinkModal({
+  memberName,
+  url,
+  onClose,
+}: {
+  memberName: string
+  url: string
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  async function copy() {
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-slate-900/40 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Invite link for {memberName}
+          </h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Copy this link and send it to them — by text, email, or in person.
+            It's personal to them and is valid for 30 days. Generating a new link
+            invalidates the old one.
+          </p>
+        </div>
+        <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800 break-all font-mono">
+          {url}
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Close
+          </button>
+          <button
+            onClick={() => void copy()}
+            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"
+          >
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+        </div>
       </div>
     </div>
   )
