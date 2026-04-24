@@ -36,7 +36,11 @@ export default function AdminDashboard() {
           body="Roster of people the missionaries are fellowshipping."
         />
         <PlaceholderCard title="Outings" body="Log completed outings, see upcoming." />
-        <PlaceholderCard title="Suggestions" body="Who should go with which friend?" />
+        <LinkCard
+          to="/admin/suggest"
+          title="Suggestions"
+          body="Who should go with which friend? Ranked matches with reasons."
+        />
         {isWardScope ? (
           <PlaceholderCard title="Sheet" body="Google Sheet setup for your companionships." />
         ) : null}

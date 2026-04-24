@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.0',
+    date: '2026-04-23',
+    summary: 'Slice F — suggestion algorithm and /admin/suggest UI. Pick a friend + day + slot → top 5 ranked members with reasons.',
+    details: [
+      'Spec §7 scoring implemented in TypeScript (src/lib/suggestion.ts): language, style-match, interest overlap (cap 5), freshness (min(days/14, 5)), reliability (3 baseline + 1 per happened cap +3), prior-success bonus, recent-pairing penalty',
+      'Hard filters: paused, opted-out, baseline availability, language compatibility, participation-style match (if need provided)',
+      '/admin/suggest page: friend + day + time-slot + optional need → ranked list with per-candidate reasons and score',
+      'Empty-state hints: distinct copy for "no one available" vs "fewer than 3" vs all-filtered (expandable list of why each was filtered)',
+      'AdminLayout gets a Suggest tab; dashboard card now links',
+      'Excludes friends whose teaching_status is baptized or lost_contact from the dropdown',
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-04-23',
     summary: 'Slice E — 6-screen member onboarding + inline edits on /me for availability, interests, and participation styles.',
