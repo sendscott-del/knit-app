@@ -1,9 +1,6 @@
 import type { VercelRequest } from '@vercel/node'
-import { supabaseAdmin } from './supabaseAdmin'
-import type { Database } from '../../src/lib/database.types'
-
-type AdminRole = Database['public']['Enums']['knit_admin_role']
-type AdminRow = Database['public']['Tables']['knit_admin_users']['Row']
+import { supabaseAdmin } from './supabaseAdmin.js'
+import type { AdminRole, AdminRow } from './types.js'
 
 export type AuthenticatedAdmin = {
   userId: string
@@ -40,13 +37,9 @@ export async function requireAdmin(
     .eq('id', user.id)
     .maybeSingle()
   if (!admin) return null
-  return { userId: user.id, email: user.email ?? '', admin }
+  return { userId: user.id, email: user.email ?? '', admin: admin as AdminRow }
 }
 
-/**
- * Returns true if the admin is allowed to act on the given ward (read+write).
- * Stake-level admins can act on any ward in their stake; WML on their own ward.
- */
 export async function adminCanActOnWard(
   admin: AdminRow,
   wardId: string,
@@ -61,7 +54,7 @@ export async function adminCanActOnWard(
     .eq('id', wardId)
     .maybeSingle()
   if (!ward) return false
-  return ward.stake_id === admin.stake_id
+  return (ward as { stake_id: string }).stake_id === admin.stake_id
 }
 
 export function roleIsWritable(role: AdminRole): boolean {

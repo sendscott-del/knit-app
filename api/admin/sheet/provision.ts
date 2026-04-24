@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireAdmin, adminCanActOnWard, roleIsWritable } from '../../_lib/auth'
-import { supabaseAdmin } from '../../_lib/supabaseAdmin'
+import { requireAdmin, adminCanActOnWard, roleIsWritable } from '../../_lib/auth.js'
+import { supabaseAdmin } from '../../_lib/supabaseAdmin.js'
 import {
   createSpreadsheet,
   shareWithEmails,
   setupTabs,
-} from '../../_lib/sheets'
-import { provisionSpreadsheet, TAB_ORDER } from '../../_lib/sheetSync'
+} from '../../_lib/sheets.js'
+import { provisionSpreadsheet, TAB_ORDER } from '../../_lib/sheetSync.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

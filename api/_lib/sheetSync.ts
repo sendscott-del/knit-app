@@ -1,5 +1,5 @@
-import { supabaseAdmin } from './supabaseAdmin'
-import { replaceDataRows, writeRange, type CreatedSheet, colLetter } from './sheets'
+import { supabaseAdmin } from './supabaseAdmin.js'
+import { replaceDataRows, writeRange, colLetter, type CreatedSheet } from './sheets.js'
 
 /**
  * Defines the ordered tabs that every ward's sheet has, and the header row
