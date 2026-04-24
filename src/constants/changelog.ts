@@ -7,13 +7,27 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.0',
+    date: '2026-04-24',
+    summary: 'Demo data mode — one-click seed/clear of a realistic ward so you can test without hand-entering everything.',
+    details: [
+      'Migration 2.02: is_demo boolean on knit_members / knit_friends / knit_outings (plus partial indexes)',
+      'Migration 2.03: knit_load_demo_data(ward), knit_clear_demo_data(ward), knit_demo_status(ward) — SECURITY DEFINER with explicit admin scope check',
+      'Seed inserts 6 members (2 Spanish speakers, 1 not-yet-onboarded for variety), 3 friends (investigating / progressing / on date), 8 outings across the last 45 days (mostly happened, one flaked, one scheduled)',
+      'Load is idempotent: if demo rows exist it returns current counts instead of duplicating',
+      'Clear deletes outings → friends → members in order, cascades cleanly',
+      '/admin/demo page: status card with counts, Load + Clear buttons, explanation of what is in the dataset',
+      'Demo badge pill shown on every demo row in Members / Friends / Outings lists',
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-04-24',
     summary: 'Phase 2 Slice A — provision per-ward Google Sheet. Missionaries now have their own workspace.',
     details: [
       'First-ever /api/ serverless functions for this project: provision / refresh / get sheet binding',
       'Google Sheets + Drive via service account (no OAuth consent flow — pure service-to-service)',
-      'Creates a spreadsheet, writes 7 tabs (Start Here, Available This Week, Friends We are Teaching, Suggestions, Log an Outing, Urgent Need, Recent Outings), shares with the missionaries'' Gmail addresses as Editors',
+      "Creates a spreadsheet, writes 7 tabs (Start Here, Available This Week, Friends We are Teaching, Suggestions, Log an Outing, Urgent Need, Recent Outings), shares with the missionaries' Gmail addresses as Editors",
       'Initial population: Available + Friends + Recent Outings rendered from live DB state',
       '/admin/sheet page with provision form + bound-state view + "Refresh data tabs now" button',
       'Migration 2.01: knit_google_sheet_bindings.shared_emails text[] column',

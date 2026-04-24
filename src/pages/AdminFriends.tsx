@@ -5,6 +5,7 @@ import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
 import InterestChipPicker from '@/components/InterestChipPicker'
+import DemoBadge from '@/components/DemoBadge'
 import { slotsToString, type Slot } from '@/lib/availability'
 import type { Database } from '@/lib/database.types'
 
@@ -114,6 +115,7 @@ export default function AdminFriends() {
                     {f.nickname ? (
                       <span className="text-slate-500"> "{f.nickname}"</span>
                     ) : null}
+                    <DemoBadge when={f.is_demo} />
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {STATUS_LABELS[f.teaching_status]}

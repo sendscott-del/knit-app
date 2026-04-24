@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
 import { TIME_SLOTS, type TimeSlot } from '@/lib/availability'
+import DemoBadge from '@/components/DemoBadge'
 import type { Database } from '@/lib/database.types'
 
 type OutingRow = Database['public']['Tables']['knit_outings']['Row']
@@ -134,6 +135,7 @@ export default function AdminOutings() {
                 <tr key={o.id}>
                   <td className="px-4 py-3 text-slate-900 whitespace-nowrap">
                     {formatWhen(o.scheduled_at, o.scheduled_time_slot as TimeSlot)}
+                    <DemoBadge when={o.is_demo} />
                   </td>
                   <td className="px-4 py-3 text-slate-700">
                     {o.friend

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
+import DemoBadge from '@/components/DemoBadge'
 import { slotsToString, type Slot, type TimeSlot, type DayOfWeek } from '@/lib/availability'
 import { memberInviteUrl } from '@/lib/memberAuth'
 import type { Database } from '@/lib/database.types'
@@ -134,7 +135,10 @@ export default function AdminMembers() {
             <tbody className="divide-y divide-slate-100">
               {members.map((m) => (
                 <tr key={m.id}>
-                  <td className="px-4 py-3 text-slate-900">{displayName(m)}</td>
+                  <td className="px-4 py-3 text-slate-900">
+                    {displayName(m)}
+                    <DemoBadge when={m.is_demo} />
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{m.phone ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {m.locale === 'es' ? 'Spanish' : 'English'}

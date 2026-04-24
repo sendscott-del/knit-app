@@ -10,6 +10,7 @@ import AdminFriends from '@/pages/AdminFriends'
 import AdminSuggest from '@/pages/AdminSuggest'
 import AdminOutings from '@/pages/AdminOutings'
 import AdminSheet from '@/pages/AdminSheet'
+import AdminDemo from '@/pages/AdminDemo'
 import MemberMagicLink from '@/pages/MemberMagicLink'
 import MemberDashboard from '@/pages/MemberDashboard'
 import NotFound from '@/pages/NotFound'
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="outings" element={<AdminOutings />} />
             <Route path="suggest" element={<AdminSuggest />} />
             <Route path="sheet" element={<AdminSheet />} />
+            <Route path="demo" element={<AdminDemo />} />
           </Route>
           <Route path="/m/:memberId/:token" element={<MemberMagicLink />} />
           <Route path="/me" element={<MemberDashboard />} />

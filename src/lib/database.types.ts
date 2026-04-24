@@ -2021,6 +2021,7 @@ export type Database = {
           flake_count: number
           id: string
           interest_tag_ids: string[]
+          is_demo: boolean
           last_name: string | null
           locale: Database["public"]["Enums"]["knit_locale"]
           nickname: string | null
@@ -2038,6 +2039,7 @@ export type Database = {
           flake_count?: number
           id?: string
           interest_tag_ids?: string[]
+          is_demo?: boolean
           last_name?: string | null
           locale?: Database["public"]["Enums"]["knit_locale"]
           nickname?: string | null
@@ -2055,6 +2057,7 @@ export type Database = {
           flake_count?: number
           id?: string
           interest_tag_ids?: string[]
+          is_demo?: boolean
           last_name?: string | null
           locale?: Database["public"]["Enums"]["knit_locale"]
           nickname?: string | null
@@ -2231,6 +2234,7 @@ export type Database = {
           created_at: string
           first_name: string | null
           id: string
+          is_demo: boolean
           last_name: string | null
           locale: Database["public"]["Enums"]["knit_locale"]
           magic_link_token_hash: string | null
@@ -2250,6 +2254,7 @@ export type Database = {
           created_at?: string
           first_name?: string | null
           id?: string
+          is_demo?: boolean
           last_name?: string | null
           locale?: Database["public"]["Enums"]["knit_locale"]
           magic_link_token_hash?: string | null
@@ -2269,6 +2274,7 @@ export type Database = {
           created_at?: string
           first_name?: string | null
           id?: string
+          is_demo?: boolean
           last_name?: string | null
           locale?: Database["public"]["Enums"]["knit_locale"]
           magic_link_token_hash?: string | null
@@ -2393,6 +2399,7 @@ export type Database = {
           created_at: string
           friend_id: string
           id: string
+          is_demo: boolean
           logged_at: string
           logged_by: Database["public"]["Enums"]["knit_logged_by"]
           member_confirmation_response:
@@ -2412,6 +2419,7 @@ export type Database = {
           created_at?: string
           friend_id: string
           id?: string
+          is_demo?: boolean
           logged_at?: string
           logged_by?: Database["public"]["Enums"]["knit_logged_by"]
           member_confirmation_response?:
@@ -2431,6 +2439,7 @@ export type Database = {
           created_at?: string
           friend_id?: string
           id?: string
+          is_demo?: boolean
           logged_at?: string
           logged_by?: Database["public"]["Enums"]["knit_logged_by"]
           member_confirmation_response?:
@@ -4063,6 +4072,7 @@ export type Database = {
       get_user_role: { Args: never; Returns: string }
       get_user_status: { Args: never; Returns: string }
       is_admin: { Args: never; Returns: boolean }
+      knit_clear_demo_data: { Args: { p_ward_id: string }; Returns: Json }
       knit_current_admin: {
         Args: never
         Returns: {
@@ -4072,10 +4082,12 @@ export type Database = {
           admin_ward_id: string
         }[]
       }
+      knit_demo_status: { Args: { p_ward_id: string }; Returns: Json }
       knit_generate_member_magic_link: {
         Args: { p_member_id: string }
         Returns: string
       }
+      knit_load_demo_data: { Args: { p_ward_id: string }; Returns: Json }
       knit_member_self_complete_onboarding: {
         Args: { p_member_id: string; p_token: string }
         Returns: undefined

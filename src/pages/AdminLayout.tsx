@@ -79,6 +79,7 @@ export default function AdminLayout() {
             <TabLink to="/admin/outings">Outings</TabLink>
             <TabLink to="/admin/suggest">Suggest</TabLink>
             <TabLink to="/admin/sheet">Sheet</TabLink>
+            <TabLink to="/admin/demo">Demo</TabLink>
           </ul>
         </nav>
       </header>
