@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0',
+    date: '2026-04-23',
+    summary: 'Slice G — friend interests picker + /admin/outings log.',
+    details: [
+      'Add Friend form now has the InterestChipPicker so interest_tag_ids is populated — suggestion algorithm can now score interest overlap',
+      '/admin/outings: list of recent outings + inline Log outing form (friend, member, date, slot, status, outcome notes)',
+      'Outings feed the suggestion algorithm: freshness (days since last happened), reliability (baseline 3 + happened cap +3), prior-pairing bonus, recent-pairing penalty',
+      'scheduled_at composed from date + slot hour (9am / 2pm / 7pm local); scheduled_time_slot stored for display',
+      'Status badge with 6 tones (scheduled, happened, flaked, rescheduled, canceled, needs_checkin)',
+      'Dashboard card for Outings now links; nav gets an Outings tab',
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-04-23',
     summary: 'Slice F — suggestion algorithm and /admin/suggest UI. Pick a friend + day + slot → top 5 ranked members with reasons.',

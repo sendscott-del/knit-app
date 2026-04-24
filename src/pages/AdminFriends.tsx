@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
+import InterestChipPicker from '@/components/InterestChipPicker'
 import { slotsToString, type Slot } from '@/lib/availability'
 import type { Database } from '@/lib/database.types'
 
@@ -157,6 +158,7 @@ function NewFriendForm({
   const [locale, setLocale] = useState<'en' | 'es'>('en')
   const [teachingStatus, setTeachingStatus] = useState<TeachingStatus>('investigating')
   const [availability, setAvailability] = useState<Slot[]>([])
+  const [interestIds, setInterestIds] = useState<string[]>([])
   const [phone, setPhone] = useState('')
   const [wardId, setWardId] = useState(defaultWardId)
   const [saving, setSaving] = useState(false)
@@ -184,6 +186,7 @@ function NewFriendForm({
       teaching_status: teachingStatus,
       typical_availability: availStr || null,
       phone: phone.trim() || null,
+      interest_tag_ids: interestIds,
     })
     setSaving(false)
     if (error) {
@@ -196,6 +199,7 @@ function NewFriendForm({
     setLocale('en')
     setTeachingStatus('investigating')
     setAvailability([])
+    setInterestIds([])
     setPhone('')
     await onCreated()
   }
@@ -287,6 +291,19 @@ function NewFriendForm({
           </span>
         </div>
         <AvailabilityGrid value={availability} onChange={setAvailability} />
+      </div>
+      <div className="sm:col-span-2 space-y-2">
+        <div className="flex items-baseline justify-between">
+          <span className="text-sm font-medium text-slate-700">Interests</span>
+          <span className="text-xs text-slate-500">
+            What the friend likes — used to find members with shared interests
+          </span>
+        </div>
+        <InterestChipPicker
+          wardId={wardId || null}
+          value={interestIds}
+          onChange={setInterestIds}
+        />
       </div>
       <div className="sm:col-span-2 flex items-center justify-between pt-2">
         {err ? <p className="text-sm text-rose-700">{err}</p> : <span />}

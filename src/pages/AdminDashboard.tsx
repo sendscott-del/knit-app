@@ -35,7 +35,11 @@ export default function AdminDashboard() {
           title="Friends being taught"
           body="Roster of people the missionaries are fellowshipping."
         />
-        <PlaceholderCard title="Outings" body="Log completed outings, see upcoming." />
+        <LinkCard
+          to="/admin/outings"
+          title="Outings"
+          body="Log completed outings, see upcoming."
+        />
         <LinkCard
           to="/admin/suggest"
           title="Suggestions"
