@@ -57,6 +57,78 @@ export type CreatedSheet = {
   defaultSheetId: number
 }
 
+export function extractSpreadsheetId(url: string): string | null {
+  // Handles both /spreadsheets/d/<id>/... and bare id pastes.
+  const m1 = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
+  if (m1) return m1[1]
+  const m2 = url.trim().match(/^[a-zA-Z0-9_-]{20,}$/)
+  if (m2) return m2[0]
+  return null
+}
+
+export async function getSheetMeta(spreadsheetId: string) {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'properties(title),sheets(properties(sheetId,title))',
+  })
+  return {
+    title: res.data.properties?.title ?? '',
+    tabs: (res.data.sheets ?? []).map((s) => ({
+      id: s.properties?.sheetId ?? 0,
+      title: s.properties?.title ?? '',
+    })),
+    spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+  }
+}
+
+/**
+ * Idempotent. For each tab in `required` that isn't already present, creates
+ * it. If a default "Sheet1" is still hanging around, deletes it at the end.
+ * Leaves any other non-required tabs alone (doesn't wipe user content).
+ */
+export async function ensureTabs(
+  spreadsheetId: string,
+  required: string[],
+) {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const meta = await getSheetMeta(spreadsheetId)
+  const existingTitles = new Map<string, number>()
+  for (const t of meta.tabs) existingTitles.set(t.title, t.id)
+
+  const toAdd = required.filter((t) => !existingTitles.has(t))
+  const sheet1Id = existingTitles.get('Sheet1')
+  const sheet1IsExtra = sheet1Id !== undefined && !required.includes('Sheet1')
+
+  const requests: sheets_v4.Schema$Request[] = []
+  toAdd.forEach((title, idx) => {
+    requests.push({
+      addSheet: {
+        properties: {
+          title,
+          index: idx,
+          gridProperties: { rowCount: 200, columnCount: 16 },
+        },
+      },
+    })
+  })
+  // Only delete Sheet1 if we've added at least one tab (so we don't leave the
+  // spreadsheet empty), or if other tabs already exist beyond Sheet1.
+  const otherTabsRemain = meta.tabs.length > (sheet1IsExtra ? 1 : 0)
+  if (sheet1IsExtra && (toAdd.length > 0 || otherTabsRemain)) {
+    requests.push({ deleteSheet: { sheetId: sheet1Id! } })
+  }
+
+  if (requests.length > 0) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests },
+    })
+  }
+}
+
 export async function createSpreadsheet(title: string): Promise<CreatedSheet> {
   const auth = getAuth()
   const sheets = google.sheets({ version: 'v4', auth })

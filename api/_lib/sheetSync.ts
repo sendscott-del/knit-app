@@ -329,12 +329,21 @@ export async function provisionSpreadsheet(
   wardName: string,
   wardId: string,
 ) {
-  // Headers go on every data tab.
   await writeAllHeaders(sheet.spreadsheetId)
-  // Start Here is narrative text.
   await writeStartHere(sheet.spreadsheetId, wardName)
-  // Populate the read-only data tabs with the ward's current state.
   await populateDataTabs({ spreadsheetId: sheet.spreadsheetId, wardId })
+}
+
+/** Run the full provisioning flow against an existing sheet (user-created,
+ *  shared with the service account as Editor). Idempotent — safe to re-run. */
+export async function bindSpreadsheet(
+  spreadsheetId: string,
+  wardName: string,
+  wardId: string,
+) {
+  await writeAllHeaders(spreadsheetId)
+  await writeStartHere(spreadsheetId, wardName)
+  await populateDataTabs({ spreadsheetId, wardId })
 }
 
 /* ---- formatting helpers ---- */

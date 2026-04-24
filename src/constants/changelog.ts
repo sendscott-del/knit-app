@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.0',
+    date: '2026-04-24',
+    summary: 'Sheet integration: switch from auto-create to bind-existing-sheet (works without Google Workspace).',
+    details: [
+      'Root cause diagnosed: service accounts in consumer-Gmail GCP projects have 0 bytes of Drive storage since early 2024, so spreadsheets.create returns "The caller does not have permission". Affects every personal-account Knit deployment.',
+      'New flow: admin creates the sheet themselves at sheets.new, shares it with the service account as Editor, pastes the URL into /admin/sheet. Knit takes over from there.',
+      'New endpoint POST /api/admin/sheet/bind: verifies SA can read the sheet, adds our 7 tabs (idempotent), drops default Sheet1, writes Start Here + headers + live data, stores the binding.',
+      'New endpoint GET /api/admin/sheet/info: returns the SA email so the UI can display + copy it.',
+      'AdminSheet page rewritten: step-by-step instructions with the SA email prominent and copyable.',
+      'Richer Google error formatting (HTTP status + reason + SA email) and a /api/admin/sheet/diagnose endpoint that probed each API call until we found the storage-quota root cause.',
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-04-24',
     summary: 'Demo data mode — one-click seed/clear of a realistic ward so you can test without hand-entering everything.',

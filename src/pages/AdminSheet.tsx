@@ -34,10 +34,22 @@ export default function AdminSheet() {
   const [binding, setBinding] = useState<BindingRow | null>(null)
   const [loadingBinding, setLoadingBinding] = useState(false)
   const [emailInput, setEmailInput] = useState('')
+  const [sheetUrl, setSheetUrl] = useState('')
+  const [serviceAccountEmail, setServiceAccountEmail] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [diagnoseReport, setDiagnoseReport] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      const r = await authorizedFetch('/api/admin/sheet/info')
+      if (r.ok) {
+        const b = await r.json()
+        setServiceAccountEmail(b.service_account_email ?? null)
+      }
+    })()
+  }, [])
 
   async function loadBinding() {
     if (!wardId) {
@@ -64,7 +76,7 @@ export default function AdminSheet() {
     void loadBinding()
   }, [wardId])
 
-  async function provision(e: FormEvent) {
+  async function bind(e: FormEvent) {
     e.preventDefault()
     const emails = emailInput
       .split(/[,\s]+/)
@@ -74,21 +86,26 @@ export default function AdminSheet() {
       setErr('Pick a ward first.')
       return
     }
+    if (!sheetUrl.trim()) {
+      setErr('Paste the Google Sheet URL.')
+      return
+    }
     setBusy(true)
     setErr(null)
     setNotice(null)
     try {
-      const r = await authorizedFetch('/api/admin/sheet/provision', {
+      const r = await authorizedFetch('/api/admin/sheet/bind', {
         method: 'POST',
-        body: JSON.stringify({ wardId, emails }),
+        body: JSON.stringify({ wardId, sheetUrl: sheetUrl.trim(), emails }),
       })
       const body = await r.json()
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
-      setNotice('Sheet created and shared.')
+      setNotice('Sheet bound and populated.')
       setEmailInput('')
+      setSheetUrl('')
       await loadBinding()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to provision sheet')
+      setErr(e instanceof Error ? e.message : 'Failed to bind sheet')
     } finally {
       setBusy(false)
     }
@@ -179,10 +196,13 @@ export default function AdminSheet() {
       ) : binding && binding.sheet_id ? (
         <BoundCard binding={binding} onRefresh={() => void refresh()} busy={busy} />
       ) : (
-        <ProvisionCard
+        <BindCard
+          serviceAccountEmail={serviceAccountEmail}
+          sheetUrl={sheetUrl}
+          onSheetUrlChange={setSheetUrl}
           emailInput={emailInput}
           onEmailChange={setEmailInput}
-          onProvision={(e) => void provision(e)}
+          onBind={(e) => void bind(e)}
           busy={busy}
           disabled={!wardId}
           binding={binding}
@@ -286,61 +306,131 @@ function BoundCard({
   )
 }
 
-function ProvisionCard({
+function BindCard({
+  serviceAccountEmail,
+  sheetUrl,
+  onSheetUrlChange,
   emailInput,
   onEmailChange,
-  onProvision,
+  onBind,
   busy,
   disabled,
   binding,
 }: {
+  serviceAccountEmail: string | null
+  sheetUrl: string
+  onSheetUrlChange: (v: string) => void
   emailInput: string
   onEmailChange: (v: string) => void
-  onProvision: (e: FormEvent) => void
+  onBind: (e: FormEvent) => void
   busy: boolean
   disabled: boolean
   binding: BindingRow | null
 }) {
+  const [copied, setCopied] = useState(false)
+  async function copySA() {
+    if (!serviceAccountEmail) return
+    await navigator.clipboard.writeText(serviceAccountEmail)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
   return (
     <form
-      onSubmit={onProvision}
-      className="rounded-xl border border-slate-200 bg-white p-5 space-y-4"
+      onSubmit={onBind}
+      className="rounded-xl border border-slate-200 bg-white p-5 space-y-5"
     >
       {binding && binding.status === 'error' ? (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
           Previous attempt failed: {binding.last_error}
         </div>
       ) : null}
+
       <div>
-        <h2 className="font-medium text-slate-900">Provision a new sheet</h2>
+        <h2 className="font-medium text-slate-900">Bind an existing Google Sheet</h2>
         <p className="text-sm text-slate-600 mt-1">
-          We'll create a fresh Google Sheet, write the 7 tabs, and share it with
-          the missionaries' church Gmail addresses.
+          You'll create a fresh Google Sheet yourself, share it with our service
+          account, then paste the URL below. Knit will take over — writing the
+          tabs, headers, and live data.
         </p>
       </div>
-      <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-slate-700">
-          Missionary Gmail addresses
-        </span>
-        <textarea
-          value={emailInput}
-          onChange={(e) => onEmailChange(e.target.value)}
-          rows={3}
-          placeholder="elder.smith@gmail.com, sister.jones@gmail.com"
-          className="form-input font-mono text-sm"
-          required
-        />
-        <span className="text-xs text-slate-500">
-          Separate with commas, spaces, or newlines. They must be Google accounts
-          (church-approved Gmail addresses).
-        </span>
-      </label>
+
+      <ol className="space-y-4 text-sm text-slate-700">
+        <li className="space-y-2">
+          <div>
+            <strong>1.</strong> Create a new blank Google Sheet at{' '}
+            <a
+              href="https://sheets.new"
+              target="_blank"
+              rel="noreferrer"
+              className="text-slate-900 underline"
+            >
+              sheets.new
+            </a>
+            . Name it whatever you like (e.g. "Knit — Hyde Park Ward").
+          </div>
+        </li>
+        <li className="space-y-2">
+          <div>
+            <strong>2.</strong> In the sheet, click <strong>Share</strong> (top
+            right) and share with this service account as an{' '}
+            <strong>Editor</strong>:
+          </div>
+          <div className="flex items-center gap-2">
+            <code className="rounded bg-slate-100 px-2 py-1 text-xs font-mono text-slate-800 break-all">
+              {serviceAccountEmail ?? 'loading…'}
+            </code>
+            <button
+              type="button"
+              onClick={() => void copySA()}
+              disabled={!serviceAccountEmail}
+              className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 whitespace-nowrap disabled:opacity-50"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+          <div className="text-xs text-slate-500">
+            Uncheck "Notify people" — it's a service account; the email will bounce.
+          </div>
+        </li>
+        <li className="space-y-2">
+          <div>
+            <strong>3.</strong> Paste the sheet URL (or ID) here:
+          </div>
+          <input
+            type="url"
+            value={sheetUrl}
+            onChange={(e) => onSheetUrlChange(e.target.value)}
+            placeholder="https://docs.google.com/spreadsheets/d/…/edit"
+            className="form-input font-mono text-sm"
+            required
+          />
+        </li>
+        <li className="space-y-2">
+          <div>
+            <strong>4.</strong> Optionally, have Knit also share the sheet with
+            the missionaries' church Gmails:
+          </div>
+          <textarea
+            value={emailInput}
+            onChange={(e) => onEmailChange(e.target.value)}
+            rows={2}
+            placeholder="elder.smith@gmail.com, sister.jones@gmail.com"
+            className="form-input font-mono text-sm"
+          />
+          <div className="text-xs text-slate-500">
+            You can also share directly from the sheet's Share dialog if the
+            service account can't grant new permissions.
+          </div>
+        </li>
+      </ol>
+
       <button
         type="submit"
         disabled={busy || disabled}
         className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
       >
-        {busy ? 'Creating sheet…' : 'Create and share sheet'}
+        {busy ? 'Binding…' : 'Bind sheet'}
       </button>
     </form>
   )
