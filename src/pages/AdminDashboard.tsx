@@ -45,9 +45,11 @@ export default function AdminDashboard() {
           title="Suggestions"
           body="Who should go with which friend? Ranked matches with reasons."
         />
-        {isWardScope ? (
-          <PlaceholderCard title="Sheet" body="Google Sheet setup for your companionships." />
-        ) : null}
+        <LinkCard
+          to="/admin/sheet"
+          title="Sheet"
+          body="Provision and refresh the Google Sheet for the missionaries."
+        />
         <PlaceholderCard title="Settings" body="Interest tags, companionships, admins." />
       </div>
 

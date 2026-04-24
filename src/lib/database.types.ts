@@ -2082,6 +2082,7 @@ export type Database = {
           last_error: string | null
           last_pull_at: string | null
           last_push_at: string | null
+          shared_emails: string[]
           sheet_id: string | null
           sheet_url: string | null
           status: Database["public"]["Enums"]["knit_sheet_status"]
@@ -2094,6 +2095,7 @@ export type Database = {
           last_error?: string | null
           last_pull_at?: string | null
           last_push_at?: string | null
+          shared_emails?: string[]
           sheet_id?: string | null
           sheet_url?: string | null
           status?: Database["public"]["Enums"]["knit_sheet_status"]
@@ -2106,6 +2108,7 @@ export type Database = {
           last_error?: string | null
           last_pull_at?: string | null
           last_push_at?: string | null
+          shared_emails?: string[]
           sheet_id?: string | null
           sheet_url?: string | null
           status?: Database["public"]["Enums"]["knit_sheet_status"]

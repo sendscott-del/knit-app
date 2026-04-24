@@ -7,6 +7,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.0',
+    date: '2026-04-24',
+    summary: 'Phase 2 Slice A — provision per-ward Google Sheet. Missionaries now have their own workspace.',
+    details: [
+      'First-ever /api/ serverless functions for this project: provision / refresh / get sheet binding',
+      'Google Sheets + Drive via service account (no OAuth consent flow — pure service-to-service)',
+      'Creates a spreadsheet, writes 7 tabs (Start Here, Available This Week, Friends We are Teaching, Suggestions, Log an Outing, Urgent Need, Recent Outings), shares with the missionaries'' Gmail addresses as Editors',
+      'Initial population: Available + Friends + Recent Outings rendered from live DB state',
+      '/admin/sheet page with provision form + bound-state view + "Refresh data tabs now" button',
+      'Migration 2.01: knit_google_sheet_bindings.shared_emails text[] column',
+      'Still to come in Phase 2: cron-based morning push + daytime pull of Suggestions and Log Outing rows',
+      'REQUIRES user setup of GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY + SUPABASE_SERVICE_ROLE_KEY + SUPABASE_URL in Vercel',
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-04-23',
     summary: 'Slice G — friend interests picker + /admin/outings log.',
