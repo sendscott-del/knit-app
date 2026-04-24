@@ -37,6 +37,7 @@ export default function AdminSheet() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [diagnoseReport, setDiagnoseReport] = useState<Record<string, unknown> | null>(null)
 
   async function loadBinding() {
     if (!wardId) {
@@ -88,6 +89,22 @@ export default function AdminSheet() {
       await loadBinding()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed to provision sheet')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function diagnose() {
+    setBusy(true)
+    setErr(null)
+    setNotice(null)
+    setDiagnoseReport(null)
+    try {
+      const r = await authorizedFetch('/api/admin/sheet/diagnose')
+      const body = await r.json()
+      setDiagnoseReport(body)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Diagnose failed')
     } finally {
       setBusy(false)
     }
@@ -171,6 +188,30 @@ export default function AdminSheet() {
           binding={binding}
         />
       )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-medium text-slate-900">Diagnose</h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Probe each step of the Google integration (auth → identity → create
+              → cleanup). Shows the exact Google error when something fails.
+            </p>
+          </div>
+          <button
+            onClick={() => void diagnose()}
+            disabled={busy}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 whitespace-nowrap disabled:opacity-50"
+          >
+            Run diagnose
+          </button>
+        </div>
+        {diagnoseReport ? (
+          <pre className="rounded-lg bg-slate-900 text-slate-100 p-4 text-xs overflow-x-auto">
+            {JSON.stringify(diagnoseReport, null, 2)}
+          </pre>
+        ) : null}
+      </div>
 
       <FAQ />
     </div>
