@@ -7,6 +7,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.0',
+    date: '2026-04-24',
+    summary: 'Phase 2 complete — daily push cron + sheet-pull (Suggestions + Log Outing → DB).',
+    details: [
+      'Slice C: /api/cron/sheets-morning-push + vercel.json cron (12:00 UTC daily). Iterates all bound sheets and re-populates Available / Friends / Recent Outings from live DB.',
+      'Slice D: /api/_lib/sheetPull reads the Suggestions and Log an Outing tabs for pending rows (F/G columns empty). Suggestions: parses friend + day + time + need, runs the suggestion algorithm, writes top-5 members + reasons back into columns F-O, logs an audit row in knit_outing_suggestions. Log Outing: parses date + time + friend + member + status + notes, inserts knit_outings row (logged_by = missionary_sheet), writes ✓ in the Synced column.',
+      'Name matching: exact "First Last" / preferred_name / nickname / first_name-only. Skips row and logs error on ambiguous or unfound names.',
+      'Day/time/status parsing is forgiving: "Sun", "Sunday", "morning", "morn", "happened", "flaked", "cancelled" all accepted.',
+      '/api/admin/sheet/sync-now: admin-triggered per-ward sync (same logic as cron, just for one ward). Exposed via a new "Sync from sheet now" button on the bound-state card.',
+      '/api/cron/sheets-pull: same sync across all bindings, gated by CRON_SECRET. Not scheduled on Hobby (sub-daily crons require Pro), but endpoint is ready.',
+      'New env vars: CRON_SECRET (auto-generated, set via Vercel CLI).',
+      'api/_lib/cronAuth.ts: Bearer verification against CRON_SECRET.',
+      'api/_lib/suggestion.ts: server-side copy of the scoring logic, decoupled from Database types.',
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-04-24',
     summary: 'Sheet integration: one-click Connect Google + Create — replaces the manual bind flow.',

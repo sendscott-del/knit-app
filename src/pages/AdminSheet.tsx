@@ -188,6 +188,41 @@ export default function AdminSheet() {
     }
   }
 
+  async function syncNow() {
+    if (!wardId) return
+    setBusy(true)
+    setErr(null)
+    setNotice(null)
+    try {
+      const r = await authorizedFetch('/api/admin/sheet/sync-now', {
+        method: 'POST',
+        body: JSON.stringify({ wardId }),
+      })
+      const body = await r.json()
+      if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+      const rep = body.report as {
+        suggestionsProcessed: number
+        suggestionErrors: string[]
+        outingsInserted: number
+        outingErrors: string[]
+      }
+      const parts: string[] = []
+      if (rep.suggestionsProcessed > 0)
+        parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
+      if (rep.outingsInserted > 0)
+        parts.push(`${rep.outingsInserted} outing${rep.outingsInserted === 1 ? '' : 's'} logged`)
+      if (parts.length === 0) parts.push('Nothing new to sync')
+      const errs = [...rep.suggestionErrors, ...rep.outingErrors]
+      if (errs.length > 0) parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)
+      setNotice(parts.join(' · '))
+      await loadBinding()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Sync failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -246,6 +281,7 @@ export default function AdminSheet() {
         <BoundCard
           binding={binding}
           onRefresh={() => void refresh()}
+          onSyncNow={() => void syncNow()}
           busy={busy}
         />
       ) : (
@@ -327,10 +363,12 @@ function GoogleConnectionCard({
 function BoundCard({
   binding,
   onRefresh,
+  onSyncNow,
   busy,
 }: {
   binding: BindingRow
   onRefresh: () => void
+  onSyncNow: () => void
   busy: boolean
 }) {
   return (
@@ -375,16 +413,31 @@ function BoundCard({
         ) : null}
       </dl>
 
-      <div className="flex items-center gap-3 pt-2">
+      <div className="flex flex-wrap items-center gap-3 pt-2">
         <button
           onClick={onRefresh}
           disabled={busy}
           className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
         >
-          {busy ? 'Refreshing…' : 'Refresh data tabs now'}
+          {busy ? 'Working…' : 'Push data to sheet'}
         </button>
-        <span className="text-xs text-slate-500">
-          Re-populates Available, Friends, and Recent Outings from the live DB.
+        <button
+          onClick={onSyncNow}
+          disabled={busy}
+          className="rounded-lg border border-slate-300 bg-white text-slate-900 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+        >
+          Sync from sheet now
+        </button>
+      </div>
+      <div className="grid gap-1 text-xs text-slate-500 pt-1">
+        <span>
+          <strong>Push:</strong> Available, Friends, and Recent Outings re-populated
+          from the live DB. Runs automatically every morning at 12:00 UTC.
+        </span>
+        <span>
+          <strong>Sync from sheet:</strong> reads pending Suggestions + Log Outing
+          rows, runs the matching algorithm, and writes the results back. Click
+          this after missionaries fill in the sheet.
         </span>
       </div>
     </div>
