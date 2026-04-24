@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-04-23',
+    summary: 'Slice E — 6-screen member onboarding + inline edits on /me for availability, interests, and participation styles.',
+    details: [
+      'Migration 1.12: RPCs knit_member_self_save_availability / save_interests / save_styles / complete_onboarding — all bulk-replace semantics, token-validated',
+      'Opened anon SELECT on global knit_interest_tags (ward_id null) and knit_participation_styles so the wizard renders without a Supabase session',
+      'MemberOnboarding — 6 screens: welcome → what-we-ask → days → interests → styles → confirm. Saves at each Next so progress survives a refresh.',
+      '/me branches: not-yet-onboarded members see the wizard; otherwise the dashboard',
+      'Dashboard sections now have inline Edit → picker → Save/Cancel for each of availability, interests, styles',
+      'Reusable InterestChipPicker (grouped by category) and StylePicker (icon-labelled multi-select buttons)',
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-04-23',
     summary: 'Slice D — member magic link end-to-end. Admin can issue a link; member visits it, sees their dashboard, and can pause.',

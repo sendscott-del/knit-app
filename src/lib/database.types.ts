@@ -4073,6 +4073,10 @@ export type Database = {
         Args: { p_member_id: string }
         Returns: string
       }
+      knit_member_self_complete_onboarding: {
+        Args: { p_member_id: string; p_token: string }
+        Returns: undefined
+      }
       knit_member_self_pause: {
         Args: { p_member_id: string; p_token: string; p_until: string }
         Returns: undefined
@@ -4080,6 +4084,18 @@ export type Database = {
       knit_member_self_read: {
         Args: { p_member_id: string; p_token: string }
         Returns: Json
+      }
+      knit_member_self_save_availability: {
+        Args: { p_member_id: string; p_slots: Json; p_token: string }
+        Returns: undefined
+      }
+      knit_member_self_save_interests: {
+        Args: { p_member_id: string; p_tag_ids: string[]; p_token: string }
+        Returns: undefined
+      }
+      knit_member_self_save_styles: {
+        Args: { p_member_id: string; p_style_keys: string[]; p_token: string }
+        Returns: undefined
       }
       knit_member_token_is_valid: {
         Args: { p_member_id: string; p_token: string }
