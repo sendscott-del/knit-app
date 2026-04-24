@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireAdmin, adminCanActOnWard, roleIsWritable } from '../../_lib/auth.js'
 import { supabaseAdmin } from '../../_lib/supabaseAdmin.js'
 import { populateDataTabs } from '../../_lib/sheetSync.js'
+import { formatGoogleError } from '../../_lib/sheets.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -44,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .eq('id', binding.id)
     return res.status(200).json({ last_push_at: nowIso })
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
+    const message = formatGoogleError(e)
     await sb
       .from('knit_google_sheet_bindings')
       .update({

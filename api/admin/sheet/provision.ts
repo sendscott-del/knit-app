@@ -5,6 +5,7 @@ import {
   createSpreadsheet,
   shareWithEmails,
   setupTabs,
+  formatGoogleError,
 } from '../../_lib/sheets.js'
 import { provisionSpreadsheet, TAB_ORDER } from '../../_lib/sheetSync.js'
 
@@ -100,8 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     })
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    // Record the failure against the binding so the UI can show it.
+    const message = formatGoogleError(e)
     await sb
       .from('knit_google_sheet_bindings')
       .upsert(

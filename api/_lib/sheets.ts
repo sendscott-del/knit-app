@@ -1,6 +1,31 @@
 import { google, type sheets_v4 } from 'googleapis'
 
 /**
+ * Convert a googleapis / GaxiosError into a readable string.
+ * Pulls the HTTP status, message, and first "reason" (e.g. accessNotConfigured).
+ */
+export function formatGoogleError(e: unknown): string {
+  if (!e) return 'Unknown error'
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const err = e as any
+  const status = err.code ?? err.response?.status
+  const errors =
+    err.errors ?? err.response?.data?.error?.errors ?? []
+  const firstReason = errors?.[0]?.reason
+  const firstDomain = errors?.[0]?.domain
+  const msg =
+    err.message ?? err.response?.data?.error?.message ?? 'Unknown error'
+  const parts: string[] = [msg]
+  if (status) parts.push(`HTTP ${status}`)
+  if (firstReason) parts.push(`reason=${firstReason}`)
+  if (firstDomain) parts.push(`domain=${firstDomain}`)
+  // Useful: the service account + project that's being used
+  const sa = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  if (sa) parts.push(`sa=${sa}`)
+  return parts.join(' · ')
+}
+
+/**
  * Google Sheets + Drive client wrapper. Service-account-based.
  * Env vars required:
  *   GOOGLE_SERVICE_ACCOUNT_EMAIL
