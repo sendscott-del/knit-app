@@ -144,6 +144,57 @@ export async function createSpreadsheet(title: string): Promise<CreatedSheet> {
   return { spreadsheetId, spreadsheetUrl, defaultSheetId }
 }
 
+/**
+ * Create a spreadsheet under a user's OAuth2 credentials. The resulting file
+ * lives in that user's Drive (and uses their quota). We then share it with the
+ * service account so ongoing writes don't require OAuth.
+ */
+export async function createSpreadsheetAsUser(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  oauthClient: any,
+  title: string,
+): Promise<CreatedSheet> {
+  const sheets = google.sheets({ version: 'v4', auth: oauthClient })
+  const res = await sheets.spreadsheets.create({
+    requestBody: { properties: { title } },
+  })
+  const spreadsheetId = res.data.spreadsheetId
+  const spreadsheetUrl = res.data.spreadsheetUrl
+  const defaultSheetId = res.data.sheets?.[0]?.properties?.sheetId ?? 0
+  if (!spreadsheetId || !spreadsheetUrl) {
+    throw new Error('Sheets API returned no spreadsheetId/url')
+  }
+  return { spreadsheetId, spreadsheetUrl, defaultSheetId }
+}
+
+/**
+ * Share a file (under user OAuth creds) with the given emails as Editor.
+ * Notifications disabled — these are usually service account + other apps.
+ */
+export async function shareFileAsUser(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  oauthClient: any,
+  fileId: string,
+  emails: string[],
+  { sendNotificationEmail = false } = {},
+) {
+  if (emails.length === 0) return
+  const drive = google.drive({ version: 'v3', auth: oauthClient })
+  for (const email of emails) {
+    const trimmed = email.trim()
+    if (!trimmed) continue
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: 'writer',
+        type: 'user',
+        emailAddress: trimmed,
+      },
+      sendNotificationEmail,
+    })
+  }
+}
+
 export async function shareWithEmails(fileId: string, emails: string[]) {
   if (emails.length === 0) return
   const auth = getAuth()

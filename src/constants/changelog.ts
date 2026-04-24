@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.11.0',
+    date: '2026-04-24',
+    summary: 'Sheet integration: one-click Connect Google + Create — replaces the manual bind flow.',
+    details: [
+      'New Google OAuth user-consent flow: /api/admin/google/authorize + callback + status + disconnect',
+      'Migration 2.04: knit_google_oauth table (one row per stake, service-role-only reads, refresh tokens never leave the server)',
+      'New /api/admin/sheet/create: creates the sheet in the connected admin\'s Drive, shares with the service account (for ongoing writes) + missionary gmails, lays out the 7 tabs, populates live data, stores binding — all one click',
+      'AdminSheet page rewritten: Connect Google Account card, then a simple "Create sheet" form. The manual bind flow is still available via the /api/admin/sheet/bind endpoint as a fallback.',
+      'Architectural note: create-time uses OAuth (sheet goes in user\'s Drive, bypasses SA 0-storage issue); refresh-time uses the service account (no OAuth needed after initial share).',
+      'Requires new env vars on Vercel: GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI — plus a one-time OAuth consent screen config in GCP.',
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-04-24',
     summary: 'Sheet integration: switch from auto-create to bind-existing-sheet (works without Google Workspace).',
