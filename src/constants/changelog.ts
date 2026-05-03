@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.0',
+    date: '2026-05-03',
+    summary: 'Cross-app user-access management lives inside Knit too.',
+    details: [
+      'New /admin/gather screen (Stake President / Stake Clerk only) lists every user in the shared "Scott\'s Apps" Supabase project and lets you toggle each of the five Gather apps on or off per user with a chip click. Promotion and demotion of super-admin status (Stake President, Stake Clerk) happens from the same screen. Reachable via a new "Gather" tab in the admin header.',
+      'Identical UI lives in Steward and Glean. All three write to the same shared user_apps + gather_super_admins tables, so a grant added in one app instantly lights up the right apps in everyone\'s Gathered switcher.',
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-05-03',
     summary: 'Gather suite app switcher — jump between Knit and the other Gather apps from the admin chrome.',
