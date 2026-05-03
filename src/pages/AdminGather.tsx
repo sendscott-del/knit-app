@@ -3,6 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 
+// The shared Gather tables (user_apps, gather_super_admins, gather_app_users)
+// live in the Scott's Apps Supabase project but are not part of Knit's
+// generated database.types.ts (which only knows knit_* tables). We talk to
+// them through this loosely-typed handle to avoid fighting the type checker.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb = supabase as unknown as any
+
 const APPS = ['magnify', 'steward', 'glean', 'tidings', 'knit'] as const
 type AppName = typeof APPS[number]
 
@@ -43,8 +50,8 @@ export default function AdminGather() {
 
   const refresh = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('gather_app_users' as never)
+    const { data, error } = await sb
+      .from('gather_app_users')
       .select('*')
       .order('email', { ascending: true })
     if (error) setError(error.message)
@@ -55,8 +62,8 @@ export default function AdminGather() {
   useEffect(() => {
     if (!session?.user) return
     void (async () => {
-      const { data } = await supabase
-        .from('gather_super_admins' as never)
+      const { data } = await sb
+        .from('gather_super_admins')
         .select('user_id')
         .eq('user_id', session.user.id)
         .maybeSingle()
@@ -73,15 +80,15 @@ export default function AdminGather() {
     setError('')
     const has = target.apps.some(a => a.app_name === app)
     if (has) {
-      const { error } = await supabase
-        .from('user_apps' as never)
+      const { error } = await sb
+        .from('user_apps')
         .delete()
         .eq('user_id', target.user_id)
         .eq('app_name', app)
       if (error) setError(error.message)
     } else {
-      const { error } = await supabase
-        .from('user_apps' as never)
+      const { error } = await sb
+        .from('user_apps')
         .upsert(
           { user_id: target.user_id, app_name: app, role: 'member', granted_by: session?.user?.id ?? null },
           { onConflict: 'user_id,app_name' }
@@ -96,11 +103,11 @@ export default function AdminGather() {
     setBusyId(target.user_id)
     setError('')
     if (role === null) {
-      const { error } = await supabase.from('gather_super_admins' as never).delete().eq('user_id', target.user_id)
+      const { error } = await sb.from('gather_super_admins').delete().eq('user_id', target.user_id)
       if (error) setError(error.message)
     } else {
-      const { error } = await supabase
-        .from('gather_super_admins' as never)
+      const { error } = await sb
+        .from('gather_super_admins')
         .upsert({ user_id: target.user_id, role, granted_by: session?.user?.id ?? null }, { onConflict: 'user_id' })
       if (error) setError(error.message)
     }
