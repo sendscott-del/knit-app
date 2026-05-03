@@ -163,15 +163,15 @@ export default function AdminSuggest() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Suggest members</h1>
-        <p className="text-sm text-slate-600 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900">Suggest members</h1>
+        <p className="text-sm text-gray-600 mt-1">
           Pick a friend and a time; we'll rank the best 5 ward members for the outing.
         </p>
       </div>
 
       <form
         onSubmit={run}
-        className="rounded-xl border border-slate-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
+        className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
       >
         {wards.length > 1 ? (
           <Field label="Ward" required>
@@ -261,11 +261,11 @@ export default function AdminSuggest() {
         </Field>
 
         <div className="sm:col-span-2 flex items-center justify-between pt-2">
-          {error ? <p className="text-sm text-rose-700">{error}</p> : <span />}
+          {error ? <p className="text-sm text-error">{error}</p> : <span />}
           <button
             type="submit"
             disabled={running || !friendId}
-            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+            className="btn-primary text-sm py-2 px-4"
           >
             {running ? 'Thinking…' : 'Suggest members'}
           </button>
@@ -280,7 +280,7 @@ export default function AdminSuggest() {
 function Results({ result }: { result: SuggestionResult }) {
   if (result.top.length === 0) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 space-y-2">
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-6 space-y-2">
         <h2 className="font-medium text-amber-900">No matches</h2>
         {result.hint ? <p className="text-sm text-amber-900">{result.hint}</p> : null}
         {result.filtered.length > 0 ? (
@@ -302,7 +302,7 @@ function Results({ result }: { result: SuggestionResult }) {
   return (
     <div className="space-y-3">
       {result.hint ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="rounded-md border border-warning/30 bg-warning/5 p-3 text-sm text-gray-900">
           {result.hint}
         </div>
       ) : null}
@@ -319,22 +319,22 @@ function Results({ result }: { result: SuggestionResult }) {
 
 function Card({ suggestion, rank }: { suggestion: Suggestion; rank: number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 flex gap-4">
+    <div className="rounded-md border border-gray-200 bg-white p-5 flex gap-4">
       <div className="flex-none flex items-start">
-        <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-slate-900 text-white text-sm font-semibold">
+        <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-knit-primary text-white text-sm font-bold">
           {rank}
         </span>
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         <div className="flex items-baseline justify-between gap-4">
-          <h3 className="font-medium text-slate-900 truncate">
+          <h3 className="font-medium text-gray-900 truncate">
             {displayName(suggestion.candidate)}
           </h3>
-          <span className="text-xs text-slate-500 whitespace-nowrap">
+          <span className="text-xs text-gray-500 whitespace-nowrap">
             score {suggestion.score.toFixed(1)}
           </span>
         </div>
-        <ul className="space-y-1 text-sm text-slate-700">
+        <ul className="space-y-1 text-sm text-gray-700">
           {suggestion.reasons.map((r, i) => (
             <li key={i}>• {r}</li>
           ))}
@@ -357,12 +357,12 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium text-slate-700">
+      <span className="text-sm font-medium text-gray-700">
         {label}
-        {required ? <span className="text-rose-600"> *</span> : null}
+        {required ? <span className="text-error"> *</span> : null}
       </span>
       {children}
-      {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
+      {hint ? <span className="text-xs text-gray-500">{hint}</span> : null}
     </label>
   )
 }

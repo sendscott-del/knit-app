@@ -84,14 +84,14 @@ export default function AdminOutings() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Outings</h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900">Outings</h1>
+          <p className="text-sm text-gray-600 mt-1">
             Who went with whom, when, and what came of it.
           </p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"
+          className="btn-primary text-sm py-2 px-4"
         >
           {showForm ? 'Cancel' : 'Log outing'}
         </button>
@@ -109,18 +109,18 @@ export default function AdminOutings() {
         />
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-slate-500">Loading outings…</div>
+          <div className="p-6 text-sm text-gray-500">Loading outings…</div>
         ) : error ? (
-          <div className="p-6 text-sm text-rose-700">{error}</div>
+          <div className="p-6 text-sm text-error">{error}</div>
         ) : outings.length === 0 ? (
-          <div className="p-10 text-center text-sm text-slate-500">
+          <div className="p-10 text-center text-sm text-gray-500">
             No outings logged yet. Log your first above.
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-600">
+            <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">When</th>
                 <th className="px-4 py-3 font-medium">Friend</th>
@@ -130,31 +130,31 @@ export default function AdminOutings() {
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-100">
               {outings.map((o) => (
                 <tr key={o.id}>
-                  <td className="px-4 py-3 text-slate-900 whitespace-nowrap">
+                  <td className="px-4 py-3 text-gray-900 whitespace-nowrap">
                     {formatWhen(o.scheduled_at, o.scheduled_time_slot as TimeSlot)}
                     <DemoBadge when={o.is_demo} />
                   </td>
-                  <td className="px-4 py-3 text-slate-700">
+                  <td className="px-4 py-3 text-gray-700">
                     {o.friend
                       ? [o.friend.first_name, o.friend.last_name].filter(Boolean).join(' ')
                       : '—'}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">
+                  <td className="px-4 py-3 text-gray-700">
                     {o.member ? memberName(o.member) : '— (no member)'}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={o.status} />
                   </td>
-                  <td className="px-4 py-3 text-slate-600 max-w-xs truncate">
+                  <td className="px-4 py-3 text-gray-600 max-w-xs truncate">
                     {o.outcome_notes ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => void remove(o.id)}
-                      className="text-sm text-rose-700 hover:text-rose-900"
+                      className="text-sm text-error hover:opacity-80"
                     >
                       Remove
                     </button>
@@ -184,7 +184,7 @@ function formatWhen(scheduledAt: string, slot: TimeSlot) {
 function StatusBadge({ status }: { status: OutingStatus }) {
   const tone = STATUS_TONE[status]
   const palette: Record<string, string> = {
-    slate: 'bg-slate-100 text-slate-700',
+    slate: 'bg-gray-100 text-gray-700',
     emerald: 'bg-emerald-100 text-emerald-800',
     amber: 'bg-amber-100 text-amber-800',
     rose: 'bg-rose-100 text-rose-800',
@@ -296,7 +296,7 @@ function NewOutingForm({
   return (
     <form
       onSubmit={submit}
-      className="rounded-xl border border-slate-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
+      className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
       {wards.length > 1 ? (
         <Field label="Ward" required>
@@ -410,11 +410,11 @@ function NewOutingForm({
       </div>
 
       <div className="sm:col-span-2 flex items-center justify-between pt-2">
-        {err ? <p className="text-sm text-rose-700">{err}</p> : <span />}
+        {err ? <p className="text-sm text-error">{err}</p> : <span />}
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+          className="btn-primary text-sm py-2 px-4"
         >
           {saving ? 'Saving…' : 'Save outing'}
         </button>
@@ -436,12 +436,12 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium text-slate-700">
+      <span className="text-sm font-medium text-gray-700">
         {label}
-        {required ? <span className="text-rose-600"> *</span> : null}
+        {required ? <span className="text-error"> *</span> : null}
       </span>
       {children}
-      {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
+      {hint ? <span className="text-xs text-gray-500">{hint}</span> : null}
     </label>
   )
 }

@@ -15,7 +15,7 @@ export default function AdminCallback() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-500">
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">
         Signing you in…
       </main>
     )

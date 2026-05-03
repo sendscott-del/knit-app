@@ -85,14 +85,14 @@ export default function AdminMembers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Members</h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900">Members</h1>
+          <p className="text-sm text-gray-600 mt-1">
             Ward members enrolled in fellowship matching.
           </p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"
+          className="btn-primary text-sm py-2 px-4"
         >
           {showForm ? 'Cancel' : 'Add member'}
         </button>
@@ -110,18 +110,18 @@ export default function AdminMembers() {
         />
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-slate-500">Loading members…</div>
+          <div className="p-6 text-sm text-gray-500">Loading members…</div>
         ) : error ? (
-          <div className="p-6 text-sm text-rose-700">{error}</div>
+          <div className="p-6 text-sm text-error">{error}</div>
         ) : members.length === 0 ? (
-          <div className="p-10 text-center text-sm text-slate-500">
+          <div className="p-10 text-center text-sm text-gray-500">
             No members yet. Add your first above.
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-600">
+            <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
@@ -132,18 +132,18 @@ export default function AdminMembers() {
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-100">
               {members.map((m) => (
                 <tr key={m.id}>
-                  <td className="px-4 py-3 text-slate-900">
+                  <td className="px-4 py-3 text-gray-900">
                     {displayName(m)}
                     <DemoBadge when={m.is_demo} />
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{m.phone ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-gray-600">{m.phone ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">
                     {m.locale === 'es' ? 'Spanish' : 'English'}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-gray-600">
                     {m.availability && m.availability.length > 0
                       ? slotsToString(
                           m.availability.map((r) => ({
@@ -153,7 +153,7 @@ export default function AdminMembers() {
                         )
                       : '—'}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{m.ward?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{m.ward?.name ?? '—'}</td>
                   <td className="px-4 py-3">
                     <StatusBadge member={m} />
                   </td>
@@ -161,7 +161,7 @@ export default function AdminMembers() {
                     <button
                       onClick={() => void generateInvite(m)}
                       disabled={generating === m.id}
-                      className="text-sm text-slate-700 hover:text-slate-900 mr-4 disabled:opacity-50"
+                      className="text-sm text-gray-700 hover:text-gray-900 mr-4 disabled:opacity-50"
                     >
                       {generating === m.id
                         ? 'Generating…'
@@ -171,7 +171,7 @@ export default function AdminMembers() {
                     </button>
                     <button
                       onClick={() => void remove(m.id)}
-                      className="text-sm text-rose-700 hover:text-rose-900"
+                      className="text-sm text-error hover:opacity-80"
                     >
                       Remove
                     </button>
@@ -211,36 +211,36 @@ function InviteLinkModal({
   }
   return (
     <div
-      className="fixed inset-0 z-40 bg-slate-900/40 flex items-center justify-center p-4"
+      className="fixed inset-0 z-40 bg-brand-primary-dark/50 flex items-center justify-center p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4"
+        className="bg-white rounded-md shadow-xl max-w-lg w-full p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold text-gray-900">
             Invite link for {memberName}
           </h2>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-sm text-gray-600 mt-1">
             Copy this link and send it to them — by text, email, or in person.
             It's personal to them and is valid for 30 days. Generating a new link
             invalidates the old one.
           </p>
         </div>
-        <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800 break-all font-mono">
+        <div className="rounded-md border-[1.5px] border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 break-all font-mono">
           {url}
         </div>
         <div className="flex items-center justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Close
           </button>
           <button
             onClick={() => void copy()}
-            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"
+            className="btn-primary text-sm py-2 px-4"
           >
             {copied ? 'Copied!' : 'Copy link'}
           </button>
@@ -273,7 +273,7 @@ function Badge({
   children: React.ReactNode
 }) {
   const palette = {
-    slate: 'bg-slate-100 text-slate-700',
+    slate: 'bg-gray-100 text-gray-700',
     emerald: 'bg-emerald-100 text-emerald-800',
     amber: 'bg-amber-100 text-amber-800',
     rose: 'bg-rose-100 text-rose-800',
@@ -364,7 +364,7 @@ function NewMemberForm({
   return (
     <form
       onSubmit={submit}
-      className="rounded-xl border border-slate-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
+      className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
       <Field label="First name" required>
         <input
@@ -422,17 +422,17 @@ function NewMemberForm({
       ) : null}
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-slate-700">Availability</span>
-          <span className="text-xs text-slate-500">{slotsToString(availability) || 'Tap to select times'}</span>
+          <span className="text-sm font-medium text-gray-700">Availability</span>
+          <span className="text-xs text-gray-500">{slotsToString(availability) || 'Tap to select times'}</span>
         </div>
         <AvailabilityGrid value={availability} onChange={setAvailability} />
       </div>
       <div className="sm:col-span-2 flex items-center justify-between pt-2">
-        {err ? <p className="text-sm text-rose-700">{err}</p> : <span />}
+        {err ? <p className="text-sm text-error">{err}</p> : <span />}
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+          className="btn-primary text-sm py-2 px-4"
         >
           {saving ? 'Saving…' : 'Save member'}
         </button>
@@ -454,12 +454,12 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium text-slate-700">
+      <span className="text-sm font-medium text-gray-700">
         {label}
-        {required ? <span className="text-rose-600"> *</span> : null}
+        {required ? <span className="text-error"> *</span> : null}
       </span>
       {children}
-      {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
+      {hint ? <span className="text-xs text-gray-500">{hint}</span> : null}
     </label>
   )
 }

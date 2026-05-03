@@ -83,14 +83,14 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex items-start sm:items-center justify-center p-6">
+    <main className="min-h-screen bg-gray-50 flex items-start sm:items-center justify-center p-6">
       <div className="w-full max-w-md space-y-6">
         <div className="flex items-center gap-2">
           {[1, 2, 3, 4, 5, 6].map((n) => (
             <span
               key={n}
               className={`h-1.5 flex-1 rounded-full ${
-                n <= step ? 'bg-slate-900' : 'bg-slate-200'
+                n <= step ? 'bg-knit-primary' : 'bg-gray-200'
               }`}
             />
           ))}
@@ -125,13 +125,13 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
           />
         ) : null}
 
-        {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+        {error ? <p className="text-sm text-error">{error}</p> : null}
 
         <div className="flex items-center justify-between">
           {step > 1 && step < 6 ? (
             <button
               onClick={() => setStep((s) => Math.max(1, s - 1) as Step)}
-              className="text-sm text-slate-600 hover:text-slate-900"
+              className="text-sm text-gray-600 hover:text-gray-900"
               disabled={saving}
             >
               Back
@@ -144,14 +144,14 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
             <button
               onClick={() => void finish()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 text-white px-6 py-3 text-base font-medium hover:bg-slate-800 disabled:opacity-50 min-h-[48px]"
+              className="btn-primary min-h-[48px] px-6 py-3"
             >
               {saving ? 'Saving…' : 'All set'}
             </button>
           ) : step === 2 ? (
             <button
               onClick={() => setStep(3)}
-              className="rounded-lg bg-slate-900 text-white px-6 py-3 text-base font-medium hover:bg-slate-800 min-h-[48px]"
+              className="btn-primary min-h-[48px] px-6 py-3"
             >
               Got it, continue
             </button>
@@ -159,7 +159,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
             <button
               onClick={() => void next()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 text-white px-6 py-3 text-base font-medium hover:bg-slate-800 disabled:opacity-50 min-h-[48px]"
+              className="btn-primary min-h-[48px] px-6 py-3"
             >
               {saving ? 'Saving…' : 'Next'}
             </button>
@@ -181,24 +181,24 @@ function ScreenWelcome({
 }) {
   return (
     <div className="space-y-5">
-      <h1 className="text-3xl font-semibold text-slate-900">
+      <h1 className="text-3xl font-semibold text-gray-900">
         Hi {firstName || 'there'}. This is Knit.
       </h1>
-      <p className="text-lg text-slate-700 leading-relaxed">
+      <p className="text-lg text-gray-700 leading-relaxed">
         Our missionaries are teaching people who could use a friend — a real one,
         who stays after the missionaries transfer.
       </p>
-      <p className="text-lg text-slate-700">Want to help?</p>
+      <p className="text-lg text-gray-700">Want to help?</p>
       <div className="grid gap-3 pt-2">
         <button
           onClick={onYes}
-          className="rounded-lg bg-slate-900 text-white px-6 py-4 text-base font-medium hover:bg-slate-800 min-h-[48px]"
+          className="btn-primary min-h-[48px] px-6 py-4 w-full"
         >
           Yes, let's go
         </button>
         <button
           onClick={onTellMore}
-          className="rounded-lg border border-slate-300 bg-white text-slate-900 px-6 py-4 text-base font-medium hover:bg-slate-100 min-h-[48px]"
+          className="rounded-md border-[1.5px] border-gray-200 bg-white text-gray-900 px-6 py-4 text-base font-medium hover:bg-gray-100 min-h-[48px]"
         >
           Tell me more first
         </button>
@@ -210,13 +210,13 @@ function ScreenWelcome({
 function ScreenWhatWeAsk({ onContinue: _ }: { onContinue: () => void }) {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">What we'll ask</h1>
-      <ul className="space-y-3 text-lg text-slate-700">
+      <h1 className="text-2xl font-semibold text-gray-900">What we'll ask</h1>
+      <ul className="space-y-3 text-lg text-gray-700">
         <li>• What days you're usually free</li>
         <li>• What you love doing</li>
         <li>• How you'd like to help</li>
       </ul>
-      <p className="text-base text-slate-600 pt-2">
+      <p className="text-base text-gray-600 pt-2">
         We keep just those things. No address, no finances, no family details.
       </p>
     </div>
@@ -234,11 +234,11 @@ function ScreenDays({
 }) {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">When are you usually free?</h1>
-      <p className="text-base text-slate-600">Tap any times that work most weeks.</p>
+      <h1 className="text-2xl font-semibold text-gray-900">When are you usually free?</h1>
+      <p className="text-base text-gray-600">Tap any times that work most weeks.</p>
       <AvailabilityGrid value={slots} onChange={onChange} />
       {slots.length > 0 ? (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-gray-600">
           <strong>{slotsToString(slots)}</strong>
         </p>
       ) : null}
@@ -257,8 +257,8 @@ function ScreenInterests({
 }) {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">What do you love doing?</h1>
-      <p className="text-base text-slate-600">Pick a few — as many as you want.</p>
+      <h1 className="text-2xl font-semibold text-gray-900">What do you love doing?</h1>
+      <p className="text-base text-gray-600">Pick a few — as many as you want.</p>
       <InterestChipPicker wardId={wardId} value={value} onChange={onChange} />
     </div>
   )
@@ -273,8 +273,8 @@ function ScreenStyles({
 }) {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">How can you help?</h1>
-      <p className="text-base text-slate-600">
+      <h1 className="text-2xl font-semibold text-gray-900">How can you help?</h1>
+      <p className="text-base text-gray-600">
         Missionaries need different kinds of help. What are you happy to do?
       </p>
       <StylePicker value={value} onChange={onChange} />
@@ -295,9 +295,9 @@ function ScreenConfirm({
 }) {
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">Got it, {firstName || 'friend'}.</h1>
-      <p className="text-base text-slate-600">Here's what we have:</p>
-      <ul className="space-y-3 text-base text-slate-800">
+      <h1 className="text-2xl font-semibold text-gray-900">Got it, {firstName || 'friend'}.</h1>
+      <p className="text-base text-gray-600">Here's what we have:</p>
+      <ul className="space-y-3 text-base text-gray-800">
         <li>
           <strong>Free:</strong> {slotsToString(slots) || '— (none yet)'}
         </li>
@@ -308,7 +308,7 @@ function ScreenConfirm({
           <strong>Willing to:</strong> {styleKeys.length === 0 ? '— (none yet)' : `${styleKeys.length} way${styleKeys.length === 1 ? '' : 's'} to help`}
         </li>
       </ul>
-      <p className="text-sm text-slate-600 pt-2">
+      <p className="text-sm text-gray-600 pt-2">
         We'll text you every Sunday — just a quick check-in. You can always adjust.
       </p>
     </div>

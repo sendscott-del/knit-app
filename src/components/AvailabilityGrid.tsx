@@ -27,7 +27,7 @@ export default function AvailabilityGrid({
           <tr>
             <th className="w-20"></th>
             {DAYS_OF_WEEK.map((d) => (
-              <th key={d.value} className="text-xs font-medium text-slate-600 px-1 pb-1">
+              <th key={d.value} className="text-xs font-bold uppercase tracking-wide text-gray-500 px-1 pb-1">
                 {d.short}
               </th>
             ))}
@@ -36,7 +36,7 @@ export default function AvailabilityGrid({
         <tbody>
           {TIME_SLOTS.map((slot) => (
             <tr key={slot.value}>
-              <td className="text-xs font-medium text-slate-600 pr-2 text-right">
+              <td className="text-xs font-semibold text-gray-600 pr-2 text-right">
                 {slot.label}
               </td>
               {DAYS_OF_WEEK.map((d) => {
@@ -49,10 +49,10 @@ export default function AvailabilityGrid({
                       onClick={() => toggle(d.value as DayOfWeek, slot.value)}
                       aria-label={`${d.long} ${slot.label}`}
                       aria-pressed={active}
-                      className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg border text-sm transition ${
+                      className={`h-11 w-11 sm:h-12 sm:w-12 rounded-md border-[1.5px] text-sm font-bold transition ${
                         active
-                          ? 'bg-slate-900 text-white border-slate-900'
-                          : 'bg-white text-slate-400 border-slate-300 hover:border-slate-500 hover:text-slate-700'
+                          ? 'bg-brand-primary-fade text-brand-primary border-brand-primary'
+                          : 'bg-white text-gray-300 border-gray-200 hover:border-gray-400 hover:text-gray-500'
                       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       {active ? '✓' : ''}

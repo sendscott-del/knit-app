@@ -6,6 +6,7 @@ import AvailabilityGrid from '@/components/AvailabilityGrid'
 import InterestChipPicker from '@/components/InterestChipPicker'
 import StylePicker from '@/components/StylePicker'
 import MemberOnboarding from '@/pages/MemberOnboarding'
+import KnitMark from '@/components/KnitMark'
 import { slotsToString, type DayOfWeek, type Slot, type TimeSlot } from '@/lib/availability'
 import type { Database } from '@/lib/database.types'
 
@@ -67,11 +68,11 @@ export default function MemberDashboard() {
     return (
       <Shell>
         <div className="max-w-md text-center space-y-3">
-          <h1 className="text-2xl font-semibold text-slate-900">Not signed in</h1>
-          <p className="text-slate-600">
+          <h1 className="text-2xl font-semibold text-gray-900">Not signed in</h1>
+          <p className="text-gray-600">
             Use the personal link your ward mission leader sent you by text to get in.
           </p>
-          <Link to="/" className="inline-block text-slate-700 underline">
+          <Link to="/" className="inline-block text-gray-700 underline">
             Go home
           </Link>
         </div>
@@ -83,14 +84,14 @@ export default function MemberDashboard() {
     return (
       <Shell>
         <div className="max-w-md text-center space-y-3">
-          <h1 className="text-2xl font-semibold text-slate-900">Couldn't load</h1>
-          <p className="text-rose-700">{state.message}</p>
-          <p className="text-sm text-slate-500">
+          <h1 className="text-2xl font-semibold text-gray-900">Couldn't load</h1>
+          <p className="text-error">{state.message}</p>
+          <p className="text-sm text-gray-500">
             Your link may have expired. Ask for a fresh one.
           </p>
           <button
             onClick={signOut}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Sign out
           </button>
@@ -156,11 +157,14 @@ function Dashboard({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <span className="text-xl font-semibold text-slate-900 tracking-tight">Knit</span>
-          <button onClick={onSignOut} className="text-sm text-slate-600 hover:text-slate-900">
+    <div className="min-h-screen bg-gray-50">
+      <header className="border-b border-gray-200 bg-white">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <KnitMark size={28} />
+            <span className="text-lg font-semibold text-gray-900 tracking-tight">Knit</span>
+          </div>
+          <button onClick={onSignOut} className="text-sm font-medium text-gray-600 hover:text-gray-900">
             Sign out
           </button>
         </div>
@@ -168,16 +172,16 @@ function Dashboard({
 
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div>
-          <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">
             Hi {firstName || 'friend'}
           </h1>
-          <p className="text-slate-600 mt-1">
+          <p className="text-gray-600 mt-1">
             {ward?.name ? `Your ward: ${ward.name}` : 'Your ward'}
           </p>
         </div>
 
         {isPausedNow ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 text-sm">
+          <div className="rounded-md border border-warning/30 bg-warning/5 p-4 text-gray-900 text-sm">
             You're paused until <strong>{member.paused_until}</strong>.{' '}
             <button
               onClick={() => void pauseForDays(null)}
@@ -227,21 +231,21 @@ function Dashboard({
         />
 
         <Section title="Need a break?">
-          <p className="text-slate-600 text-sm">
+          <p className="text-gray-600 text-sm">
             Pause and we won't send the weekly check-in for a while.
           </p>
           <div className="flex flex-wrap gap-2 pt-3">
             <button
               onClick={() => void pauseForDays(30)}
               disabled={pausing}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-50"
+              className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
             >
               Pause 30 days
             </button>
             <button
               onClick={() => void pauseForDays(90)}
               disabled={pausing}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100 disabled:opacity-50"
+              className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
             >
               Pause 90 days
             </button>
@@ -302,7 +306,7 @@ function EditableAvailability({
       title="Your availability"
       action={
         editing ? null : (
-          <button onClick={onStartEdit} className="text-sm text-slate-700 underline">
+          <button onClick={onStartEdit} className="text-sm text-gray-700 underline">
             Edit
           </button>
         )
@@ -312,28 +316,28 @@ function EditableAvailability({
         <div className="space-y-3">
           <AvailabilityGrid value={draft} onChange={setDraft} />
           {draft.length > 0 ? (
-            <p className="text-sm text-slate-600">{slotsToString(draft)}</p>
+            <p className="text-sm text-gray-600">{slotsToString(draft)}</p>
           ) : null}
-          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+          {error ? <p className="text-sm text-error">{error}</p> : null}
           <div className="flex gap-2">
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+              className="btn-primary text-sm py-2 px-4"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : (
-        <p className="text-slate-700">
+        <p className="text-gray-700">
           {slotsToString(current) || 'No times set yet.'}
         </p>
       )}
@@ -388,7 +392,7 @@ function EditableInterests({
       title="What you love"
       action={
         editing ? null : (
-          <button onClick={onStartEdit} className="text-sm text-slate-700 underline">
+          <button onClick={onStartEdit} className="text-sm text-gray-700 underline">
             Edit
           </button>
         )
@@ -397,32 +401,32 @@ function EditableInterests({
       {editing ? (
         <div className="space-y-3">
           <InterestChipPicker wardId={wardId} value={draft} onChange={setDraft} />
-          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+          {error ? <p className="text-sm text-error">{error}</p> : null}
           <div className="flex gap-2">
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+              className="btn-primary text-sm py-2 px-4"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : interests.length === 0 ? (
-        <p className="text-slate-500 text-sm">No interests yet.</p>
+        <p className="text-gray-500 text-sm">No interests yet.</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {interests.map((it) => (
             <span
               key={it.id}
-              className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+              className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
             >
               {it.name_en}
             </span>
@@ -478,7 +482,7 @@ function EditableStyles({
       title="How you like to help"
       action={
         editing ? null : (
-          <button onClick={onStartEdit} className="text-sm text-slate-700 underline">
+          <button onClick={onStartEdit} className="text-sm text-gray-700 underline">
             Edit
           </button>
         )
@@ -487,28 +491,28 @@ function EditableStyles({
       {editing ? (
         <div className="space-y-3">
           <StylePicker value={draft} onChange={setDraft} />
-          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+          {error ? <p className="text-sm text-error">{error}</p> : null}
           <div className="flex gap-2">
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+              className="btn-primary text-sm py-2 px-4"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
               Cancel
             </button>
           </div>
         </div>
       ) : styles.length === 0 ? (
-        <p className="text-slate-500 text-sm">Not set yet.</p>
+        <p className="text-gray-500 text-sm">Not set yet.</p>
       ) : (
-        <ul className="space-y-1 text-slate-700">
+        <ul className="space-y-1 text-gray-700">
           {styles.map((s) => (
             <li key={s.key}>• {s.label_en}</li>
           ))}
@@ -534,9 +538,9 @@ function Section({
   action?: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 space-y-2">
+    <section className="rounded-md border border-gray-200 bg-white p-5 space-y-2">
       <div className="flex items-start justify-between gap-4">
-        <h2 className="font-medium text-slate-900">{title}</h2>
+        <h2 className="font-medium text-gray-900">{title}</h2>
         {action}
       </div>
       <div>{children}</div>
@@ -546,7 +550,7 @@ function Section({
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-600">
+    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
       {children}
     </main>
   )

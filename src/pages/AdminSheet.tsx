@@ -226,17 +226,17 @@ export default function AdminSheet() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Missionary sheet</h1>
-        <p className="text-sm text-slate-600 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900">Missionary sheet</h1>
+        <p className="text-sm text-gray-600 mt-1">
           Auto-create a Google Sheet for each ward and share it with the
           missionaries. Knit keeps the data tabs in sync.
         </p>
       </div>
 
       {wards.length > 1 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="rounded-md border border-gray-200 bg-white p-5">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-slate-700">Ward</span>
+            <span className="text-sm font-medium text-gray-700">Ward</span>
             <select
               value={wardId}
               onChange={(e) => setWardId(e.target.value)}
@@ -255,12 +255,12 @@ export default function AdminSheet() {
       ) : null}
 
       {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-gray-900">
           {notice}
         </div>
       ) : null}
       {err ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+        <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm text-gray-900">
           {err}
         </div>
       ) : null}
@@ -276,7 +276,7 @@ export default function AdminSheet() {
 
       {/* ---- Per-ward binding ---- */}
       {loadingBinding ? (
-        <div className="text-sm text-slate-500">Loading sheet status…</div>
+        <div className="text-sm text-gray-500">Loading sheet status…</div>
       ) : binding && binding.sheet_id ? (
         <BoundCard
           binding={binding}
@@ -313,24 +313,24 @@ function GoogleConnectionCard({
   onDisconnect: () => void
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
+    <div className="rounded-md border border-gray-200 bg-white p-5 space-y-3">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-medium text-slate-900">Google connection</h2>
+          <h2 className="font-medium text-gray-900">Google connection</h2>
           {loading ? (
-            <p className="text-sm text-slate-500 mt-1">Checking…</p>
+            <p className="text-sm text-gray-500 mt-1">Checking…</p>
           ) : status?.connected ? (
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1">
               Connected as <strong>{status.email}</strong>
               {status.granted_at ? (
-                <span className="text-slate-400">
+                <span className="text-gray-400">
                   {' '}· since {new Date(status.granted_at).toLocaleDateString()}
                 </span>
               ) : null}
               . New sheets will be created in this Google account's Drive.
             </p>
           ) : (
-            <p className="text-sm text-slate-600 mt-1">
+            <p className="text-sm text-gray-600 mt-1">
               Not connected. Connect a Google account so Knit can create sheets
               for you.
             </p>
@@ -341,7 +341,7 @@ function GoogleConnectionCard({
             <button
               onClick={onDisconnect}
               disabled={busy}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap"
+              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 whitespace-nowrap"
             >
               Disconnect
             </button>
@@ -349,7 +349,7 @@ function GoogleConnectionCard({
             <button
               onClick={onConnect}
               disabled={busy}
-              className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50 whitespace-nowrap"
+              className="btn-primary text-sm py-2 px-4 whitespace-nowrap"
             >
               Connect Google Account
             </button>
@@ -372,11 +372,11 @@ function BoundCard({
   busy: boolean
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+    <div className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-medium text-slate-900">Sheet bound to this ward</h2>
-          <p className="text-sm text-slate-600 mt-1">
+          <h2 className="font-medium text-gray-900">Sheet bound to this ward</h2>
+          <p className="text-sm text-gray-600 mt-1">
             Status: <StatusBadge status={binding.status as 'healthy' | 'error' | 'not_configured'} />
           </p>
         </div>
@@ -384,7 +384,7 @@ function BoundCard({
           href={binding.sheet_url ?? '#'}
           target="_blank"
           rel="noreferrer"
-          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 whitespace-nowrap"
+          className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 whitespace-nowrap"
         >
           Open sheet ↗
         </a>
@@ -408,7 +408,7 @@ function BoundCard({
         </Meta>
         {binding.last_error ? (
           <Meta label="Last error">
-            <span className="text-rose-700">{binding.last_error}</span>
+            <span className="text-error">{binding.last_error}</span>
           </Meta>
         ) : null}
       </dl>
@@ -417,19 +417,19 @@ function BoundCard({
         <button
           onClick={onRefresh}
           disabled={busy}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+          className="btn-primary text-sm py-2 px-4"
         >
           {busy ? 'Working…' : 'Push data to sheet'}
         </button>
         <button
           onClick={onSyncNow}
           disabled={busy}
-          className="rounded-lg border border-slate-300 bg-white text-slate-900 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+          className="rounded-md border-[1.5px] border-gray-200 bg-white text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
         >
           Sync from sheet now
         </button>
       </div>
-      <div className="grid gap-1 text-xs text-slate-500 pt-1">
+      <div className="grid gap-1 text-xs text-gray-500 pt-1">
         <span>
           <strong>Push:</strong> Available, Friends, and Recent Outings re-populated
           from the live DB. Runs automatically every morning at 12:00 UTC.
@@ -464,23 +464,23 @@ function CreateSheetCard({
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-xl border border-slate-200 bg-white p-5 space-y-4"
+      className="rounded-md border border-gray-200 bg-white p-5 space-y-4"
     >
       {binding && binding.status === 'error' ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+        <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm text-gray-900">
           Previous attempt failed: {binding.last_error}
         </div>
       ) : null}
       <div>
-        <h2 className="font-medium text-slate-900">Create sheet for this ward</h2>
-        <p className="text-sm text-slate-600 mt-1">
+        <h2 className="font-medium text-gray-900">Create sheet for this ward</h2>
+        <p className="text-sm text-gray-600 mt-1">
           {canCreate
             ? "We'll create a new Google Sheet in your connected Drive, share it with the missionaries, and lay out the 7 tabs."
             : 'Connect a Google account first (above), then come back to create the sheet.'}
         </p>
       </div>
       <label className="block space-y-1.5">
-        <span className="text-sm font-medium text-slate-700">
+        <span className="text-sm font-medium text-gray-700">
           Missionary Gmail addresses
         </span>
         <textarea
@@ -490,7 +490,7 @@ function CreateSheetCard({
           placeholder="elder.smith@gmail.com, sister.jones@gmail.com"
           className="form-input font-mono text-sm"
         />
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-gray-500">
           Separate with commas, spaces, or newlines. Leave blank for now and
           share from the sheet directly later if you prefer.
         </span>
@@ -498,7 +498,7 @@ function CreateSheetCard({
       <button
         type="submit"
         disabled={busy || disabled || !canCreate}
-        className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+        className="btn-primary text-sm py-2 px-4"
       >
         {busy ? 'Creating…' : 'Create and share sheet'}
       </button>
@@ -510,7 +510,7 @@ function StatusBadge({ status }: { status: 'healthy' | 'error' | 'not_configured
   const palette = {
     healthy: 'bg-emerald-100 text-emerald-800',
     error: 'bg-rose-100 text-rose-800',
-    not_configured: 'bg-slate-100 text-slate-700',
+    not_configured: 'bg-gray-100 text-gray-700',
   }
   const label = status === 'healthy' ? 'Healthy' : status === 'error' ? 'Error' : 'Not configured'
   return (
@@ -525,10 +525,10 @@ function StatusBadge({ status }: { status: 'healthy' | 'error' | 'not_configured
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs text-slate-500 font-medium uppercase tracking-wide">
+      <dt className="text-xs text-gray-500 font-medium uppercase tracking-wide">
         {label}
       </dt>
-      <dd className="text-slate-800 mt-0.5">{children}</dd>
+      <dd className="text-gray-800 mt-0.5">{children}</dd>
     </div>
   )
 }

@@ -7,6 +7,27 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.14.0',
+    date: '2026-05-02',
+    summary: 'Stake Suite design pass — every admin + member page migrated to suite tokens (slate → gray, dark CTAs → rose .btn-primary, error notices → semantic suite colors).',
+    details: [
+      'AdminMembers, AdminFriends, AdminOutings, AdminSuggest, AdminSheet, AdminDemo: bulk slate-* → gray-* replacement (text/bg/border/divide/ring/placeholder). Tailwind v4 still ships slate but the suite uses gray.',
+      'All dark-slate primary CTAs (rounded-lg bg-slate-900 text-white hover:bg-slate-800) replaced with the .btn-primary class — every primary action is now Knit rose (#E11D48).',
+      'Member onboarding step-progress dots and AdminSuggest rank circles changed to bg-knit-primary so the rose accent shows up everywhere it represents progress / position.',
+      'Error notice cards: rose-50/rose-200/rose-900 → semantic border-error/30 bg-error/5 text-gray-900. Success notices use border-success/30 bg-success/5. Warnings use border-warning/30 bg-warning/5. All wired to the @theme --color-error / --color-success / --color-warning suite tokens.',
+      'Destructive action text (Remove buttons, error messages): text-rose-700 → text-error.',
+      'AdminMembers invite-link modal: backdrop is now brand-primary-dark/50 with backdrop-blur — feels native to the suite chrome instead of a generic black-50.',
+      'AdminDemo: replaced its inline fuchsia "demo" badge with the suite gold (brand-accent-light + brand-primary-dark text + brand-accent border) — same recipe as the DemoBadge component.',
+      'AdminDemo "Clear demo data" button: rose-300 outline → 1.5px error/60 outline with error/5 hover (canonical destructive-secondary look).',
+      'MemberDashboard header: added KnitMark next to the wordmark for brand recognition; matches the admin shell.',
+      'NotFound: KnitMark + .btn-outline "Go home" — feels like the suite, not a generic 404.',
+      'AvailabilityGrid: tap targets now 44×44 sm:48×48, 1.5px gray-200 border, brand-primary-fade selected state with brand-primary check — matches InterestChipPicker / StylePicker.',
+      'rounded-xl cards across all admin pages → rounded-md (10px, the suite canonical card radius).',
+      'Status Badge palette helpers (slate / emerald / amber / rose) preserved — these are intentional semantic state colors that match the suite\'s soft-pill stage-tint pattern.',
+      'No data, schema, or behavior changes — purely visual. Build size: 31.76 kB CSS / 566 kB JS (matches v0.13.0 closely).',
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-05-02',
     summary: 'Stake Suite design system applied — Knit now visually matches Magnify, Steward, Tidings, and Glean.',

@@ -94,22 +94,22 @@ export default function AdminDemo() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Demo data</h1>
-        <p className="text-sm text-slate-600 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900">Demo data</h1>
+        <p className="text-sm text-gray-600 mt-1">
           Seed a realistic set of members, friends, and outings so you can test
           the suggestion algorithm, onboarding flow, and sheet integration
           without hand-entering everything. Demo rows are tagged{' '}
-          <span className="inline-flex items-center rounded-full bg-fuchsia-100 text-fuchsia-800 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide align-middle">
-            demo
+          <span className="inline-flex items-center rounded-full bg-brand-accent-light text-brand-primary-dark border border-brand-accent/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide align-middle">
+            Demo
           </span>{' '}
           and can be wiped at any time.
         </p>
       </div>
 
       {wards.length > 1 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="rounded-md border border-gray-200 bg-white p-5">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-slate-700">Ward</span>
+            <span className="text-sm font-medium text-gray-700">Ward</span>
             <select
               value={wardId}
               onChange={(e) => setWardId(e.target.value)}
@@ -128,22 +128,22 @@ export default function AdminDemo() {
       ) : null}
 
       {notice ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+        <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-gray-900">
           {notice}
         </div>
       ) : null}
       {err ? (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900">
+        <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm text-gray-900">
           {err}
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-        <h2 className="font-medium text-slate-900">Current demo data in this ward</h2>
+      <div className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
+        <h2 className="font-medium text-gray-900">Current demo data in this ward</h2>
         {loadingStatus ? (
-          <p className="text-sm text-slate-500">Loading…</p>
+          <p className="text-sm text-gray-500">Loading…</p>
         ) : status === null ? (
-          <p className="text-sm text-slate-500">Pick a ward to see status.</p>
+          <p className="text-sm text-gray-500">Pick a ward to see status.</p>
         ) : (
           <dl className="grid grid-cols-3 gap-4 text-center">
             <Stat label="Members" value={status.members} />
@@ -156,22 +156,22 @@ export default function AdminDemo() {
           <button
             onClick={() => void load()}
             disabled={busy !== null || !wardId || hasDemo}
-            className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+            className="btn-primary text-sm py-2 px-4"
           >
             {busy === 'load' ? 'Loading…' : hasDemo ? 'Demo data already loaded' : 'Load demo data'}
           </button>
           <button
             onClick={() => void clear()}
             disabled={busy !== null || !hasDemo}
-            className="rounded-lg border border-rose-300 text-rose-700 px-4 py-2 text-sm font-medium hover:bg-rose-50 disabled:opacity-50 disabled:text-slate-400 disabled:border-slate-200"
+            className="rounded-md border-[1.5px] border-error/60 text-error px-4 py-2 text-sm font-semibold hover:bg-error/5 disabled:opacity-50 disabled:text-gray-400 disabled:border-gray-200"
           >
             {busy === 'clear' ? 'Clearing…' : 'Clear demo data'}
           </button>
         </div>
       </div>
 
-      <details className="text-sm text-slate-600">
-        <summary className="cursor-pointer font-medium text-slate-700">
+      <details className="text-sm text-gray-600">
+        <summary className="cursor-pointer font-medium text-gray-700">
           What's in the demo dataset?
         </summary>
         <div className="mt-3 space-y-3 pl-4">
@@ -198,9 +198,9 @@ export default function AdminDemo() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg bg-slate-50 p-4">
-      <div className="text-3xl font-semibold text-slate-900">{value}</div>
-      <div className="text-xs uppercase tracking-wide text-slate-500 mt-1">{label}</div>
+    <div className="rounded-lg bg-gray-50 p-4">
+      <div className="text-3xl font-semibold text-gray-900">{value}</div>
+      <div className="text-xs uppercase tracking-wide text-gray-500 mt-1">{label}</div>
     </div>
   )
 }

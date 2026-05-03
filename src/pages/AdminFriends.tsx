@@ -61,14 +61,14 @@ export default function AdminFriends() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Friends being taught</h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <h1 className="text-2xl font-semibold text-gray-900">Friends being taught</h1>
+          <p className="text-sm text-gray-600 mt-1">
             People the missionaries are currently teaching.
           </p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800"
+          className="btn-primary text-sm py-2 px-4"
         >
           {showForm ? 'Cancel' : 'Add friend'}
         </button>
@@ -86,18 +86,18 @@ export default function AdminFriends() {
         />
       ) : null}
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-slate-500">Loading…</div>
+          <div className="p-6 text-sm text-gray-500">Loading…</div>
         ) : error ? (
-          <div className="p-6 text-sm text-rose-700">{error}</div>
+          <div className="p-6 text-sm text-error">{error}</div>
         ) : friends.length === 0 ? (
-          <div className="p-10 text-center text-sm text-slate-500">
+          <div className="p-10 text-center text-sm text-gray-500">
             No friends yet. Add your first above.
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-slate-600">
+            <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -107,28 +107,28 @@ export default function AdminFriends() {
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-100">
               {friends.map((f) => (
                 <tr key={f.id}>
-                  <td className="px-4 py-3 text-slate-900">
+                  <td className="px-4 py-3 text-gray-900">
                     {[f.first_name, f.last_name].filter(Boolean).join(' ')}
                     {f.nickname ? (
-                      <span className="text-slate-500"> "{f.nickname}"</span>
+                      <span className="text-gray-500"> "{f.nickname}"</span>
                     ) : null}
                     <DemoBadge when={f.is_demo} />
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-gray-600">
                     {STATUS_LABELS[f.teaching_status]}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-gray-600">
                     {f.locale === 'es' ? 'Spanish' : 'English'}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{f.typical_availability ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{f.ward?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{f.typical_availability ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{f.ward?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => void remove(f.id)}
-                      className="text-sm text-rose-700 hover:text-rose-900"
+                      className="text-sm text-error hover:opacity-80"
                     >
                       Remove
                     </button>
@@ -209,7 +209,7 @@ function NewFriendForm({
   return (
     <form
       onSubmit={submit}
-      className="rounded-xl border border-slate-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
+      className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
       <Field label="First name" required>
         <input
@@ -287,8 +287,8 @@ function NewFriendForm({
       ) : null}
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-slate-700">Typical availability</span>
-          <span className="text-xs text-slate-500">
+          <span className="text-sm font-medium text-gray-700">Typical availability</span>
+          <span className="text-xs text-gray-500">
             {slotsToString(availability) || "Tap any slots when the friend is usually free"}
           </span>
         </div>
@@ -296,8 +296,8 @@ function NewFriendForm({
       </div>
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-slate-700">Interests</span>
-          <span className="text-xs text-slate-500">
+          <span className="text-sm font-medium text-gray-700">Interests</span>
+          <span className="text-xs text-gray-500">
             What the friend likes — used to find members with shared interests
           </span>
         </div>
@@ -308,11 +308,11 @@ function NewFriendForm({
         />
       </div>
       <div className="sm:col-span-2 flex items-center justify-between pt-2">
-        {err ? <p className="text-sm text-rose-700">{err}</p> : <span />}
+        {err ? <p className="text-sm text-error">{err}</p> : <span />}
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-slate-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 disabled:opacity-50"
+          className="btn-primary text-sm py-2 px-4"
         >
           {saving ? 'Saving…' : 'Save friend'}
         </button>
@@ -334,12 +334,12 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-sm font-medium text-slate-700">
+      <span className="text-sm font-medium text-gray-700">
         {label}
-        {required ? <span className="text-rose-600"> *</span> : null}
+        {required ? <span className="text-error"> *</span> : null}
       </span>
       {children}
-      {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
+      {hint ? <span className="text-xs text-gray-500">{hint}</span> : null}
     </label>
   )
 }

@@ -41,21 +41,21 @@ export default function MemberMagicLink() {
 
   if (status.kind === 'verifying') {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-slate-600">
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
         Verifying your link…
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="max-w-md text-center space-y-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Sign-in link didn't work</h1>
-        <p className="text-slate-600">{status.message}</p>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-semibold text-gray-900">Sign-in link didn't work</h1>
+        <p className="text-gray-600">{status.message}</p>
+        <p className="text-sm text-gray-500">
           Ask your ward mission leader to send you a fresh link.
         </p>
-        <Link to="/" className="inline-block text-slate-700 underline">
+        <Link to="/" className="inline-block text-gray-700 underline">
           Go home
         </Link>
       </div>
