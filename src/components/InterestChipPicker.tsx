@@ -64,8 +64,8 @@ export default function InterestChipPicker({
     else onChange([...value, id])
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Loading options…</p>
-  if (error) return <p className="text-sm text-rose-700">{error}</p>
+  if (loading) return <p className="text-sm text-gray-500">Loading options…</p>
+  if (error) return <p className="text-sm text-error">{error}</p>
 
   return (
     <div className="space-y-5">
@@ -74,7 +74,7 @@ export default function InterestChipPicker({
         if (!list || list.length === 0) return null
         return (
           <div key={cat} className="space-y-2">
-            <h3 className="text-xs uppercase tracking-wide text-slate-500 font-medium">
+            <h3 className="text-xs uppercase tracking-wide text-gray-500 font-bold">
               {CATEGORY_LABELS[cat]}
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -86,10 +86,10 @@ export default function InterestChipPicker({
                     type="button"
                     onClick={() => toggle(tag.id)}
                     aria-pressed={active}
-                    className={`px-4 py-2 rounded-full border text-sm font-medium transition min-h-[44px] ${
+                    className={`px-4 py-2 rounded-full border-[1.5px] text-sm font-semibold transition min-h-[44px] ${
                       active
-                        ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-700 border-slate-300 hover:border-slate-500'
+                        ? 'bg-brand-primary-fade text-brand-primary border-brand-primary'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
                     }`}
                   >
                     {tag.name_en}

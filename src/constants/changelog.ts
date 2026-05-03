@@ -7,6 +7,25 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.0',
+    date: '2026-05-02',
+    summary: 'Stake Suite design system applied — Knit now visually matches Magnify, Steward, Tidings, and Glean.',
+    details: [
+      'New src/tokens.css: canonical Stake Suite Tailwind v4 @theme block — brand-primary navy (#1B3A6B), brand-accent gold (#C9A84C), 10-radius cards, single canonical shadow, suite type scale (11/13/15/17/20/24/30), 9-step neutral grays, semantic + stage colors. Tailwind v4 generates utilities from these (bg-brand-primary, text-knit-primary, rounded-md, shadow-md, font-sans).',
+      "Knit's per-app accent: rose (--color-knit-primary #E11D48) — distinct from Magnify (navy), Steward (blue), Tidings (amber), and Glean (gold). Anchors on the Mosiah 18:21 verse the app is named for: \"their hearts were knit together in unity and in love.\"",
+      'index.css: import tokens, set body to font-sans + bg-2 / fg-1, plus shared component classes — .form-input (1.5px gray-200 border, 10-radius, knit-primary focus), .btn-primary (knit-primary fill), .btn-outline (1.5px brand-primary border), .btn-ghost, .suite-card, .suite-pill.',
+      'New KnitMark component: navy rounded square with two interlocked white rings ("knit together") and a small gold accent dot — same logo treatment as StewardLogo / TidingsLogo / GleanMark.',
+      'Replaced the old purple-cyan favicon with a suite-styled navy + white + gold KnitMark SVG.',
+      'AdminLayout rewritten: sticky navy (bg-brand-primary) header with KnitMark + wordmark, sticky white tab strip below with rose-accent underline on active tab. Page bg standardized to bg-gray-50.',
+      'Landing + AdminLogin redesigned to the suite auth-screen pattern: navy hero up top, white card overlapping below, KnitMark centered, knit-primary CTA.',
+      'AdminDashboard: navy/gray suite cards (.suite-card), rose "Open →" link, suite typography scale.',
+      'DemoBadge restyled to brand-accent gold (Stake Suite tone) instead of off-palette fuchsia.',
+      'InterestChipPicker + StylePicker: 1.5px gray-200 borders, brand-primary-fade selected state with brand-primary text — replaces the dark-slate solid-fill selected look.',
+      'index.html: theme-color meta = brand-primary navy, Ionicons CDN module loaded (suite functional-icon library).',
+      'No data model changes — all visual / token work. Member onboarding flow still uses the spec-mandated emoji glyphs (🍽 🚗 🪑 🎉 🎓 💬) for non-tech-savvy member tap targets; deferred to a later pass on whether to swap for Ionicons.',
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-04-24',
     summary: 'Phase 2 complete — daily push cron + sheet-pull (Suggestions + Log Outing → DB).',

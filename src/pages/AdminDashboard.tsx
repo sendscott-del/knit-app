@@ -10,10 +10,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
+        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
           {greeting(profile.name ?? profile.email)}
         </h1>
-        <p className="text-slate-600 mt-1">
+        <p className="text-base text-gray-600 mt-1">
           {isWardScope
             ? `Ward Mission Leader · ${profile.ward?.name ?? '—'}`
             : `${profile.role === 'stake_president' ? 'Stake President' : 'Stake Missionary HC'} · ${profile.stake?.name ?? '—'}`}
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
         <PlaceholderCard title="Settings" body="Interest tags, companionships, admins." />
       </div>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-gray-400">
         Phase 1 shell — individual tabs come online as each Phase 1 milestone lands.
       </p>
     </div>
@@ -72,21 +72,23 @@ function LinkCard({ to, title, body }: { to: string; title: string; body: string
   return (
     <Link
       to={to}
-      className="block rounded-xl border border-slate-200 bg-white p-5 space-y-2 hover:border-slate-400 hover:shadow-sm transition"
+      className="suite-card p-5 space-y-2 hover:border-knit-primary hover:shadow-lg transition group"
     >
-      <h2 className="font-medium text-slate-900">{title}</h2>
-      <p className="text-sm text-slate-600">{body}</p>
-      <p className="text-xs text-slate-500 pt-2">Open →</p>
+      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      <p className="text-sm text-gray-600">{body}</p>
+      <p className="text-xs font-semibold text-knit-primary pt-2 group-hover:translate-x-0.5 transition">
+        Open →
+      </p>
     </Link>
   )
 }
 
 function PlaceholderCard({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-2">
-      <h2 className="font-medium text-slate-900">{title}</h2>
-      <p className="text-sm text-slate-600">{body}</p>
-      <p className="text-xs text-slate-400 pt-2">Coming later in Phase 1</p>
+    <div className="suite-card p-5 space-y-2 opacity-70">
+      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      <p className="text-sm text-gray-600">{body}</p>
+      <p className="text-xs text-gray-400 pt-2">Coming later in Phase 1</p>
     </div>
   )
 }

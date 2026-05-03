@@ -3,9 +3,9 @@ export default function DemoBadge({ when = true }: { when?: boolean }) {
   return (
     <span
       title="Demo data — clear it from /admin/demo"
-      className="ml-2 inline-flex items-center rounded-full bg-fuchsia-100 text-fuchsia-800 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide align-middle"
+      className="ml-2 inline-flex items-center rounded-full bg-brand-accent-light text-brand-primary-dark px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide align-middle border border-brand-accent/40"
     >
-      demo
+      Demo
     </span>
   )
 }

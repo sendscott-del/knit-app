@@ -1,10 +1,11 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
 :root {
   color-scheme: light;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html,
@@ -15,10 +16,52 @@ body,
 
 body {
   margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg-2);
+  color: var(--fg-1);
 }
 
 @layer components {
+  /* Suite-spec input: 1.5px gray-200 border, 10-radius, knit-primary focus ring */
   .form-input {
-    @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 bg-white focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10;
+    @apply w-full rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-base text-gray-900 bg-white
+           focus:border-knit-primary focus:outline-none focus:ring-2 focus:ring-knit-primary/15
+           placeholder:text-gray-400;
+  }
+  .form-input:disabled {
+    @apply opacity-50 cursor-not-allowed bg-gray-50;
+  }
+
+  /* Suite-spec primary button: knit-primary fill, white text, 10-radius */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-md bg-knit-primary px-5 py-2.5
+           text-base font-semibold text-white shadow-sm
+           hover:bg-knit-primary-dark active:opacity-80 transition
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Outline / secondary: 1.5px brand-primary border, brand-primary text */
+  .btn-outline {
+    @apply inline-flex items-center justify-center rounded-md border-[1.5px] border-brand-primary
+           bg-white px-5 py-2.5 text-base font-semibold text-brand-primary
+           hover:bg-brand-primary-fade active:opacity-80 transition
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Ghost: no border, gray text */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium
+           text-gray-700 hover:bg-gray-100 active:opacity-80 transition
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Standard suite card: white surface, 10-radius, 1px gray-200 border, canonical shadow */
+  .suite-card {
+    @apply bg-white rounded-md border border-gray-200 shadow-md;
+  }
+
+  /* Soft-pill recipe used across the suite for status badges */
+  .suite-pill {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold;
   }
 }
