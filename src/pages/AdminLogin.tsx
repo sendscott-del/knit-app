@@ -82,8 +82,14 @@ export default function AdminLogin() {
           )}
         </div>
 
-        <p className="text-xs text-gray-500 text-center pt-6">
-          Members — don't sign in here. Use the link we texted you.
+        <p className="text-sm text-gray-600 text-center pt-6">
+          Don&rsquo;t have access yet?{' '}
+          <Link to="/signup" className="text-knit-primary font-semibold underline">
+            Get access to Knit
+          </Link>
+        </p>
+        <p className="text-xs text-gray-500 text-center pt-2">
+          Members &mdash; don&rsquo;t sign in here. Use the link we texted you.
         </p>
       </div>
     </main>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/auth'
 import Landing from '@/pages/Landing'
 import AdminLogin from '@/pages/AdminLogin'
+import Signup from '@/pages/Signup'
 import AdminCallback from '@/pages/AdminCallback'
 import AdminLayout from '@/pages/AdminLayout'
 import AdminDashboard from '@/pages/AdminDashboard'
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/admin/callback" element={<AdminCallback />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />

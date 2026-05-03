@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.0',
+    date: '2026-05-03',
+    summary: 'Get-access page so the auth flow is discoverable.',
+    details: [
+      'New /signup page explains how to get into Knit for each role: stake leadership get a magic-link sign-in directly, ward mission leaders get invited by the stake high councilor, and members come in through the SMS link the WML sends them. The Sign-in page now links to /signup as a "Get access to Knit" callout.',
+      'Knit is magic-link only — there\'s no password to forget — so the typical "Forgot password" flow doesn\'t apply. The /signup page documents that.',
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-05-03',
     summary: 'Cross-app user-access management lives inside Knit too.',
