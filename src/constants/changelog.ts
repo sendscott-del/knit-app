@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.0',
+    date: '2026-05-03',
+    summary: 'Gather suite app switcher — jump between Knit and the other Gather apps from the admin chrome.',
+    details: [
+      'New AppSwitcher renders a navy "Gathered" strip above the admin header listing the apps you have access to (Magnify, Steward, Glean, Tidings, Knit). Reads from the shared user_apps table, so it stays in sync with whatever the Stake President / Stake Clerk has granted in the cross-app admin screen.',
+      'Each app shows as a brand-colored letter chip + one-line blurb so you remember what each one does at a glance.',
+      'Knit continues to use Supabase magic-link auth — no password to forget. The cross-app switcher is the only chrome change in this release.',
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-05-02',
     summary: 'Sheet protection — missionaries can\'t accidentally break the Knit ↔ Sheet contract anymore.',
