@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import { DemoBannerToggle } from '@/components/DemoModeBanner'
 
 type Ctx = { profile: AdminProfile }
 
@@ -93,6 +94,16 @@ export default function AdminDemo() {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-md border border-gray-200 bg-white p-5 space-y-2">
+        <h2 className="font-medium text-gray-900">Demo role banner</h2>
+        <p className="text-xs text-gray-600">
+          Overlay a &ldquo;viewing as &lt;role&gt;&rdquo; strip across every Knit
+          screen so you can talk through what each role experiences. Independent
+          of the database-level demo data toggle below.
+        </p>
+        <DemoBannerToggle />
+      </div>
+
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Demo data</h1>
         <p className="text-sm text-gray-600 mt-1">

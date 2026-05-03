@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/auth'
+import { DemoModeProvider } from '@/lib/demoMode'
+import DemoModeBanner from '@/components/DemoModeBanner'
 import Landing from '@/pages/Landing'
 import AdminLogin from '@/pages/AdminLogin'
 import Signup from '@/pages/Signup'
@@ -21,6 +23,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <DemoModeProvider>
+        <DemoModeBanner />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/admin/login" element={<AdminLogin />} />
@@ -40,6 +44,7 @@ export default function App() {
           <Route path="/me" element={<MemberDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </DemoModeProvider>
       </AuthProvider>
     </BrowserRouter>
   )

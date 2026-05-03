@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.0',
+    date: '2026-05-03',
+    summary: 'Demo role-switcher banner across the admin UI.',
+    details: [
+      'New role banner sits across the top of every Knit admin screen with a "viewing as <role>" picker (Stake President, Stake HC Missionary, Ward Mission Leader, Member). Independent of the existing /admin/demo Load/Clear seed-data buttons — that controls what the database holds; the banner adds the role-switching narrative on top.',
+      'Toggle the banner on/off from /admin/demo (new "Demo role banner" card at the top of the page).',
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-05-03',
     summary: 'Get-access page so the auth flow is discoverable.',
