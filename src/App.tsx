@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/auth'
 import Landing from '@/pages/Landing'
 import AdminLogin from '@/pages/AdminLogin'
+import Signup from '@/pages/Signup'
 import AdminCallback from '@/pages/AdminCallback'
 import AdminLayout from '@/pages/AdminLayout'
 import AdminDashboard from '@/pages/AdminDashboard'
@@ -11,6 +12,7 @@ import AdminSuggest from '@/pages/AdminSuggest'
 import AdminOutings from '@/pages/AdminOutings'
 import AdminSheet from '@/pages/AdminSheet'
 import AdminDemo from '@/pages/AdminDemo'
+import AdminGather from '@/pages/AdminGather'
 import MemberMagicLink from '@/pages/MemberMagicLink'
 import MemberDashboard from '@/pages/MemberDashboard'
 import NotFound from '@/pages/NotFound'
@@ -22,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/admin/callback" element={<AdminCallback />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
@@ -31,6 +34,7 @@ export default function App() {
             <Route path="suggest" element={<AdminSuggest />} />
             <Route path="sheet" element={<AdminSheet />} />
             <Route path="demo" element={<AdminDemo />} />
+            <Route path="gather" element={<AdminGather />} />
           </Route>
           <Route path="/m/:memberId/:token" element={<MemberMagicLink />} />
           <Route path="/me" element={<MemberDashboard />} />

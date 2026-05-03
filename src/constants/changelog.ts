@@ -7,6 +7,34 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.0',
+    date: '2026-05-03',
+    summary: 'Get-access page so the auth flow is discoverable.',
+    details: [
+      'New /signup page explains how to get into Knit for each role: stake leadership get a magic-link sign-in directly, ward mission leaders get invited by the stake high councilor, and members come in through the SMS link the WML sends them. The Sign-in page now links to /signup as a "Get access to Knit" callout.',
+      'Knit is magic-link only — there\'s no password to forget — so the typical "Forgot password" flow doesn\'t apply. The /signup page documents that.',
+    ],
+  },
+  {
+    version: '0.17.0',
+    date: '2026-05-03',
+    summary: 'Cross-app user-access management lives inside Knit too.',
+    details: [
+      'New /admin/gather screen (Stake President / Stake Clerk only) lists every user in the shared "Scott\'s Apps" Supabase project and lets you toggle each of the five Gather apps on or off per user with a chip click. Promotion and demotion of super-admin status (Stake President, Stake Clerk) happens from the same screen. Reachable via a new "Gather" tab in the admin header.',
+      'Identical UI lives in Steward and Glean. All three write to the same shared user_apps + gather_super_admins tables, so a grant added in one app instantly lights up the right apps in everyone\'s Gathered switcher.',
+    ],
+  },
+  {
+    version: '0.16.0',
+    date: '2026-05-03',
+    summary: 'Gather suite app switcher — jump between Knit and the other Gather apps from the admin chrome.',
+    details: [
+      'New AppSwitcher renders a navy "Gathered" strip above the admin header listing the apps you have access to (Magnify, Steward, Glean, Tidings, Knit). Reads from the shared user_apps table, so it stays in sync with whatever the Stake President / Stake Clerk has granted in the cross-app admin screen.',
+      'Each app shows as a brand-colored letter chip + one-line blurb so you remember what each one does at a glance.',
+      'Knit continues to use Supabase magic-link auth — no password to forget. The cross-app switcher is the only chrome change in this release.',
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-05-02',
     summary: 'Sheet protection — missionaries can\'t accidentally break the Knit ↔ Sheet contract anymore.',

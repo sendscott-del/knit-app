@@ -2,6 +2,7 @@ import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
 import KnitMark from '@/components/KnitMark'
+import AppSwitcher from '@/components/AppSwitcher'
 
 export default function AdminLayout() {
   const { session, loading: authLoading, signOut } = useAuth()
@@ -51,6 +52,7 @@ export default function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <AppSwitcher />
       {/* Suite chrome — navy header with brand mark, mirrors Magnify/Steward/Tidings/Glean */}
       <header className="bg-brand-primary text-white shadow-md sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
@@ -92,6 +94,7 @@ export default function AdminLayout() {
             <TabLink to="/admin/suggest">Suggest</TabLink>
             <TabLink to="/admin/sheet">Sheet</TabLink>
             <TabLink to="/admin/demo">Demo</TabLink>
+            <TabLink to="/admin/gather">Gather</TabLink>
           </ul>
         </div>
       </nav>
