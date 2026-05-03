@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCron } from '../_lib/cronAuth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
-import { populateDataTabs } from '../_lib/sheetSync.js'
+import { populateDataTabs, protectSpreadsheet } from '../_lib/sheetSync.js'
 import { formatGoogleError } from '../_lib/sheets.js'
 
 /**
@@ -22,6 +22,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!b.sheet_id) continue
     try {
       await populateDataTabs({ spreadsheetId: b.sheet_id, wardId: b.ward_id })
+      // Idempotent — existing bindings auto-upgrade to the protection rules
+      // and any drift (manually-removed protection) heals on the next cron tick.
+      await protectSpreadsheet(b.sheet_id)
       await sb
         .from('knit_google_sheet_bindings')
         .update({

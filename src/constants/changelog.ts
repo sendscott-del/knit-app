@@ -7,6 +7,23 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.15.0',
+    date: '2026-05-02',
+    summary: 'Sheet protection — missionaries can\'t accidentally break the Knit ↔ Sheet contract anymore.',
+    details: [
+      'New api/_lib/sheets.ts:applyProtectedRanges + KNIT_PROTECT_TAG: idempotent helper that wipes prior Knit protections and applies a fresh rule set in a single batchUpdate. Existing protections are matched by description prefix, so no duplicates accumulate across reruns.',
+      'New api/_lib/sheetSync.ts:protectSpreadsheet wraps a 10-rule canonical set: whole-sheet warnings on Start Here / Available / Friends / Recent (Knit owns these — edits would be wiped by the morning push anyway), hard locks on the header rows of Suggestions / Log an Outing / Urgent Need (with the service account in editors so Knit\'s own writes still go through), and warning-only protections on the Knit-fill columns (Suggestions F:O, Log Outing G, Urgent F).',
+      'Hard locks (warningOnly: false) include `editors: { users: [SA email] }` so the service account stays editable; the file owner (the WML who connected Google) can also edit by virtue of being owner.',
+      'Wired into provisionSpreadsheet + bindSpreadsheet — every newly-created sheet is protected as soon as initial data is in place.',
+      'Wired into /api/admin/sheet/refresh and /api/cron/sheets-morning-push — existing sheet bindings auto-upgrade to the protection set on the next refresh / morning cron, and any drift (a missionary deleting a protection from File menu) self-heals every morning.',
+      'New verifyAndRestoreHeaders in api/_lib/sheetPull.ts: before parsing Suggestions or Log Outing rows, it reads row 1 and checks against the canonical header set. If anything drifted (column renamed, deleted, reordered) it rewrites row 1 in place and skips parsing for that pass — preventing the silent "data lands in wrong column" failure mode.',
+      'PullReport gains a headersRepaired: string[] field; AdminSheet "Sync from sheet now" surfaces it in the result toast ("Restored headers on: Suggestions, Log an Outing").',
+      'Start Here tab body updated with a "note on protections" section explaining what\'s locked and why.',
+      'Tradeoff documented: warningOnly: true on the read-only data tabs lets missionaries override if they really need to (e.g., to copy a row out), but the warning is sufficient deterrent and Knit\'s morning push reprojects from the DB regardless. Hard locks are reserved for headers, where any change breaks the parser.',
+      'Custom restore mechanism deliberately not built — Google Sheets ships File → Version history with full revision restore for free; the Start Here tab points missionaries there.',
+    ],
+  },
+  {
     version: '0.14.0',
     date: '2026-05-02',
     summary: 'Stake Suite design pass — every admin + member page migrated to suite tokens (slate → gray, dark CTAs → rose .btn-primary, error notices → semantic suite colors).',

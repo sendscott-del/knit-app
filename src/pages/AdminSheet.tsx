@@ -205,12 +205,15 @@ export default function AdminSheet() {
         suggestionErrors: string[]
         outingsInserted: number
         outingErrors: string[]
+        headersRepaired?: string[]
       }
       const parts: string[] = []
       if (rep.suggestionsProcessed > 0)
         parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
       if (rep.outingsInserted > 0)
         parts.push(`${rep.outingsInserted} outing${rep.outingsInserted === 1 ? '' : 's'} logged`)
+      if (rep.headersRepaired && rep.headersRepaired.length > 0)
+        parts.push(`Restored headers on: ${rep.headersRepaired.join(', ')}`)
       if (parts.length === 0) parts.push('Nothing new to sync')
       const errs = [...rep.suggestionErrors, ...rep.outingErrors]
       if (errs.length > 0) parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)

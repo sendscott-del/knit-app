@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireAdmin, adminCanActOnWard, roleIsWritable } from '../../_lib/auth.js'
 import { supabaseAdmin } from '../../_lib/supabaseAdmin.js'
-import { populateDataTabs } from '../../_lib/sheetSync.js'
+import { populateDataTabs, protectSpreadsheet } from '../../_lib/sheetSync.js'
 import { formatGoogleError } from '../../_lib/sheets.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -34,6 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     await populateDataTabs({ spreadsheetId: binding.sheet_id, wardId })
+    // Re-apply protections so existing bindings get them on next refresh
+    // and any drift (deleted protections) is restored. Idempotent.
+    await protectSpreadsheet(binding.sheet_id)
     const nowIso = new Date().toISOString()
     await sb
       .from('knit_google_sheet_bindings')

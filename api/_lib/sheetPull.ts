@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { TABS } from './sheetSync.js'
+import { TABS, getExpectedHeaders } from './sheetSync.js'
+import { colLetter } from './sheets.js'
 import {
   suggest,
   memberDisplayName,
@@ -40,6 +41,49 @@ export type PullReport = {
   suggestionErrors: string[]
   outingsInserted: number
   outingErrors: string[]
+  /** Tabs whose header row was repaired during this pull (drift detected and rewritten). */
+  headersRepaired: string[]
+}
+
+/**
+ * Reads row 1 of a tab and compares to the canonical header set. If they don't
+ * match (missing, reordered, renamed), rewrites the header row in place and
+ * returns true. Hard-protected ranges still allow service-account writes.
+ *
+ * Returning true means the parser should still skip this run (data may be in
+ * the wrong columns) and let the next cron pull pick up cleanly.
+ */
+async function verifyAndRestoreHeaders(
+  sheets: SheetsClient,
+  spreadsheetId: string,
+  tab: string,
+): Promise<{ ok: boolean; repaired: boolean }> {
+  const expected = getExpectedHeaders(tab)
+  if (!expected) return { ok: true, repaired: false }
+
+  const range = `${tab}!A1:${colLetter(expected.length)}1`
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const actual = (res.data.values?.[0] ?? []) as string[]
+
+  const matches =
+    actual.length === expected.length &&
+    expected.every((h, i) => (actual[i] ?? '').trim() === h)
+
+  if (matches) return { ok: true, repaired: false }
+
+  // Rewrite headers. We don't try to interpret data rows that may be misaligned;
+  // we restore the contract and let the next cycle proceed.
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [expected] },
+  })
+  return { ok: false, repaired: true }
 }
 
 export async function pullSheet(args: {
@@ -53,30 +97,55 @@ export async function pullSheet(args: {
     suggestionErrors: [],
     outingsInserted: 0,
     outingErrors: [],
+    headersRepaired: [],
   }
 
   /* ---------------- Suggestions tab ---------------- */
   try {
-    await pullSuggestions({
-      sb,
+    const check = await verifyAndRestoreHeaders(
       sheets,
-      wardId: args.wardId,
-      spreadsheetId: args.spreadsheetId,
-      report,
-    })
+      args.spreadsheetId,
+      TABS.SUGGESTIONS,
+    )
+    if (check.repaired) {
+      report.headersRepaired.push(TABS.SUGGESTIONS)
+      report.suggestionErrors.push(
+        `Suggestions tab headers were missing or changed — restored. Skipping this pass to avoid misreading data; next sync will pick up new requests.`,
+      )
+    } else {
+      await pullSuggestions({
+        sb,
+        sheets,
+        wardId: args.wardId,
+        spreadsheetId: args.spreadsheetId,
+        report,
+      })
+    }
   } catch (e) {
     report.suggestionErrors.push(errMsg(e))
   }
 
   /* ---------------- Log an Outing tab ---------------- */
   try {
-    await pullOutings({
-      sb,
+    const check = await verifyAndRestoreHeaders(
       sheets,
-      wardId: args.wardId,
-      spreadsheetId: args.spreadsheetId,
-      report,
-    })
+      args.spreadsheetId,
+      TABS.LOG_OUTING,
+    )
+    if (check.repaired) {
+      report.headersRepaired.push(TABS.LOG_OUTING)
+      report.outingErrors.push(
+        `Log an Outing tab headers were missing or changed — restored. Skipping this pass to avoid misreading data; next sync will pick up new entries.`,
+      )
+    } else {
+      await pullOutings({
+        sb,
+        sheets,
+        wardId: args.wardId,
+        spreadsheetId: args.spreadsheetId,
+        report,
+      })
+    }
   } catch (e) {
     report.outingErrors.push(errMsg(e))
   }

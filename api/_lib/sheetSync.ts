@@ -1,5 +1,13 @@
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { replaceDataRows, writeRange, colLetter, type CreatedSheet } from './sheets.js'
+import {
+  replaceDataRows,
+  writeRange,
+  colLetter,
+  applyProtectedRanges,
+  KNIT_PROTECT_TAG,
+  type CreatedSheet,
+  type ProtectionRule,
+} from './sheets.js'
 
 /**
  * Defines the ordered tabs that every ward's sheet has, and the header row
@@ -97,6 +105,104 @@ export async function writeAllHeaders(spreadsheetId: string) {
   }
 }
 
+/** Public read-only access to the canonical headers for a tab. */
+export function getExpectedHeaders(tab: string): string[] | null {
+  return HEADERS[tab] ?? null
+}
+
+/* ============================================================
+   Protection rules — what missionaries can't break
+   ------------------------------------------------------------
+   - Knit-managed read-only tabs (Start Here, Available, Friends,
+     Recent Outings) are warning-only protected against any edit:
+     they get rebuilt from the DB every morning, so missionary
+     edits would be silently overwritten anyway. The warning makes
+     that visible up front.
+   - Header rows on the mixed tabs (Suggestions, Log an Outing,
+     Urgent Need) are hard-locked. Missionaries cannot rename or
+     delete them; the service account stays in editors so Knit's
+     own header repair writes still work.
+   - Knit-fill columns on the mixed tabs are warning-only — a
+     missionary may legitimately want to clear a stale row, but
+     should be warned first.
+   ============================================================ */
+
+const PROTECTION_RULES: ProtectionRule[] = [
+  // Read-only Knit-managed tabs
+  {
+    tab: TABS.START_HERE,
+    description: `${KNIT_PROTECT_TAG} Instructions tab — refreshed by Knit, edits will be lost`,
+    warningOnly: true,
+    range: 'whole-sheet',
+  },
+  {
+    tab: TABS.AVAILABLE,
+    description: `${KNIT_PROTECT_TAG} Refreshed every morning — edit member info in the Knit admin app`,
+    warningOnly: true,
+    range: 'whole-sheet',
+  },
+  {
+    tab: TABS.FRIENDS,
+    description: `${KNIT_PROTECT_TAG} Refreshed every morning — edit friends in the Knit admin app`,
+    warningOnly: true,
+    range: 'whole-sheet',
+  },
+  {
+    tab: TABS.RECENT,
+    description: `${KNIT_PROTECT_TAG} Read-only history — refreshed every morning`,
+    warningOnly: true,
+    range: 'whole-sheet',
+  },
+
+  // Header rows on mixed tabs — hard lock so missionaries can't break parsers
+  {
+    tab: TABS.SUGGESTIONS,
+    description: `${KNIT_PROTECT_TAG} Header row — do not change column titles`,
+    warningOnly: false,
+    range: { startRow: 0, endRow: 1 },
+  },
+  {
+    tab: TABS.LOG_OUTING,
+    description: `${KNIT_PROTECT_TAG} Header row — do not change column titles`,
+    warningOnly: false,
+    range: { startRow: 0, endRow: 1 },
+  },
+  {
+    tab: TABS.URGENT,
+    description: `${KNIT_PROTECT_TAG} Header row — do not change column titles`,
+    warningOnly: false,
+    range: { startRow: 0, endRow: 1 },
+  },
+
+  // Knit-fill columns on mixed tabs — warn before editing
+  {
+    // Suggestions: Knit fills F:O ( #1 / Why #1 ... #5 / Why #5 )
+    tab: TABS.SUGGESTIONS,
+    description: `${KNIT_PROTECT_TAG} Knit fills these columns — your edits will be overwritten`,
+    warningOnly: true,
+    range: { startCol: 5, endCol: 15 },
+  },
+  {
+    // Log an Outing: Knit writes ✓ in the Synced column (G)
+    tab: TABS.LOG_OUTING,
+    description: `${KNIT_PROTECT_TAG} Knit writes the Synced check — leave this column alone`,
+    warningOnly: true,
+    range: { startCol: 6, endCol: 7 },
+  },
+  {
+    // Urgent Need: Knit writes Replies in column F
+    tab: TABS.URGENT,
+    description: `${KNIT_PROTECT_TAG} Knit fills the Replies column`,
+    warningOnly: true,
+    range: { startCol: 5, endCol: 6 },
+  },
+]
+
+/** Idempotent — removes any prior Knit protections then applies the canonical rule set. */
+export async function protectSpreadsheet(spreadsheetId: string) {
+  await applyProtectedRanges(spreadsheetId, PROTECTION_RULES)
+}
+
 export async function writeStartHere(spreadsheetId: string, wardName: string) {
   const lines: string[][] = [
     [`Knit — ${wardName}`],
@@ -124,6 +230,12 @@ export async function writeStartHere(spreadsheetId: string, wardName: string) {
     ['• Recent Outings — rolling 90-day read-only history.'],
     [''],
     [`Ward contact — ask your ward mission leader if anything looks off.`],
+    [''],
+    ['A note on protections:'],
+    ['Some cells are locked or warn before editing — that\'s on purpose. Headers'],
+    ['must stay exactly as they are or Knit can\'t read your entries. The'],
+    ['Available, Friends, and Recent Outings tabs refresh from Knit every morning,'],
+    ['so any edits you make to them will be overwritten.'],
   ]
   await writeRange(
     spreadsheetId,
@@ -332,6 +444,8 @@ export async function provisionSpreadsheet(
   await writeAllHeaders(sheet.spreadsheetId)
   await writeStartHere(sheet.spreadsheetId, wardName)
   await populateDataTabs({ spreadsheetId: sheet.spreadsheetId, wardId })
+  // Apply protections last — once data is in place, missionaries can't break it.
+  await protectSpreadsheet(sheet.spreadsheetId)
 }
 
 /** Run the full provisioning flow against an existing sheet (user-created,
@@ -344,6 +458,7 @@ export async function bindSpreadsheet(
   await writeAllHeaders(spreadsheetId)
   await writeStartHere(spreadsheetId, wardName)
   await populateDataTabs({ spreadsheetId, wardId })
+  await protectSpreadsheet(spreadsheetId)
 }
 
 /* ---- formatting helpers ---- */

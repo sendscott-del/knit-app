@@ -296,3 +296,140 @@ export function colLetter(n: number): string {
   }
   return s
 }
+
+/* ============================================================
+   Protected ranges
+   ------------------------------------------------------------
+   Applies sheet-level protections so missionaries can't
+   accidentally delete columns, rows, or headers that Knit
+   depends on. Idempotent: any existing protection whose
+   description starts with KNIT_PROTECT_TAG is removed and
+   re-created on every call. Safe to invoke from
+   provision / refresh / cron paths.
+   ============================================================ */
+
+export const KNIT_PROTECT_TAG = '[knit-protect]'
+
+export type ProtectionRule = {
+  /** Tab title to resolve to a sheetId */
+  tab: string
+  /** Human-readable label — must begin with KNIT_PROTECT_TAG so we can find it later */
+  description: string
+  /** true = popup warning + can override; false = hard lock (editors only) */
+  warningOnly: boolean
+  /**
+   * The range to protect within the tab. Omit any of startRow/endRow/startCol/endCol
+   * to extend to the sheet bounds in that direction. `'whole-sheet'` protects the
+   * entire tab.
+   *
+   * Indexes are 0-based, end-exclusive (so row 0..1 = "row 1 only").
+   */
+  range:
+    | 'whole-sheet'
+    | {
+        startRow?: number
+        endRow?: number
+        startCol?: number
+        endCol?: number
+      }
+}
+
+/**
+ * Apply a list of protected ranges to a spreadsheet, removing any prior Knit
+ * protections first so the result is deterministic. Hard-protected ranges
+ * (warningOnly=false) include the service account in the editors list so our
+ * API writes still go through; the file owner can always edit.
+ */
+export async function applyProtectedRanges(
+  spreadsheetId: string,
+  rules: ProtectionRule[],
+) {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: 'sheets(properties(sheetId,title),protectedRanges(protectedRangeId,description))',
+  })
+
+  // Resolve title -> sheetId
+  const sheetIdByTitle = new Map<string, number>()
+  for (const s of meta.data.sheets ?? []) {
+    const id = s.properties?.sheetId
+    const title = s.properties?.title
+    if (id != null && title) sheetIdByTitle.set(title, id)
+  }
+
+  // Find existing Knit protections to remove
+  const removals: sheets_v4.Schema$Request[] = []
+  for (const s of meta.data.sheets ?? []) {
+    for (const p of s.protectedRanges ?? []) {
+      if ((p.description ?? '').startsWith(KNIT_PROTECT_TAG) && p.protectedRangeId != null) {
+        removals.push({
+          deleteProtectedRange: { protectedRangeId: p.protectedRangeId },
+        })
+      }
+    }
+  }
+
+  // Build add requests
+  const saEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? ''
+  const additions: sheets_v4.Schema$Request[] = []
+  for (const rule of rules) {
+    const sheetId = sheetIdByTitle.get(rule.tab)
+    if (sheetId == null) continue // tab missing — skip silently; ensureTabs handles repair
+
+    const range: sheets_v4.Schema$GridRange =
+      rule.range === 'whole-sheet'
+        ? { sheetId }
+        : {
+            sheetId,
+            ...(rule.range.startRow != null ? { startRowIndex: rule.range.startRow } : {}),
+            ...(rule.range.endRow != null ? { endRowIndex: rule.range.endRow } : {}),
+            ...(rule.range.startCol != null ? { startColumnIndex: rule.range.startCol } : {}),
+            ...(rule.range.endCol != null ? { endColumnIndex: rule.range.endCol } : {}),
+          }
+
+    // For hard locks the SA must be in editors so our own writes still work.
+    // For warning-only, editors is unused (anyone with edit can override).
+    const editors = rule.warningOnly
+      ? undefined
+      : { users: saEmail ? [saEmail] : [] }
+
+    additions.push({
+      addProtectedRange: {
+        protectedRange: {
+          range,
+          description: rule.description,
+          warningOnly: rule.warningOnly,
+          ...(editors ? { editors } : {}),
+        },
+      },
+    })
+  }
+
+  const requests = [...removals, ...additions]
+  if (requests.length === 0) return
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  })
+}
+
+/** Read row 1 of a tab. Returns the cell values as strings. */
+export async function readHeaderRow(
+  spreadsheetId: string,
+  tab: string,
+  expectedColumnCount: number,
+): Promise<string[]> {
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const range = `${tab}!A1:${colLetter(expectedColumnCount)}1`
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const row = (res.data.values?.[0] ?? []) as string[]
+  return row
+}
