@@ -80,19 +80,20 @@ export default function AdminGather() {
     setError('')
     const has = target.apps.some(a => a.app_name === app)
     if (has) {
-      const { error } = await sb
-        .from('user_apps')
-        .delete()
-        .eq('user_id', target.user_id)
-        .eq('app_name', app)
+      const { error } = await sb.rpc('gather_revoke_app_access', {
+        p_user_id: target.user_id,
+        p_app_name: app,
+      })
       if (error) setError(error.message)
     } else {
-      const { error } = await sb
-        .from('user_apps')
-        .upsert(
-          { user_id: target.user_id, app_name: app, role: 'member', granted_by: session?.user?.id ?? null },
-          { onConflict: 'user_id,app_name' }
-        )
+      // RPC creates user_apps row + the per-app profile row so the user
+      // lands in a usable state inside the target app.
+      const { error } = await sb.rpc('gather_grant_app_access', {
+        p_user_id: target.user_id,
+        p_app_name: app,
+        p_role: 'member',
+        p_granted_by: session?.user?.id ?? null,
+      })
       if (error) setError(error.message)
     }
     setBusyId(null)

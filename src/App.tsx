@@ -1,8 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/auth'
+import { DemoModeProvider } from '@/lib/demoMode'
+import DemoModeBanner from '@/components/DemoModeBanner'
 import Landing from '@/pages/Landing'
 import AdminLogin from '@/pages/AdminLogin'
 import Signup from '@/pages/Signup'
+import ForgotPassword from '@/pages/ForgotPassword'
+import ResetPassword from '@/pages/ResetPassword'
 import AdminCallback from '@/pages/AdminCallback'
 import AdminLayout from '@/pages/AdminLayout'
 import AdminDashboard from '@/pages/AdminDashboard'
@@ -21,10 +25,14 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <DemoModeProvider>
+        <DemoModeBanner />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin/callback" element={<AdminCallback />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
@@ -40,6 +48,7 @@ export default function App() {
           <Route path="/me" element={<MemberDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </DemoModeProvider>
       </AuthProvider>
     </BrowserRouter>
   )
