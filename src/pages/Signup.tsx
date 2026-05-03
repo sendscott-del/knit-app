@@ -1,7 +1,45 @@
-import { Link } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Link, Navigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
 import KnitMark from '@/components/KnitMark'
 
+type Status =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'sent' }
+  | { kind: 'error'; message: string }
+
 export default function Signup() {
+  const { session, loading } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [status, setStatus] = useState<Status>({ kind: 'idle' })
+
+  if (loading) return <CenteredNote>Loading…</CenteredNote>
+  if (session) return <Navigate to="/admin" replace />
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (password !== confirm) {
+      setStatus({ kind: 'error', message: 'Passwords do not match.' })
+      return
+    }
+    if (password.length < 6) {
+      setStatus({ kind: 'error', message: 'Password must be at least 6 characters.' })
+      return
+    }
+    setStatus({ kind: 'sending' })
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/admin/callback` },
+    })
+    if (error) setStatus({ kind: 'error', message: error.message })
+    else setStatus({ kind: 'sent' })
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
       <div className="bg-brand-primary text-white">
@@ -10,56 +48,99 @@ export default function Signup() {
             <KnitMark size={56} />
             <span className="text-2xl font-semibold tracking-tight">Knit</span>
           </Link>
-          <p className="text-base text-brand-primary-fade mt-4">Get access</p>
+          <p className="text-base text-brand-primary-fade mt-4">Create your leader account</p>
         </div>
       </div>
 
       <div className="max-w-md mx-auto px-6 -mt-12 pb-12 w-full">
         <div className="suite-card p-6 sm:p-8 space-y-6">
-          <p className="text-base text-gray-700">
-            Knit uses an email magic-link sign-in &mdash; no password to create. How you get access
-            depends on your role:
-          </p>
+          {status.kind === 'sent' ? (
+            <div className="rounded-md border border-success/30 bg-success/5 p-5 space-y-3">
+              <h2 className="text-lg font-semibold text-gray-900">Check your email</h2>
+              <p className="text-base text-gray-700">
+                We sent a confirmation link to <strong>{email}</strong>. Tap it from the same browser
+                you opened this page in.
+              </p>
+              <p className="text-sm text-gray-600">
+                After you confirm, ask your stake&rsquo;s missionary high councilor to add you as a
+                Ward Mission Leader (or Stake President to add another stake leader). You&rsquo;ll
+                see Knit data once they&rsquo;ve granted you a role.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="space-y-4">
+              <p className="text-sm text-gray-700">
+                Knit accepts both email magic-link and email + password sign-in. Pick a password
+                here if you&rsquo;d rather not wait for an email link each time.
+              </p>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Email</span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="form-input"
+                  placeholder="you@example.com"
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Password</span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="form-input"
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-gray-700">Confirm password</span>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  className="form-input"
+                />
+              </label>
+              <button type="submit" disabled={status.kind === 'sending'} className="btn-primary w-full">
+                {status.kind === 'sending' ? 'Creating…' : 'Create account'}
+              </button>
+              {status.kind === 'error' ? (
+                <p className="text-sm text-error">{status.message}</p>
+              ) : null}
+              <p className="text-center text-sm text-gray-500">
+                Already have an account?{' '}
+                <Link to="/admin/login" className="text-knit-primary font-semibold underline">
+                  Sign in
+                </Link>
+              </p>
+            </form>
+          )}
 
-          <ol className="space-y-5 text-sm text-gray-700">
-            <li>
-              <p className="font-semibold text-gray-900">Stake President / Stake High Councilor (Missionary)</p>
-              <p>
-                You&rsquo;re seeded as an admin directly in the database. Tap{' '}
-                <Link to="/admin/login" className="text-knit-primary underline font-semibold">Sign in</Link>,
-                enter your email, then click the link we email you.
-              </p>
-            </li>
-            <li>
-              <p className="font-semibold text-gray-900">Ward Mission Leader</p>
-              <p>
-                Your stake&rsquo;s missionary high councilor invites you. Once they add your email,
-                use the same{' '}
-                <Link to="/admin/login" className="text-knit-primary underline font-semibold">Sign in</Link>
-                {' '}page &mdash; no separate signup.
-              </p>
-            </li>
-            <li>
-              <p className="font-semibold text-gray-900">Member</p>
-              <p>
-                You don&rsquo;t sign in to Knit at all. The ward mission leader sends you a personal
-                link by SMS &mdash; that link is your access. Tap it and you&rsquo;ll land on your{' '}
-                <Link to="/me" className="text-knit-primary underline font-semibold">Me</Link>
-                {' '}page where you can edit your availability, interests, and willingness.
-              </p>
-            </li>
-          </ol>
-
-          <div className="border-t border-gray-200 pt-4 space-y-3">
-            <Link to="/admin/login" className="block w-full text-center py-2.5 bg-brand-primary text-white rounded-md text-sm font-semibold hover:opacity-90">
-              Continue to sign in
-            </Link>
+          <div className="border-t border-gray-200 pt-4">
             <p className="text-xs text-gray-500 text-center">
-              Magic-link auth means no &ldquo;forgot password&rdquo; flow &mdash; if you can&rsquo;t get in, just request a fresh link.
+              Members &mdash; don&rsquo;t sign up here. The Ward Mission Leader will text you a
+              personal link to your <Link to="/me" className="text-knit-primary underline font-semibold">/me</Link>
+              {' '}page.
             </p>
           </div>
         </div>
       </div>
+    </main>
+  )
+}
+
+function CenteredNote({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-500">
+      {children}
     </main>
   )
 }

@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import KnitMark from '@/components/KnitMark'
+
+type Mode = 'link' | 'password'
 
 type Status =
   | { kind: 'idle' }
@@ -12,7 +14,10 @@ type Status =
 
 export default function AdminLogin() {
   const { session, loading } = useAuth()
+  const navigate = useNavigate()
+  const [mode, setMode] = useState<Mode>('link')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
 
   if (loading) return <CenteredNote>Loading…</CenteredNote>
@@ -22,16 +27,17 @@ export default function AdminLogin() {
     e.preventDefault()
     if (!email) return
     setStatus({ kind: 'sending' })
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/admin/callback`,
-      },
-    })
-    if (error) {
-      setStatus({ kind: 'error', message: error.message })
+    if (mode === 'link') {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/admin/callback` },
+      })
+      if (error) setStatus({ kind: 'error', message: error.message })
+      else setStatus({ kind: 'sent' })
     } else {
-      setStatus({ kind: 'sent' })
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setStatus({ kind: 'error', message: error.message })
+      else navigate('/admin', { replace: true })
     }
   }
 
@@ -50,6 +56,23 @@ export default function AdminLogin() {
 
       <div className="max-w-md mx-auto px-6 -mt-12 pb-12 w-full">
         <div className="suite-card p-6 sm:p-8 space-y-5">
+          <div className="inline-flex rounded-md bg-gray-100 p-0.5 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => { setMode('link'); setStatus({ kind: 'idle' }) }}
+              className={`px-3 py-1 rounded ${mode === 'link' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
+            >
+              Email link
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('password'); setStatus({ kind: 'idle' }) }}
+              className={`px-3 py-1 rounded ${mode === 'password' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
+            >
+              Password
+            </button>
+          </div>
+
           {status.kind === 'sent' ? (
             <div className="rounded-md border border-success/30 bg-success/5 p-5 space-y-2">
               <h2 className="text-lg font-semibold text-gray-900">Check your email</h2>
@@ -72,9 +95,34 @@ export default function AdminLogin() {
                   placeholder="you@example.com"
                 />
               </label>
+              {mode === 'password' && (
+                <label className="block space-y-2">
+                  <span className="text-sm font-semibold text-gray-700">Password</span>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="form-input"
+                  />
+                </label>
+              )}
               <button type="submit" disabled={status.kind === 'sending'} className="btn-primary w-full">
-                {status.kind === 'sending' ? 'Sending…' : 'Email me a sign-in link'}
+                {status.kind === 'sending'
+                  ? 'Working…'
+                  : mode === 'link'
+                    ? 'Email me a sign-in link'
+                    : 'Sign in'}
               </button>
+              {mode === 'password' && (
+                <p className="text-center text-sm">
+                  <Link to="/forgot-password" className="text-knit-primary font-semibold underline">
+                    Forgot your password?
+                  </Link>
+                </p>
+              )}
               {status.kind === 'error' ? (
                 <p className="text-sm text-error">{status.message}</p>
               ) : null}

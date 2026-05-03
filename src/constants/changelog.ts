@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.0',
+    date: '2026-05-03',
+    summary: 'Email + password auth alongside the existing magic-link flow.',
+    details: [
+      '/admin/login now has a tab toggle between Email link (existing) and Password (new). Pick whichever you prefer.',
+      '/signup is now a real form — email + password + confirm. After confirming the email link, ask your stake to add you as a Ward Mission Leader or Stake admin.',
+      'New /forgot-password and /reset-password pages. The password tab on /admin/login links to /forgot-password.',
+      'Cross-app grant via RPC: /admin/gather chip toggles now call gather_grant_app_access / gather_revoke_app_access. Granting Knit creates the knit_admin_users row with a sane role default; the user lands in /admin without a "not yet provisioned" gate.',
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-05-03',
     summary: 'Demo role-switcher banner across the admin UI.',
