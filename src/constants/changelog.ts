@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.0',
+    date: '2026-05-04',
+    summary: 'Per-app brand stripe — Knit rose now follows from the switcher chip into the chrome.',
+    details: [
+      '3px knit-primary rose strip between the Gathered jump bar and the navy admin header.',
+      'Picks up the same rose used in the Gathered switcher\'s "K" chip — brand identity now extends into the app instead of stopping at the chip.',
+    ],
+  },
+  {
     version: '0.20.4',
     date: '2026-05-04',
     summary: 'Gathered switcher: use canonical short URLs for Magnify and Tidings.',
