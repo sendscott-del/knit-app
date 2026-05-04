@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.1',
+    date: '2026-05-03',
+    summary: 'Gathered switcher: same-tab navigation instead of new tab.',
+    details: [
+      'Tapping another app in the Gathered dropdown now navigates the current tab instead of opening a new browser tab. Previously each switch left a tab behind.',
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-05-03',
     summary: 'Email + password auth alongside the existing magic-link flow.',
