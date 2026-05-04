@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.4',
+    date: '2026-05-04',
+    summary: 'Gathered switcher: use canonical short URLs for Magnify and Tidings.',
+    details: [
+      'magnify-sendscott-dels-projects.vercel.app → magnify-eta.vercel.app',
+      'tidings-sendscott-dels-projects.vercel.app → tidings.vercel.app',
+    ],
+  },
+  {
     version: '0.20.3',
     date: '2026-05-04',
     summary: 'Gather admin: Tidings CRUD UI + new gatherTidingsClient wrappers.',
