@@ -53,6 +53,9 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <AppSwitcher />
+      {/* Per-app brand stripe — same rose the Gathered "K" chip uses,
+          so Knit's identity carries through into the admin chrome. */}
+      <div className="h-[3px] w-full bg-knit-primary" aria-hidden="true" />
       {/* Suite chrome — navy header with brand mark, mirrors Magnify/Steward/Tidings/Glean */}
       <header className="bg-brand-primary text-white shadow-md sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
