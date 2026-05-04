@@ -106,8 +106,6 @@ export default function AppSwitcher() {
             <a
               key={app.name}
               href={app.url}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => setExpanded(false)}
               className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
             >
