@@ -36,8 +36,8 @@ export default function ResetPassword() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col">
       <div className="bg-brand-primary text-white">
-        <div className="max-w-md mx-auto px-6 pt-16 pb-20 text-center">
-          <KnitMark size={56} />
+        <div className="max-w-md mx-auto px-6 pt-14 pb-24 text-center">
+          <KnitMark size={44} />
           <p className="text-2xl font-semibold tracking-tight mt-3">Knit</p>
           <p className="text-base text-brand-primary-fade mt-4">Choose a new password</p>
         </div>

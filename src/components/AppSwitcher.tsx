@@ -79,7 +79,7 @@ export default function AppSwitcher() {
         type="button"
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-1.5"
-        style={{ backgroundColor: '#1e1b4b' }}
+        style={{ backgroundColor: 'var(--color-switcher-chrome)' }}
         aria-haspopup="menu"
         aria-expanded={expanded}
       >

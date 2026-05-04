@@ -26,7 +26,7 @@ body {
   .form-input {
     @apply w-full rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-base text-gray-900 bg-white
            focus:border-knit-primary focus:outline-none focus:ring-2 focus:ring-knit-primary/15
-           placeholder:text-gray-400;
+           placeholder:text-gray-400 min-h-[44px];
   }
   .form-input:disabled {
     @apply opacity-50 cursor-not-allowed bg-gray-50;
@@ -37,7 +37,7 @@ body {
     @apply inline-flex items-center justify-center rounded-md bg-knit-primary px-5 py-2.5
            text-base font-semibold text-white shadow-sm
            hover:bg-knit-primary-dark active:opacity-80 transition
-           disabled:opacity-50 disabled:pointer-events-none;
+           disabled:opacity-50 disabled:pointer-events-none min-h-[44px];
   }
 
   /* Outline / secondary: 1.5px brand-primary border, brand-primary text */
