@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.2',
+    date: '2026-05-04',
+    summary: 'Visual consistency (Wave 6): hero band padding, logo size, min-height, AppSwitcher token.',
+    details: [
+      'Hero bands on all auth pages (AdminLogin, Signup, ForgotPassword, ResetPassword) standardized to pt-14 pb-24.',
+      'Logo size standardized to 44px across all auth headers (was 56px).',
+      'form-input and btn-primary utility classes gain min-h-[44px] for 44×44 minimum tap targets.',
+      'AppSwitcher chrome color moved to --color-switcher-chrome CSS token (was hardcoded #1e1b4b).',
+    ],
+  },
+  {
     version: '0.20.1',
     date: '2026-05-03',
     summary: 'Gathered switcher: same-tab navigation instead of new tab.',

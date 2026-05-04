@@ -44,6 +44,9 @@
   --color-knit-primary-fade:    #FFF1F2;   /* rose-50 — soft tint backgrounds */
   --color-knit-chrome:          #1B3A6B;   /* navy — header / nav (suite default) */
 
+  /* ---- Gathered AppSwitcher chrome ---- */
+  --color-switcher-chrome:      #1e1b4b;
+
   /* ---- Neutrals ---- */
   --color-gray-50:  #F9FAFB;
   --color-gray-100: #F3F4F6;

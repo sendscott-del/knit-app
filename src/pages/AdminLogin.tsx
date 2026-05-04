@@ -45,9 +45,9 @@ export default function AdminLogin() {
     <main className="min-h-screen bg-gray-50 flex flex-col">
       {/* Suite auth-screen pattern: navy hero up top, white card below */}
       <div className="bg-brand-primary text-white">
-        <div className="max-w-md mx-auto px-6 pt-16 pb-20 text-center">
+        <div className="max-w-md mx-auto px-6 pt-14 pb-24 text-center">
           <Link to="/" className="inline-flex flex-col items-center gap-3">
-            <KnitMark size={56} />
+            <KnitMark size={44} />
             <span className="text-2xl font-semibold tracking-tight">Knit</span>
           </Link>
           <p className="text-base text-brand-primary-fade mt-4">Leader sign in</p>
