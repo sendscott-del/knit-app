@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
+import { fetchTidingsUsers, grantTidingsUser, updateTidingsUser, revokeTidingsUser, type TidingsUser } from '@/lib/gatherTidingsClient'
 
 // The shared Gather tables (user_apps, gather_super_admins, gather_app_users)
 // live in the Scott's Apps Supabase project but are not part of Knit's
@@ -47,6 +48,11 @@ export default function AdminGather() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('')
+  const [tidingsUsers, setTidingsUsers] = useState<TidingsUser[] | null>(null)
+  const [tidingsLoading, setTidingsLoading] = useState(false)
+  const [tidingsModal, setTidingsModal] = useState(false)
+  const [tidingsForm, setTidingsForm] = useState({ email: '', fullName: '', role: 'viewer', ward: '' })
+  const [tidingsBusy, setTidingsBusy] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -57,6 +63,13 @@ export default function AdminGather() {
     if (error) setError(error.message)
     else setUsers((data as unknown as GatherAppUser[]) ?? [])
     setLoading(false)
+  }, [])
+
+  const refreshTidings = useCallback(async () => {
+    setTidingsLoading(true)
+    const rows = await fetchTidingsUsers()
+    setTidingsUsers(rows)
+    setTidingsLoading(false)
   }, [])
 
   useEffect(() => {
@@ -74,6 +87,11 @@ export default function AdminGather() {
   useEffect(() => {
     if (isSuperAdmin) void refresh()
   }, [isSuperAdmin, refresh])
+
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    void refreshTidings()
+  }, [isSuperAdmin, refreshTidings])
 
   async function toggleApp(target: GatherAppUser, app: AppName) {
     setBusyId(target.user_id)
@@ -114,6 +132,44 @@ export default function AdminGather() {
     }
     setBusyId(null)
     void refresh()
+  }
+
+  async function handleTidingsAdd(e: React.FormEvent) {
+    e.preventDefault()
+    setTidingsBusy('adding')
+    await grantTidingsUser(
+      tidingsForm.email,
+      tidingsForm.fullName || null,
+      tidingsForm.role,
+      tidingsForm.ward || null,
+    )
+    setTidingsBusy(null)
+    setTidingsModal(false)
+    setTidingsForm({ email: '', fullName: '', role: 'viewer', ward: '' })
+    void refreshTidings()
+  }
+
+  async function handleTidingsRoleChange(id: string, role: string) {
+    setTidingsBusy(id)
+    await updateTidingsUser(id, role, null)
+    setTidingsBusy(null)
+    void refreshTidings()
+  }
+
+  async function handleTidingsWardBlur(id: string, ward: string, currentWard: string | null) {
+    if (ward === (currentWard ?? '')) return
+    setTidingsBusy(id)
+    await updateTidingsUser(id, null, ward || null)
+    setTidingsBusy(null)
+    void refreshTidings()
+  }
+
+  async function handleTidingsRevoke(id: string, email: string) {
+    if (!window.confirm(`Remove ${email} from Tidings?`)) return
+    setTidingsBusy(id)
+    await revokeTidingsUser(id)
+    setTidingsBusy(null)
+    void refreshTidings()
   }
 
   const filtered = useMemo(() => {
@@ -265,6 +321,163 @@ export default function AdminGather() {
         Super admins (Stake President, Stake Clerk) can see every user and grant or revoke
         access to any app. Their own super-admin status only changes via this screen.
       </p>
+
+      {/* Tidings users (separate Supabase project) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <span style={{ display: 'inline-flex', width: 18, height: 18, borderRadius: 5, backgroundColor: '#F59E0B', color: 'white', fontWeight: 800, fontSize: 10, alignItems: 'center', justifyContent: 'center' }} aria-hidden="true">T</span>
+              Tidings users
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Managed in the Tidings Supabase project.</p>
+          </div>
+          {tidingsUsers !== null && (
+            <button
+              onClick={() => setTidingsModal(true)}
+              className="text-sm font-medium text-amber-600 hover:underline"
+            >
+              + Add Tidings user
+            </button>
+          )}
+        </div>
+        {tidingsLoading ? (
+          <p className="px-4 py-6 text-center text-gray-400 text-sm">Loading…</p>
+        ) : tidingsUsers === null ? (
+          <p className="px-4 py-6 text-center text-gray-400 text-sm">
+            Tidings cross-project access not configured. Set
+            {' '}<code className="text-xs">VITE_GATHER_TIDINGS_SUPABASE_ANON_KEY</code> in Vercel to enable.
+          </p>
+        ) : tidingsUsers.length === 0 ? (
+          <p className="px-4 py-6 text-center text-gray-400 text-sm">
+            No Tidings users.{' '}
+            <button onClick={() => setTidingsModal(true)} className="text-amber-600 hover:underline">Add one?</button>
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold">Email</th>
+                <th className="text-left px-4 py-2 font-semibold">Name</th>
+                <th className="text-left px-4 py-2 font-semibold">Role</th>
+                <th className="text-left px-4 py-2 font-semibold">Ward</th>
+                <th className="px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {tidingsUsers.map((u) => (
+                <tr key={u.id} className="border-t border-gray-100">
+                  <td className="px-4 py-2 text-gray-900 truncate max-w-[180px]">{u.email}</td>
+                  <td className="px-4 py-2 text-gray-700">{u.full_name ?? '—'}</td>
+                  <td className="px-4 py-2">
+                    <select
+                      value={u.role ?? 'viewer'}
+                      onChange={e => void handleTidingsRoleChange(u.id, e.target.value)}
+                      disabled={tidingsBusy === u.id}
+                      className="text-xs px-2 py-1 border border-gray-300 rounded-md bg-white disabled:opacity-40"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="sender">Sender</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-2">
+                    <input
+                      key={u.id + ':' + (u.ward ?? '')}
+                      type="text"
+                      defaultValue={u.ward ?? ''}
+                      onBlur={e => void handleTidingsWardBlur(u.id, e.target.value, u.ward)}
+                      disabled={tidingsBusy === u.id}
+                      placeholder="—"
+                      className="text-xs px-2 py-1 border border-gray-300 rounded-md w-28 disabled:opacity-40"
+                    />
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <button
+                      onClick={() => void handleTidingsRevoke(u.id, u.email)}
+                      disabled={tidingsBusy === u.id}
+                      className="text-gray-400 hover:text-red-500 disabled:opacity-30 transition-colors"
+                      title="Remove user"
+                      aria-label={`Remove ${u.email}`}
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {tidingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setTidingsModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">Add Tidings user</h3>
+            <form onSubmit={e => void handleTidingsAdd(e)} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={tidingsForm.email}
+                  onChange={e => setTidingsForm(f => ({ ...f, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  placeholder="member@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Full name</label>
+                <input
+                  type="text"
+                  value={tidingsForm.fullName}
+                  onChange={e => setTidingsForm(f => ({ ...f, fullName: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  placeholder="Jane Smith"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={tidingsForm.role}
+                  onChange={e => setTidingsForm(f => ({ ...f, role: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="sender">Sender</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Ward</label>
+                <input
+                  type="text"
+                  value={tidingsForm.ward}
+                  onChange={e => setTidingsForm(f => ({ ...f, ward: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  placeholder="Hyde Park Ward"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={tidingsBusy === 'adding'}
+                  className="flex-1 py-2 bg-amber-500 text-white rounded-md text-sm font-medium hover:bg-amber-600 disabled:opacity-50"
+                >
+                  {tidingsBusy === 'adding' ? 'Adding…' : 'Add user'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTidingsModal(false)}
+                  className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

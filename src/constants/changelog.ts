@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.3',
+    date: '2026-05-04',
+    summary: 'Gather admin: Tidings CRUD UI + new gatherTidingsClient wrappers.',
+    details: [
+      'New src/lib/gatherTidingsClient.ts with fetchTidingsUsers, grantTidingsUser, updateTidingsUser, revokeTidingsUser wrappers.',
+      'AdminGather now shows a Tidings users card with full CRUD: add via modal (email, name, role, ward), edit role via inline select, edit ward via inline text (saves on blur), remove with confirm dialog.',
+      'List refreshes after every mutation.',
+    ],
+  },
+  {
     version: '0.20.2',
     date: '2026-05-04',
     summary: 'Visual consistency (Wave 6): hero band padding, logo size, min-height, AppSwitcher token.',
