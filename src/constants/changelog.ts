@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.0',
+    date: '2026-05-04',
+    summary: 'Home-screen icon: PNG icons + manifest so iOS/Android show the rings + heart instead of "K".',
+    details: [
+      'Generated apple-touch-icon.png (180px), icon-192.png, icon-512.png, and a favicon.png from the new heart-mark SVG. The previous build only had favicon.svg, which iOS Safari does not honor for "Add to Home Screen" — it would auto-pick a screenshot or fall back to the page-title letter ("K"). Now the home-screen and PWA install icon shows the actual brand mark.',
+      'Added manifest.json with app metadata (name, theme color, two PNG icon sizes for Android PWA install).',
+      'index.html links: apple-touch-icon, manifest, mobile-web-app meta tags.',
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-05-04',
     summary: 'Brand mark: gold heart at the ring join (matches suite gold accent weight).',
