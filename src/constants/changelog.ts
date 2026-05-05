@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.0',
+    date: '2026-05-04',
+    summary: 'Home-screen icon now shows the rings + heart instead of "K".',
+    details: [
+      'Added apple-touch-icon.png (180px), icon-192.png, icon-512.png, favicon.png, and a manifest.json so iOS/Android use the actual brand mark when adding Knit to the home screen. Previously only favicon.svg shipped, which iOS does not honor for Add-to-Home-Screen — it would auto-pick a screenshot or fall back to the page-title letter ("K").',
+      'Fixed the SPA rewrite in vercel.json so static assets actually serve. The previous regex /((?!api/).*) caught every path that wasn\'t /api/* — including /apple-touch-icon.png and /manifest.json — and routed them to /index.html. iOS would request the icon, get HTML back, and fall back to "K". Updated to /((?!api/|.*\\.).*) so anything with a file extension serves as a file while SPA routes still fall through.',
+      'index.html: linked apple-touch-icon, manifest, and apple-mobile-web-app meta tags.',
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-05-04',
     summary: 'Brand mark: gold heart at the ring join (matches suite gold accent weight).',
