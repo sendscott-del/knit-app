@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.1',
+    date: '2026-05-04',
+    summary: 'Fix Tidings URL in Gathered switcher.',
+    details: [
+      'tidings.vercel.app → glad-tidings.vercel.app (the previous URL pointed at someone else\'s project).',
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-05-04',
     summary: 'Per-app brand stripe — Knit rose now follows from the switcher chip into the chrome.',
