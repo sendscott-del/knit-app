@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.0',
+    date: '2026-05-04',
+    summary: 'Brand mark: gold heart at the ring join (matches suite gold accent weight).',
+    details: [
+      'KnitMark now has a clearly visible gold heart at the intersection of the two interlocking rings, replacing a tiny 2.5px dot that read as just-a-decoration. The heart ties to Mosiah 18:21 — "their hearts were knit together in unity and in love" — the verse the app is named for.',
+      'Visual weight now matches the gold accent on Magnify (lens), Steward (check), Glean (wheat), and Tidings (signal sweep), so Knit reads as a real member of the suite instead of a stand-out plain-letter chip.',
+      'favicon.svg updated to match.',
+    ],
+  },
+  {
     version: '0.21.1',
     date: '2026-05-04',
     summary: 'Fix Tidings URL in Gathered switcher.',
