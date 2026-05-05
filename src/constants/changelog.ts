@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.1',
+    date: '2026-05-04',
+    summary: 'Fix: home-screen icon was being eaten by SPA rewrite.',
+    details: [
+      'vercel.json rewrite was too greedy — it caught every path except /api/* and routed it to index.html, including /apple-touch-icon.png. iOS would fetch the icon, get HTML back, fall back to the page-title letter ("K") for the home-screen tile. Updated the regex to also exclude paths containing a dot (file extensions), so static assets in public/ — apple-touch-icon, manifest.json, favicons, etc. — serve as files.',
+      'No code change to the icon itself; v0.23.0 already had the rings + gold heart PNGs ready in public/. They just weren\'t reachable.',
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-05-04',
     summary: 'Home-screen icon: PNG icons + manifest so iOS/Android show the rings + heart instead of "K".',
