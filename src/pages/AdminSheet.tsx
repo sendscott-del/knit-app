@@ -3,6 +3,7 @@ import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import { canEdit, isWardScoped } from '@/lib/roles'
 import type { Database } from '@/lib/database.types'
 
 type BindingRow = Database['public']['Tables']['knit_google_sheet_bindings']['Row']
@@ -28,8 +29,9 @@ export default function AdminSheet() {
   const [search, setSearch] = useSearchParams()
 
   const [wardId, setWardId] = useState<string>(
-    profile.role === 'ward_mission_leader' ? profile.ward_id ?? '' : '',
+    isWardScoped(profile.role) && !profile.is_super_admin ? profile.ward_id ?? '' : '',
   )
+  const editor = canEdit(profile)
   useEffect(() => {
     if (!wardId && wards.length === 1) setWardId(wards[0].id)
   }, [wards, wardId])
@@ -257,6 +259,13 @@ export default function AdminSheet() {
         </div>
       ) : null}
 
+      {!editor ? (
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          Your role has view-only access. Sheet creation and sync are managed by
+          ward leadership (Ward Mission Leader, Relief Society Presidency, or
+          Elders Quorum Presidency).
+        </div>
+      ) : null}
       {notice ? (
         <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-gray-900">
           {notice}
@@ -272,7 +281,8 @@ export default function AdminSheet() {
       <GoogleConnectionCard
         loading={loadingStatus}
         status={oauthStatus}
-        busy={busy}
+        busy={busy || !editor}
+        editor={editor}
         onConnect={() => void connect()}
         onDisconnect={() => void disconnect()}
       />
@@ -285,15 +295,15 @@ export default function AdminSheet() {
           binding={binding}
           onRefresh={() => void refresh()}
           onSyncNow={() => void syncNow()}
-          busy={busy}
+          busy={busy || !editor}
         />
       ) : (
         <CreateSheetCard
-          canCreate={oauthStatus?.connected ?? false}
+          canCreate={(oauthStatus?.connected ?? false) && editor}
           emailInput={emailInput}
           onEmailChange={setEmailInput}
           onSubmit={(e) => void createSheet(e)}
-          busy={busy}
+          busy={busy || !editor}
           disabled={!wardId}
           binding={binding}
         />
@@ -306,12 +316,14 @@ function GoogleConnectionCard({
   loading,
   status,
   busy,
+  editor,
   onConnect,
   onDisconnect,
 }: {
   loading: boolean
   status: OAuthStatus | null
   busy: boolean
+  editor: boolean
   onConnect: () => void
   onDisconnect: () => void
 }) {
@@ -339,7 +351,7 @@ function GoogleConnectionCard({
             </p>
           )}
         </div>
-        {!loading ? (
+        {!loading && editor ? (
           status?.connected ? (
             <button
               onClick={onDisconnect}

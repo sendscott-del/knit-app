@@ -15,6 +15,8 @@ import AdminFriends from '@/pages/AdminFriends'
 import AdminSuggest from '@/pages/AdminSuggest'
 import AdminOutings from '@/pages/AdminOutings'
 import AdminSheet from '@/pages/AdminSheet'
+import AdminSettings from '@/pages/AdminSettings'
+import AdminUsers from '@/pages/AdminUsers'
 import AdminDemo from '@/pages/AdminDemo'
 import AdminGather from '@/pages/AdminGather'
 import MemberMagicLink from '@/pages/MemberMagicLink'
@@ -41,6 +43,8 @@ export default function App() {
             <Route path="outings" element={<AdminOutings />} />
             <Route path="suggest" element={<AdminSuggest />} />
             <Route path="sheet" element={<AdminSheet />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="users" element={<AdminUsers />} />
             <Route path="demo" element={<AdminDemo />} />
             <Route path="gather" element={<AdminGather />} />
           </Route>

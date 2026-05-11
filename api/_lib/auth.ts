@@ -1,6 +1,7 @@
 import type { VercelRequest } from '@vercel/node'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import type { AdminRole, AdminRow } from './types.js'
+import { WARD_EDIT_ROLES } from './types.js'
 
 export type AuthenticatedAdmin = {
   userId: string
@@ -16,10 +17,6 @@ function getBearerToken(req: VercelRequest): string | null {
   return raw.slice(7).trim()
 }
 
-/**
- * Verifies the Supabase access token on the request and resolves the caller's
- * Knit admin row. Returns null if unauthenticated or not a Knit admin.
- */
 export async function requireAdmin(
   req: VercelRequest,
 ): Promise<AuthenticatedAdmin | null> {
@@ -40,11 +37,33 @@ export async function requireAdmin(
   return { userId: user.id, email: user.email ?? '', admin: admin as AdminRow }
 }
 
+/**
+ * True when this admin is allowed to write to records under the given ward.
+ * Super admins always pass. Ward-edit roles must match the ward.
+ * Stake-view roles (stake_presidency, high_councilor) never write — they're
+ * view-only by design.
+ */
 export async function adminCanActOnWard(
   admin: AdminRow,
   wardId: string,
 ): Promise<boolean> {
-  if (admin.role === 'ward_mission_leader') {
+  if (admin.is_super_admin) return true
+  if ((WARD_EDIT_ROLES as readonly AdminRole[]).includes(admin.role)) {
+    return admin.ward_id === wardId
+  }
+  return false
+}
+
+/**
+ * True when this admin can at least read records under the given ward.
+ * Super admins always pass. Stake-view roles see anything in their stake.
+ */
+export async function adminCanViewWard(
+  admin: AdminRow,
+  wardId: string,
+): Promise<boolean> {
+  if (admin.is_super_admin) return true
+  if ((WARD_EDIT_ROLES as readonly AdminRole[]).includes(admin.role)) {
     return admin.ward_id === wardId
   }
   const sb = supabaseAdmin()
@@ -58,5 +77,5 @@ export async function adminCanActOnWard(
 }
 
 export function roleIsWritable(role: AdminRole): boolean {
-  return role === 'ward_mission_leader' || role === 'stake_missionary_hc'
+  return (WARD_EDIT_ROLES as readonly AdminRole[]).includes(role)
 }

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import { canEdit, isWardScoped } from '@/lib/roles'
 import { TIME_SLOTS, type TimeSlot } from '@/lib/availability'
 import DemoBadge from '@/components/DemoBadge'
 import type { Database } from '@/lib/database.types'
@@ -43,6 +44,7 @@ const SLOT_HOURS: Record<TimeSlot, number> = { morning: 9, afternoon: 14, evenin
 export default function AdminOutings() {
   const { profile } = useOutletContext<Ctx>()
   const { wards, loading: wardsLoading } = useWardOptions(profile)
+  const editor = canEdit(profile)
   const [outings, setOutings] = useState<OutingWithRels[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -89,19 +91,25 @@ export default function AdminOutings() {
             Who went with whom, when, and what came of it.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="btn-primary text-sm py-2 px-4"
-        >
-          {showForm ? 'Cancel' : 'Log outing'}
-        </button>
+        {editor ? (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="btn-primary text-sm py-2 px-4"
+          >
+            {showForm ? 'Cancel' : 'Log outing'}
+          </button>
+        ) : null}
       </div>
 
-      {showForm ? (
+      {showForm && editor ? (
         <NewOutingForm
           wards={wards}
           wardsLoading={wardsLoading}
-          defaultWardId={profile.role === 'ward_mission_leader' ? profile.ward_id ?? '' : ''}
+          defaultWardId={
+            isWardScoped(profile.role) && !profile.is_super_admin
+              ? profile.ward_id ?? ''
+              : ''
+          }
           onCreated={async () => {
             setShowForm(false)
             await refresh()
@@ -152,12 +160,16 @@ export default function AdminOutings() {
                     {o.outcome_notes ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => void remove(o.id)}
-                      className="text-sm text-error hover:opacity-80"
-                    >
-                      Remove
-                    </button>
+                    {editor ? (
+                      <button
+                        onClick={() => void remove(o.id)}
+                        className="text-sm text-error hover:opacity-80"
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400">View-only</span>
+                    )}
                   </td>
                 </tr>
               ))}

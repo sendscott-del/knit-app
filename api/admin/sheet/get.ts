@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireAdmin, adminCanActOnWard } from '../../_lib/auth.js'
+import { requireAdmin, adminCanViewWard } from '../../_lib/auth.js'
 import { supabaseAdmin } from '../../_lib/supabaseAdmin.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const wardId = (req.query.wardId as string | undefined) ?? ''
   if (!wardId) return res.status(400).json({ error: 'Missing wardId' })
 
-  if (!(await adminCanActOnWard(auth.admin, wardId))) {
+  if (!(await adminCanViewWard(auth.admin, wardId))) {
     return res.status(403).json({ error: 'This ward is outside your scope' })
   }
 

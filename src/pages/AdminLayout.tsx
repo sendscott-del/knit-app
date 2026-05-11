@@ -1,6 +1,7 @@
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
+import { ROLE_LABELS, canManageStake, type AdminRole } from '@/lib/roles'
 import KnitMark from '@/components/KnitMark'
 import AppSwitcher from '@/components/AppSwitcher'
 
@@ -45,10 +46,14 @@ export default function AdminLayout() {
   if (admin.status !== 'ready') return null
 
   const { profile } = admin
-  const scopeLabel =
-    profile.role === 'ward_mission_leader'
-      ? profile.ward?.name ?? 'Your ward'
-      : profile.stake?.name ?? 'Your stake'
+  const wardScoped =
+    profile.role === 'ward_mission_leader' ||
+    profile.role === 'relief_society_presidency' ||
+    profile.role === 'elders_quorum_presidency'
+  const scopeLabel = wardScoped
+    ? profile.ward?.name ?? 'Your ward'
+    : profile.stake?.name ?? 'Your stake'
+  const showStakeAdminTabs = canManageStake(profile)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -71,6 +76,14 @@ export default function AdminLayout() {
             <span className="font-medium text-white">{scopeLabel}</span>
             <span className="opacity-50">·</span>
             <RoleLabel role={profile.role} />
+            {profile.is_super_admin ? (
+              <>
+                <span className="opacity-50">·</span>
+                <span className="rounded-full bg-knit-primary px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+                  Super
+                </span>
+              </>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-brand-primary-fade hidden md:inline">
@@ -96,6 +109,8 @@ export default function AdminLayout() {
             <TabLink to="/admin/outings">Outings</TabLink>
             <TabLink to="/admin/suggest">Suggest</TabLink>
             <TabLink to="/admin/sheet">Sheet</TabLink>
+            {showStakeAdminTabs ? <TabLink to="/admin/users">Users</TabLink> : null}
+            <TabLink to="/admin/settings">Settings</TabLink>
             <TabLink to="/admin/demo">Demo</TabLink>
             <TabLink to="/admin/gather">Gather</TabLink>
           </ul>
@@ -109,17 +124,8 @@ export default function AdminLayout() {
   )
 }
 
-function RoleLabel({
-  role,
-}: {
-  role: 'stake_president' | 'stake_missionary_hc' | 'ward_mission_leader'
-}) {
-  const labels = {
-    stake_president: 'Stake President',
-    stake_missionary_hc: 'Stake HC (Missionary)',
-    ward_mission_leader: 'Ward Mission Leader',
-  } as const
-  return <span>{labels[role]}</span>
+function RoleLabel({ role }: { role: AdminRole }) {
+  return <span>{ROLE_LABELS[role]}</span>
 }
 
 function TabLink({

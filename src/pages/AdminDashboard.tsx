@@ -1,11 +1,15 @@
 import { Link, useOutletContext } from 'react-router-dom'
 import type { AdminProfile } from '@/lib/useAdmin'
+import { ROLE_LABELS, isWardScoped, canManageStake, canEdit } from '@/lib/roles'
 
 type Ctx = { profile: AdminProfile }
 
 export default function AdminDashboard() {
   const { profile } = useOutletContext<Ctx>()
-  const isWardScope = profile.role === 'ward_mission_leader'
+  const wardScope = isWardScoped(profile.role) && !profile.is_super_admin
+  const scopeName = wardScope ? profile.ward?.name ?? '—' : profile.stake?.name ?? '—'
+  const editor = canEdit(profile)
+  const stakeAdmin = canManageStake(profile)
 
   return (
     <div className="space-y-8">
@@ -14,10 +18,15 @@ export default function AdminDashboard() {
           {greeting(profile.name ?? profile.email)}
         </h1>
         <p className="text-base text-gray-600 mt-1">
-          {isWardScope
-            ? `Ward Mission Leader · ${profile.ward?.name ?? '—'}`
-            : `${profile.role === 'stake_president' ? 'Stake President' : 'Stake Missionary HC'} · ${profile.stake?.name ?? '—'}`}
+          {ROLE_LABELS[profile.role]} · {scopeName}
+          {profile.is_super_admin ? ' · Super admin' : ''}
         </p>
+        {!editor ? (
+          <p className="text-sm text-gray-500 mt-2 italic">
+            You have read-only access to Knit. Names, availability, and outings are
+            visible, but only ward leaders can make changes.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -25,7 +34,7 @@ export default function AdminDashboard() {
           to="/admin/members"
           title="Members"
           body={
-            isWardScope
+            wardScope
               ? "Invite members, see who's active, review availability."
               : 'See member engagement across the stake.'
           }
@@ -50,12 +59,23 @@ export default function AdminDashboard() {
           title="Sheet"
           body="Provision and refresh the Google Sheet for the missionaries."
         />
-        <PlaceholderCard title="Settings" body="Interest tags, companionships, admins." />
+        <LinkCard
+          to="/admin/settings"
+          title="Settings"
+          body={
+            stakeAdmin
+              ? 'Stake info, wards, sheet bindings.'
+              : 'View ward + stake configuration.'
+          }
+        />
+        {stakeAdmin ? (
+          <LinkCard
+            to="/admin/users"
+            title="Users"
+            body="Add, edit, or remove Knit admins across the stake."
+          />
+        ) : null}
       </div>
-
-      <p className="text-xs text-gray-400">
-        Phase 1 shell — individual tabs come online as each Phase 1 milestone lands.
-      </p>
     </div>
   )
 }
@@ -80,15 +100,5 @@ function LinkCard({ to, title, body }: { to: string; title: string; body: string
         Open →
       </p>
     </Link>
-  )
-}
-
-function PlaceholderCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="suite-card p-5 space-y-2 opacity-70">
-      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
-      <p className="text-sm text-gray-600">{body}</p>
-      <p className="text-xs text-gray-400 pt-2">Coming later in Phase 1</p>
-    </div>
   )
 }

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import { canEdit, isWardScoped } from '@/lib/roles'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
 import DemoBadge from '@/components/DemoBadge'
 import { slotsToString, type Slot, type TimeSlot, type DayOfWeek } from '@/lib/availability'
@@ -21,6 +22,7 @@ type Ctx = { profile: AdminProfile }
 export default function AdminMembers() {
   const { profile } = useOutletContext<Ctx>()
   const { wards, loading: wardsLoading } = useWardOptions(profile)
+  const editor = canEdit(profile)
   const [members, setMembers] = useState<MemberWithExtras[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -90,19 +92,25 @@ export default function AdminMembers() {
             Ward members enrolled in fellowship matching.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="btn-primary text-sm py-2 px-4"
-        >
-          {showForm ? 'Cancel' : 'Add member'}
-        </button>
+        {editor ? (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="btn-primary text-sm py-2 px-4"
+          >
+            {showForm ? 'Cancel' : 'Add member'}
+          </button>
+        ) : null}
       </div>
 
-      {showForm ? (
+      {showForm && editor ? (
         <NewMemberForm
           wards={wards}
           wardsLoading={wardsLoading}
-          defaultWardId={profile.role === 'ward_mission_leader' ? profile.ward_id ?? '' : ''}
+          defaultWardId={
+            isWardScoped(profile.role) && !profile.is_super_admin
+              ? profile.ward_id ?? ''
+              : ''
+          }
           onCreated={async () => {
             setShowForm(false)
             await refresh()
@@ -158,23 +166,29 @@ export default function AdminMembers() {
                     <StatusBadge member={m} />
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
-                    <button
-                      onClick={() => void generateInvite(m)}
-                      disabled={generating === m.id}
-                      className="text-sm text-gray-700 hover:text-gray-900 mr-4 disabled:opacity-50"
-                    >
-                      {generating === m.id
-                        ? 'Generating…'
-                        : m.token_issued_at
-                          ? 'New link'
-                          : 'Invite link'}
-                    </button>
-                    <button
-                      onClick={() => void remove(m.id)}
-                      className="text-sm text-error hover:opacity-80"
-                    >
-                      Remove
-                    </button>
+                    {editor ? (
+                      <>
+                        <button
+                          onClick={() => void generateInvite(m)}
+                          disabled={generating === m.id}
+                          className="text-sm text-gray-700 hover:text-gray-900 mr-4 disabled:opacity-50"
+                        >
+                          {generating === m.id
+                            ? 'Generating…'
+                            : m.token_issued_at
+                              ? 'New link'
+                              : 'Invite link'}
+                        </button>
+                        <button
+                          onClick={() => void remove(m.id)}
+                          className="text-sm text-error hover:opacity-80"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-400">View-only</span>
+                    )}
                   </td>
                 </tr>
               ))}

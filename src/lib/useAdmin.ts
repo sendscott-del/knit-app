@@ -39,7 +39,7 @@ export function useAdmin(): AdminState {
       const { data, error } = await supabase
         .from('knit_admin_users')
         .select(
-          'id, email, name, role, stake_id, ward_id, created_at, stake:knit_stakes(*), ward:knit_wards(*)',
+          'id, email, name, role, stake_id, ward_id, is_super_admin, created_at, stake:knit_stakes(*), ward:knit_wards(*)',
         )
         .eq('id', user.id)
         .maybeSingle()

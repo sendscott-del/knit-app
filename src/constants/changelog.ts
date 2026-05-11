@@ -7,6 +7,22 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.24.0',
+    date: '2026-05-10',
+    summary: 'Real Chicago Illinois Stake roster, expanded role model, Settings + Users pages.',
+    details: [
+      'Seeded the Chicago Illinois Stake and its nine wards (Blue Island, Chicago 2nd, Hyde Park 1st/2nd/3rd, Midway, Moraine Valley, Westchester 1st/2nd) into knit_stakes/knit_wards. Each ward gets an empty Google Sheet binding so WMLs can configure their own.',
+      'Expanded the role model from 3 to 5 roles: stake_presidency and high_councilor (both view-only, stake-scoped); ward_mission_leader, relief_society_presidency, and elders_quorum_presidency (all edit, ward-scoped). Old roles stake_president and stake_missionary_hc were renamed in-place via ALTER TYPE; existing rows keep working.',
+      'Added is_super_admin flag on knit_admin_users. Super admins bypass scope checks and gain access to user management. Scott (sendscott@gmail.com) is promoted to Stake Presidency + super admin on the Chicago stake.',
+      'Rewrote every Knit RLS policy around two new SECURITY DEFINER helpers — knit_can_view_ward(uuid) and knit_can_edit_ward(uuid) — so the rules stay consistent across knit_members, knit_friends, knit_companionships, knit_outings, knit_google_sheet_bindings, knit_interest_tags, knit_wards, knit_stakes, and knit_admin_users.',
+      'New page /admin/settings: stake name, ward roster with rename / remove / per-ward sheet-binding status, plus your account card.',
+      'New page /admin/users: stake-wide list of Knit admins with role + ward, invite (creates auth user via /api/admin/users/invite), edit role / ward / name in-line, and remove. Super-admin checkbox visible only to other super admins.',
+      'Gated every edit affordance — Add member, Add friend, Log outing, Remove buttons, sheet creation/refresh/sync, Google connect/disconnect — behind canEdit(profile). View-only roles see a "View-only" badge instead.',
+      'AdminLayout: added Settings and Users tabs (Users only for stake_presidency / super admin), and surfaced a Super-admin chip next to the role label.',
+      'Updated demo-mode role switcher to use the new 5-role enum.',
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-05-04',
     summary: 'Home-screen icon now shows the rings + heart instead of "K".',

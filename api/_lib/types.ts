@@ -2,9 +2,22 @@
 // need to reach into src/, which Vercel may not include in the function bundle.
 
 export type AdminRole =
-  | 'stake_president'
-  | 'stake_missionary_hc'
+  | 'stake_presidency'
+  | 'high_councilor'
   | 'ward_mission_leader'
+  | 'relief_society_presidency'
+  | 'elders_quorum_presidency'
+
+export const WARD_EDIT_ROLES = [
+  'ward_mission_leader',
+  'relief_society_presidency',
+  'elders_quorum_presidency',
+] as const satisfies readonly AdminRole[]
+
+export const STAKE_VIEW_ROLES = [
+  'stake_presidency',
+  'high_councilor',
+] as const satisfies readonly AdminRole[]
 
 export type AdminRow = {
   id: string
@@ -13,6 +26,7 @@ export type AdminRow = {
   role: AdminRole
   stake_id: string | null
   ward_id: string | null
+  is_super_admin: boolean
   created_at: string
 }
 

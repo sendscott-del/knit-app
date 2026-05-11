@@ -1,15 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 
 export type KnitDemoRole =
-  | 'stake_president'
-  | 'stake_missionary_hc'
+  | 'stake_presidency'
+  | 'high_councilor'
   | 'ward_mission_leader'
+  | 'relief_society_presidency'
+  | 'elders_quorum_presidency'
   | 'member'
 
 export const KNIT_DEMO_ROLE_LABELS: Record<KnitDemoRole, string> = {
-  stake_president: 'Stake President',
-  stake_missionary_hc: 'Stake HC (Missionary)',
+  stake_presidency: 'Stake Presidency',
+  high_councilor: 'High Councilor',
   ward_mission_leader: 'Ward Mission Leader',
+  relief_society_presidency: 'Relief Society Presidency',
+  elders_quorum_presidency: 'Elders Quorum Presidency',
   member: 'Member',
 }
 
@@ -28,7 +32,7 @@ const KEY_ROLE = 'knit.demoRole'
 
 export function DemoModeProvider({ children }: { children: ReactNode }) {
   const [demoBannerOn, setBanner] = useState(false)
-  const [demoRole, setRole] = useState<KnitDemoRole>('stake_missionary_hc')
+  const [demoRole, setRole] = useState<KnitDemoRole>('stake_presidency')
 
   useEffect(() => {
     if (typeof window === 'undefined') return

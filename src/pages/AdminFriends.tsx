@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import { canEdit, isWardScoped } from '@/lib/roles'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
 import InterestChipPicker from '@/components/InterestChipPicker'
 import DemoBadge from '@/components/DemoBadge'
@@ -26,6 +27,7 @@ const STATUS_LABELS: Record<TeachingStatus, string> = {
 export default function AdminFriends() {
   const { profile } = useOutletContext<Ctx>()
   const { wards, loading: wardsLoading } = useWardOptions(profile)
+  const editor = canEdit(profile)
   const [friends, setFriends] = useState<FriendWithWard[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,19 +68,25 @@ export default function AdminFriends() {
             People the missionaries are currently teaching.
           </p>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="btn-primary text-sm py-2 px-4"
-        >
-          {showForm ? 'Cancel' : 'Add friend'}
-        </button>
+        {editor ? (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="btn-primary text-sm py-2 px-4"
+          >
+            {showForm ? 'Cancel' : 'Add friend'}
+          </button>
+        ) : null}
       </div>
 
-      {showForm ? (
+      {showForm && editor ? (
         <NewFriendForm
           wards={wards}
           wardsLoading={wardsLoading}
-          defaultWardId={profile.role === 'ward_mission_leader' ? profile.ward_id ?? '' : ''}
+          defaultWardId={
+            isWardScoped(profile.role) && !profile.is_super_admin
+              ? profile.ward_id ?? ''
+              : ''
+          }
           onCreated={async () => {
             setShowForm(false)
             await refresh()
@@ -126,12 +134,16 @@ export default function AdminFriends() {
                   <td className="px-4 py-3 text-gray-600">{f.typical_availability ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{f.ward?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => void remove(f.id)}
-                      className="text-sm text-error hover:opacity-80"
-                    >
-                      Remove
-                    </button>
+                    {editor ? (
+                      <button
+                        onClick={() => void remove(f.id)}
+                        className="text-sm text-error hover:opacity-80"
+                      >
+                        Remove
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400">View-only</span>
+                    )}
                   </td>
                 </tr>
               ))}

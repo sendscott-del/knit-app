@@ -1862,6 +1862,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_super_admin: boolean
           name: string | null
           role: Database["public"]["Enums"]["knit_admin_role"]
           stake_id: string | null
@@ -1871,6 +1872,7 @@ export type Database = {
           created_at?: string
           email: string
           id: string
+          is_super_admin?: boolean
           name?: string | null
           role: Database["public"]["Enums"]["knit_admin_role"]
           stake_id?: string | null
@@ -1880,6 +1882,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_super_admin?: boolean
           name?: string | null
           role?: Database["public"]["Enums"]["knit_admin_role"]
           stake_id?: string | null
@@ -4119,9 +4122,11 @@ export type Database = {
     }
     Enums: {
       knit_admin_role:
-        | "stake_president"
-        | "stake_missionary_hc"
+        | "stake_presidency"
+        | "high_councilor"
         | "ward_mission_leader"
+        | "relief_society_presidency"
+        | "elders_quorum_presidency"
       knit_checkin_response: "happened" | "flaked" | "rescheduled"
       knit_locale: "en" | "es"
       knit_logged_by: "member" | "missionary_sheet" | "admin" | "system"
@@ -4281,9 +4286,11 @@ export const Constants = {
   public: {
     Enums: {
       knit_admin_role: [
-        "stake_president",
-        "stake_missionary_hc",
+        "stake_presidency",
+        "high_councilor",
         "ward_mission_leader",
+        "relief_society_presidency",
+        "elders_quorum_presidency",
       ],
       knit_checkin_response: ["happened", "flaked", "rescheduled"],
       knit_locale: ["en", "es"],

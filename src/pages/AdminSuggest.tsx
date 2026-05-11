@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
+import { isWardScoped } from '@/lib/roles'
 import { DAYS_OF_WEEK, TIME_SLOTS, type DayOfWeek, type TimeSlot } from '@/lib/availability'
 import {
   displayName,
@@ -23,7 +24,7 @@ export default function AdminSuggest() {
   const { wards, loading: wardsLoading } = useWardOptions(profile)
 
   const [wardId, setWardId] = useState<string>(
-    profile.role === 'ward_mission_leader' ? profile.ward_id ?? '' : '',
+    isWardScoped(profile.role) && !profile.is_super_admin ? profile.ward_id ?? '' : '',
   )
   useEffect(() => {
     if (!wardId && wards.length === 1) setWardId(wards[0].id)
