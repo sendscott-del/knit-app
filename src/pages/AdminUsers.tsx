@@ -102,9 +102,9 @@ export default function AdminUsers() {
   }) {
     setError(null)
     setNotice(null)
-    const r = await authorizedFetch('/api/admin/users/invite', {
+    const r = await authorizedFetch('/api/admin/users', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ action: 'invite', ...payload }),
     })
     const body = await r.json()
     if (!r.ok) {
@@ -136,9 +136,9 @@ export default function AdminUsers() {
     if (!confirm(`Remove ${user.email}? They will lose admin access.`)) return
     setError(null)
     setNotice(null)
-    const r = await authorizedFetch('/api/admin/users/remove', {
+    const r = await authorizedFetch('/api/admin/users', {
       method: 'POST',
-      body: JSON.stringify({ userId: user.id }),
+      body: JSON.stringify({ action: 'remove', userId: user.id }),
     })
     const body = await r.json()
     if (!r.ok) {

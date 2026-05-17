@@ -108,20 +108,17 @@ export default function AdminSettings() {
     if (!profile.stake_id) return
     setNotice(null)
     setError(null)
-    const { data: created, error } = await supabase
+    const { error } = await supabase
       .from('knit_wards')
       .insert({ name, stake_id: profile.stake_id })
-      .select('id')
-      .single()
-    if (error || !created) {
-      setError(error?.message ?? 'Failed to create ward.')
+    if (error) {
+      setError(error.message)
       return
     }
-    await supabase.from('knit_google_sheet_bindings').insert({
-      ward_id: created.id,
-      status: 'not_configured',
-    })
-    setNotice('Ward added.')
+    // No sheet binding row yet — the ward's WML provisions it later from
+    // /admin/sheet (which uses the server with service role). Keeping this
+    // page free of writes that need ward-edit RLS.
+    setNotice(`Ward added. ${name}'s WML can wire up the Google Sheet from /admin/sheet.`)
     setShowNewWard(false)
     await refresh()
   }

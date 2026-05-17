@@ -29,7 +29,10 @@ export default function AdminSheet() {
   const [search, setSearch] = useSearchParams()
 
   const [wardId, setWardId] = useState<string>(
-    isWardScoped(profile.role) && !profile.is_super_admin ? profile.ward_id ?? '' : '',
+    search.get('wardId') ??
+      (isWardScoped(profile.role) && !profile.is_super_admin
+        ? profile.ward_id ?? ''
+        : ''),
   )
   const editor = canEdit(profile)
   useEffect(() => {
