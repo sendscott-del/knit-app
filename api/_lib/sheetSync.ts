@@ -300,14 +300,20 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
         .join(', ')
       const interests = (m.interests ?? [])
         .map((i) => {
-          const tag = (i as { interest_tag: { name_en: string } | null }).interest_tag
+          const raw = (i as unknown as { interest_tag: unknown }).interest_tag
+          const tag = Array.isArray(raw)
+            ? (raw[0] as { name_en?: string } | undefined)
+            : (raw as { name_en?: string } | null)
           return tag?.name_en
         })
         .filter(Boolean)
         .join(', ')
       const willingTo = (m.styles ?? [])
         .map((s) => {
-          const style = (s as { style: { label_en: string } | null }).style
+          const raw = (s as unknown as { style: unknown }).style
+          const style = Array.isArray(raw)
+            ? (raw[0] as { label_en?: string } | undefined)
+            : (raw as { label_en?: string } | null)
           return style?.label_en
         })
         .filter(Boolean)
@@ -413,12 +419,14 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     .order('scheduled_at', { ascending: false })
 
   const recentRows: string[][] = (recent ?? []).map((o) => {
-    const friend = o.friend as { first_name: string; last_name: string | null } | null
-    const member = o.member as {
-      first_name: string | null
-      last_name: string | null
-      preferred_name: string | null
-    } | null
+    const rawFriend = (o as unknown as { friend: unknown }).friend
+    const friend = (Array.isArray(rawFriend) ? rawFriend[0] : rawFriend) as
+      | { first_name: string; last_name: string | null }
+      | null
+    const rawMember = (o as unknown as { member: unknown }).member
+    const member = (Array.isArray(rawMember) ? rawMember[0] : rawMember) as
+      | { first_name: string | null; last_name: string | null; preferred_name: string | null }
+      | null
     return [
       new Date(o.scheduled_at).toISOString().slice(0, 10),
       capitalize(o.scheduled_time_slot),

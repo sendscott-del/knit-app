@@ -76,7 +76,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Reuse an existing auth user if one exists, otherwise invite.
   let userId: string | null = null
   const { data: existing } = await sb.auth.admin.listUsers({ page: 1, perPage: 200 })
-  const found = existing?.users?.find((u) => u.email?.toLowerCase() === email)
+  const users = (existing?.users ?? []) as Array<{ id: string; email?: string | null }>
+  const found = users.find((u) => (u.email ?? '').toLowerCase() === email)
   if (found) {
     userId = found.id
   } else {
