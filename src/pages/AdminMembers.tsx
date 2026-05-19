@@ -128,14 +128,18 @@ export default function AdminMembers() {
             No members yet. Add your first above.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          // Wrapped in overflow-x-auto for narrow viewports; columns also
+          // collapse with hidden/md:table-cell so the most important data
+          // (name + status + actions) stays in view on a phone.
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Phone</th>
-                <th className="px-4 py-3 font-medium">Language</th>
-                <th className="px-4 py-3 font-medium">Available</th>
-                <th className="px-4 py-3 font-medium">Ward</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">Phone</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">Language</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">Available</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Ward</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -147,11 +151,11 @@ export default function AdminMembers() {
                     {displayName(m)}
                     <DemoBadge when={m.is_demo} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{m.phone ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{m.phone ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
                     {m.locale === 'es' ? 'Spanish' : 'English'}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
                     {m.availability && m.availability.length > 0
                       ? slotsToString(
                           m.availability.map((r) => ({
@@ -161,7 +165,7 @@ export default function AdminMembers() {
                         )
                       : '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{m.ward?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{m.ward?.name ?? '—'}</td>
                   <td className="px-4 py-3">
                     <StatusBadge member={m} />
                   </td>
@@ -194,6 +198,7 @@ export default function AdminMembers() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -229,7 +234,7 @@ function InviteLinkModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-md shadow-xl max-w-lg w-full p-6 space-y-4"
+        className="bg-white rounded-md shadow-xl max-w-lg w-full p-4 sm:p-6 space-y-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div>

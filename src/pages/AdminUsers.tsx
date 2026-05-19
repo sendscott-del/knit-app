@@ -194,12 +194,13 @@ export default function AdminUsers() {
             No admins yet. Invite the first one above.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name / email</th>
                 <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">Ward</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Ward</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -217,6 +218,7 @@ export default function AdminUsers() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
@@ -280,7 +282,7 @@ function UserRow({
             ))}
           </select>
         </td>
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 hidden md:table-cell">
           {wardRequired ? (
             <select
               value={wardId}
@@ -334,7 +336,7 @@ function UserRow({
         ) : null}
       </td>
       <td className="px-4 py-3 text-gray-700">{ROLE_LABELS[user.role]}</td>
-      <td className="px-4 py-3 text-gray-700">{user.ward?.name ?? '—'}</td>
+      <td className="px-4 py-3 text-gray-700 hidden md:table-cell">{user.ward?.name ?? '—'}</td>
       <td className="px-4 py-3 text-right whitespace-nowrap">
         <button
           onClick={() => setEditing(true)}

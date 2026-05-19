@@ -104,14 +104,15 @@ export default function AdminFriends() {
             No friends yet. Add your first above.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Language</th>
-                <th className="px-4 py-3 font-medium">Typical availability</th>
-                <th className="px-4 py-3 font-medium">Ward</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">Language</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">Typical availability</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Ward</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -128,11 +129,11 @@ export default function AdminFriends() {
                   <td className="px-4 py-3 text-gray-600">
                     {STATUS_LABELS[f.teaching_status]}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">
+                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
                     {f.locale === 'es' ? 'Spanish' : 'English'}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{f.typical_availability ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{f.ward?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">{f.typical_availability ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{f.ward?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-right">
                     {editor ? (
                       <button
@@ -149,6 +150,7 @@ export default function AdminFriends() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

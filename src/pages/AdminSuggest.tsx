@@ -281,7 +281,7 @@ export default function AdminSuggest() {
 function Results({ result }: { result: SuggestionResult }) {
   if (result.top.length === 0) {
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-6 space-y-2">
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:p-6 space-y-2">
         <h2 className="font-medium text-amber-900">No matches</h2>
         {result.hint ? <p className="text-sm text-amber-900">{result.hint}</p> : null}
         {result.filtered.length > 0 ? (

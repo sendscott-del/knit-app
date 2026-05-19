@@ -127,14 +127,15 @@ export default function AdminOutings() {
             No outings logged yet. Log your first above.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3 font-medium">When</th>
                 <th className="px-4 py-3 font-medium">Friend</th>
-                <th className="px-4 py-3 font-medium">Member</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">Member</th>
                 <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Notes</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">Notes</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -150,13 +151,13 @@ export default function AdminOutings() {
                       ? [o.friend.first_name, o.friend.last_name].filter(Boolean).join(' ')
                       : '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
+                  <td className="px-4 py-3 text-gray-700 hidden md:table-cell">
                     {o.member ? memberName(o.member) : '— (no member)'}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={o.status} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600 max-w-xs truncate">
+                  <td className="px-4 py-3 text-gray-600 max-w-xs truncate hidden lg:table-cell">
                     {o.outcome_notes ?? '—'}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -175,6 +176,7 @@ export default function AdminOutings() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

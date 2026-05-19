@@ -7,6 +7,20 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.2',
+    date: '2026-05-19',
+    summary: 'Mobile pass — tables collapse intelligently on phones, header action rows stack instead of squishing.',
+    details: [
+      'Tables on /admin/members, /admin/friends, /admin/outings, and /admin/users no longer force a horizontal scroll on phones. Each table now wraps its less-critical columns in `hidden md:table-cell` / `hidden lg:table-cell` so the most important data — Name, Status, and the actions cell — stays in view at phone width. The remaining columns reappear at the breakpoints where there\'s room. An outer `overflow-x-auto` wrapper plus `min-w-[640px] md:min-w-0` keeps very narrow viewports from clipping content under the sidebar.',
+      'Members: Phone visible from sm:, Ward from md:, Language + Availability from lg:.',
+      'Friends: Ward from md:, Language + Typical-availability from lg:.',
+      'Outings: Member from md:, Notes from lg: (Status badge stays everywhere).',
+      'Users: Ward column hidden below md:.',
+      'Invite-link modal on /admin/members now drops from p-6 to p-4 sm:p-6 so the URL and Copy button fit on a phone.',
+      'Suggest "No matches" card and Sheet status-row headers (Google connection / Sheet bound to this ward) now stack vertically on mobile so the action button isn\'t squeezed up against a long description.',
+    ],
+  },
+  {
     version: '0.25.1',
     date: '2026-05-18',
     summary: 'Home-screen icon redesigned: rose background, white interlocked rings, gold heart at the join.',

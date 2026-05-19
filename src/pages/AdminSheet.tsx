@@ -332,7 +332,7 @@ function GoogleConnectionCard({
 }) {
   return (
     <div className="rounded-md border border-gray-200 bg-white p-5 space-y-3">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="font-medium text-gray-900">Google connection</h2>
           {loading ? (
@@ -391,7 +391,7 @@ function BoundCard({
 }) {
   return (
     <div className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="font-medium text-gray-900">Sheet bound to this ward</h2>
           <p className="text-sm text-gray-600 mt-1">
