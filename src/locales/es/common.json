@@ -1,6 +1,10 @@
 {
   "app_name": "Knit",
   "tagline": "TODO: their hearts were knit together",
+  "app": {
+    "scripture": "Sus corazones [estaban] unidos en unidad y en amor.",
+    "scriptureRef": "Mosíah 18:21"
+  },
   "scaffold_ready": "TODO: Phase 0 scaffold ready",
   "loading": "TODO: Loading",
   "save": "TODO: Save",

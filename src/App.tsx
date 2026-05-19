@@ -19,6 +19,8 @@ import AdminSettings from '@/pages/AdminSettings'
 import AdminUsers from '@/pages/AdminUsers'
 import AdminDemo from '@/pages/AdminDemo'
 import AdminGather from '@/pages/AdminGather'
+import AdminGuide from '@/pages/AdminGuide'
+import AdminReleaseNotes from '@/pages/AdminReleaseNotes'
 import MemberMagicLink from '@/pages/MemberMagicLink'
 import MemberDashboard from '@/pages/MemberDashboard'
 import NotFound from '@/pages/NotFound'
@@ -47,6 +49,8 @@ export default function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="demo" element={<AdminDemo />} />
             <Route path="gather" element={<AdminGather />} />
+            <Route path="guide" element={<AdminGuide />} />
+            <Route path="release-notes" element={<AdminReleaseNotes />} />
           </Route>
           <Route path="/m/:memberId/:token" element={<MemberMagicLink />} />
           <Route path="/me" element={<MemberDashboard />} />

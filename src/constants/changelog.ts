@@ -7,6 +7,20 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.0',
+    date: '2026-05-18',
+    summary: 'Suite consistency pass (4/5): left sidebar, EN/ES top bar, scripture banner, demo behind settings, new User Guide + Release Notes pages.',
+    details: [
+      'Admin layout: replaced the horizontal tab strip with a left-side navy sidebar containing a single "Knit" header and primary nav. Matches the Glean shell — same layout target the user called out for Glean, Tidings, and Knit. The duplicate "Knit" header in the old navy top bar is gone.',
+      'New persistent top sub-bar carries the scripture banner ("Their hearts [were] knit together in unity and in love." — Mosiah 18:21) and an EN/ES toggle. EN/ES previously had no UI — only i18next browser detection.',
+      'Demo removed from the main navigation. The /admin/demo route still works for direct access, but demo mode no longer appears as a top-level tab. Aligns Knit with the suite-wide rule that demo is enabled from Settings.',
+      'New /admin/guide route — a structured User Guide page covering what Knit is, the role model, where to start, and language behavior. Linked from the sidebar bottom rail.',
+      'New /admin/release-notes route — version-by-version changelog reader pulling from constants/changelog.ts. Linked from the sidebar bottom rail.',
+      'PWA manifest theme_color / background_color and the index.html theme-color meta changed from navy (#1B3A6B) to Knit rose (#E11D48) so the home-screen browser chrome and PWA install background match the Gathered "K" chip.',
+      'Mobile: the sidebar collapses to a hamburger drawer on small screens. Existing per-page content keeps working unchanged.',
+    ],
+  },
+  {
     version: '0.24.0',
     date: '2026-05-10',
     summary: 'Real Chicago Illinois Stake roster, expanded role model, Settings + Users pages.',

@@ -1,6 +1,10 @@
 {
   "app_name": "Knit",
   "tagline": "Their hearts were knit together",
+  "app": {
+    "scripture": "Their hearts [were] knit together in unity and in love.",
+    "scriptureRef": "Mosiah 18:21"
+  },
   "scaffold_ready": "Phase 1 DB foundation ready",
   "loading": "Loading…",
   "save": "Save",
