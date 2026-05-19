@@ -1,0 +1,15 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <rect width="512" height="512" rx="116" fill="#E11D48"/>
+      <!-- Two interlocking rings, mirrors the in-app KnitMark -->
+      <circle cx="200" cy="260" r="104" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+      <circle cx="312" cy="260" r="104" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+      <!-- Gold heart at the join — "their hearts were knit together" -->
+      <path d="M256 332
+               C 220 308, 188 284, 188 240
+               C 188 216, 204 200, 224 200
+               C 244 200, 256 212, 256 224
+               C 256 212, 268 200, 288 200
+               C 308 200, 324 216, 324 240
+               C 324 284, 292 308, 256 332 Z"
+            fill="#C9A84C"/>
+    </svg>

@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.1',
+    date: '2026-05-18',
+    summary: 'Home-screen icon redesigned: rose background, white interlocked rings, gold heart at the join.',
+    details: [
+      'Replaces the dark-on-black "K" home-screen icon with the Gathered "K" chip\'s rose (#E11D48) background plus the two-interlocked-rings-with-gold-heart glyph that already lives inside the app (KnitMark). The heart visually anchors the Mosiah 18:21 reference the app is named for.',
+      'icon-192.png, icon-512.png, apple-touch-icon.png, and favicon.png regenerated from a single public/icon.svg master.',
+    ],
+  },
+  {
     version: '0.25.0',
     date: '2026-05-18',
     summary: 'Suite consistency pass (4/5): left sidebar, EN/ES top bar, scripture banner, demo behind settings, new User Guide + Release Notes pages.',
