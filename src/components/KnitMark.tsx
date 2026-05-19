@@ -8,18 +8,19 @@ type KnitMarkProps = {
 /**
  * KnitMark — Knit's brand mark for the Stake Suite.
  *
- * Treatment matches the suite pattern (Magnify, Steward, Tidings):
- *   - rounded square container, navy background by default
- *   - white stylized mark inside (two interlocked rings — "knit together")
- *   - prominent gold heart at the join, matching the visual weight of the
- *     gold accent on the other suite marks (Magnify's lens, Steward's
- *     check, Glean's wheat, Tidings's signal sweep). The heart ties to
- *     the verse Knit is named for: "their hearts were knit together in
- *     unity and in love" — Mosiah 18:21.
+ * Treatment matches the v0.25.1 home-screen / PWA icon:
+ *   - rounded square container in Knit rose (#E11D48 — the Gathered "K"
+ *     chip color), or white in `inverse`
+ *   - white interlocking rings ("knit together")
+ *   - gold heart at the join — ties to Mosiah 18:21
+ *
+ * Previously the container was navy to match the rest of the suite chrome;
+ * the cross-app icon refresh moved every app to its own brand color so the
+ * home-screen icon, the Gathered chip, and the in-app mark all agree.
  */
 export default function KnitMark({ size = 32, className = '', inverse = false }: KnitMarkProps) {
-  const containerFill = inverse ? '#FFFFFF' : '#1B3A6B'
-  const stroke = inverse ? '#1B3A6B' : '#FFFFFF'
+  const containerFill = inverse ? '#FFFFFF' : '#E11D48'
+  const stroke = inverse ? '#E11D48' : '#FFFFFF'
   const accent = '#C9A84C'
   const radius = Math.round(size * 0.225)
 

@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.3',
+    date: '2026-05-19',
+    summary: 'In-app KnitMark container color flipped from navy to Knit rose to match the home-screen icon.',
+    details: [
+      'KnitMark default container fill changed from navy (#1B3A6B) to Knit rose (#E11D48), the same brand color the v0.25.1 home-screen icon and the Gathered "K" chip use. The interior — interlocking white rings + gold heart — is unchanged. The "Knit" wordmark continues alongside the mark wherever it appears.',
+    ],
+  },
+  {
     version: '0.25.2',
     date: '2026-05-19',
     summary: 'Mobile pass — tables collapse intelligently on phones, header action rows stack instead of squishing.',
