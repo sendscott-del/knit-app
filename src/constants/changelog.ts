@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.4',
+    date: '2026-05-19',
+    summary: 'Knit glyph simplified to just the two interlocking rings — the gold heart at the join is gone.',
+    details: [
+      'Home-screen / PWA icons (icon-192, icon-512, apple-touch-icon, favicon, public/icon.svg) regenerated without the heart. The two white rings are slightly larger and thicker now that they carry the square on their own.',
+      'In-app KnitMark SVG component matched: same rings-only treatment in the header, login, and sidebar.',
+    ],
+  },
+  {
     version: '0.25.3',
     date: '2026-05-19',
     summary: 'In-app KnitMark container color flipped from navy to Knit rose to match the home-screen icon.',
