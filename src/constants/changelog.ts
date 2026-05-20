@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.7',
+    date: '2026-05-20',
+    summary: 'Renamed favicon files to force Chrome cache eviction.',
+    details: [
+      'The ?v=2 cache-bust from v0.25.6 was not enough — Chrome was still loading the old rings-with-gold-heart icon for Knit specifically (Tidings, which got the same treatment, picked up its new trumpet correctly). Switched to a new filename entirely (favicon.svg → brand-knit.svg, favicon.png → brand-knit.png) so Chrome has no choice but to fetch as a brand-new resource. The original favicon files remain in place so any old bookmarks that fetch /favicon.svg still get the correct new design.',
+    ],
+  },
+  {
     version: '0.25.6',
     date: '2026-05-19',
     summary: 'Cache-busted favicon links so Chrome picks up the new rings-only icon.',
