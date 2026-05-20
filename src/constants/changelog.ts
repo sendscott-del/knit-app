@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.5',
+    date: '2026-05-19',
+    summary: 'Favicon.svg updated to match new home-screen icon (rose background, white interlocking rings, no heart).',
+    details: [
+      'The old favicon.svg still rendered the pre-refresh navy / rings-with-gold-heart design, so Chrome\'s bookmark bar and browser tab were showing the wrong glyph (browsers prefer SVG favicons when available). Replaced with a new favicon.svg matching the current PWA icon: rose (#E11D48) background, two white interlocking rings, no heart.',
+    ],
+  },
+  {
     version: '0.25.4',
     date: '2026-05-19',
     summary: 'Knit glyph simplified to just the two interlocking rings — the gold heart at the join is gone.',
