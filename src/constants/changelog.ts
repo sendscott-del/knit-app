@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.6',
+    date: '2026-05-19',
+    summary: 'Cache-busted favicon links so Chrome picks up the new rings-only icon.',
+    details: [
+      'Chrome maintains a separate favicon cache that ignores normal page refreshes — even after v0.25.5 deployed the correct favicon.svg, users were still seeing the pre-refresh icon (rings-with-gold-heart) in their bookmark bar. Added ?v=2 query strings to the favicon / apple-touch-icon URLs so Chrome treats them as new files and fetches fresh.',
+    ],
+  },
+  {
     version: '0.25.5',
     date: '2026-05-19',
     summary: 'Favicon.svg updated to match new home-screen icon (rose background, white interlocking rings, no heart).',
