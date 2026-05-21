@@ -6,6 +6,7 @@ import { ROLE_LABELS, canManageStake, type AdminRole } from '@/lib/roles'
 import KnitMark from '@/components/KnitMark'
 import AppSwitcher from '@/components/AppSwitcher'
 import KnitLangToggle from '@/components/KnitLangToggle'
+import SuggestionFAB from '@/components/SuggestionFAB'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -99,6 +100,7 @@ export default function AdminLayout() {
           </div>
         </main>
       </div>
+      <SuggestionFAB />
     </div>
   )
 }

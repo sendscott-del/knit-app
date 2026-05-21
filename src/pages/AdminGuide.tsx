@@ -80,6 +80,17 @@ export default function AdminGuide() {
         </p>
       </Section>
 
+      <Section title="Suggest an enhancement">
+        <p>
+          Look for the small <strong>rose lightbulb</strong> in the bottom-right
+          corner of every admin screen. Tap it, type what you&apos;d change or
+          what felt clunky, and hit <strong>Send</strong>. Your name, email,
+          and the page you were on are attached automatically — suggestions
+          go straight to Scott and into a shared tracker so you can be told
+          later when an idea was implemented.
+        </p>
+      </Section>
+
       <Section title="Language">
         <p>
           The EN / ES toggle in the top bar switches the interface language and

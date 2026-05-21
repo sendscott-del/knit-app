@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.26.0',
+    date: '2026-05-20',
+    summary: 'Suggestion FAB added to the admin area.',
+    details: [
+      'A small rose lightbulb now floats in the bottom-right corner of every admin screen. Tap it to send a free-form idea or friction note. Submissions land in the shared `app_suggestions` table on the Gathered Supabase project and trigger an email to Scott via Resend, so all of the suite (Knit, Glean, Steward, Tidings, Magnify) feeds one inbox you can triage and mark `in_progress` / `implemented` / `declined`. The submitter\'s name, email, user id, and current page URL are captured automatically when signed in. Member-facing surfaces (the magic-link teaching-friend pages) intentionally do not show the FAB.',
+    ],
+  },
+  {
     version: '0.25.7',
     date: '2026-05-20',
     summary: 'Renamed favicon files to force Chrome cache eviction.',
