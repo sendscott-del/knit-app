@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.26.1',
+    date: '2026-05-20',
+    summary: 'Fixed admin invite failing with "user already registered" when the email already had an auth account.',
+    details: [
+      'The invite flow used to detect existing auth users via `supabase.auth.admin.listUsers({ perPage: 200 }).find(...)`, which was unreliable — pagination ordering and response shape quirks could miss a user even when only ~30 accounts existed. On a miss it fell through to `inviteUserByEmail`, which then errored because the email was, in fact, already registered (often via the Gathered app switcher).',
+      'Replaced the find-by-email step with a deterministic SECURITY DEFINER RPC (`public.knit_find_user_id_by_email`) that queries `auth.users` directly with `lower(email)` and is locked down to the service role. Inviting a high councilor (or anyone) who already has an auth row now attaches the Knit admin role to their existing user_id instead of trying to create a duplicate auth account.',
+    ],
+  },
+  {
     version: '0.26.0',
     date: '2026-05-20',
     summary: 'Suggestion FAB added to the admin area.',

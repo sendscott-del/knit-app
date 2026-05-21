@@ -99,12 +99,20 @@ async function invite(
   }
 
   // Reuse existing auth user if email matches one already in auth.users.
+  // Uses a SECURITY DEFINER RPC because PostgREST does not expose `auth` and
+  // supabase-js auth.admin.listUsers is paginated/ordering-sensitive, which
+  // made "is this email taken?" unreliable and caused inviteUserByEmail to
+  // throw "A user with this email address has already been registered."
   let userId: string | null = null
-  const { data: existing } = await sb.auth.admin.listUsers({ page: 1, perPage: 200 })
-  const users = (existing?.users ?? []) as Array<{ id: string; email?: string | null }>
-  const found = users.find((u) => (u.email ?? '').toLowerCase() === email)
-  if (found) {
-    userId = found.id
+  const { data: existingId, error: lookupErr } = await sb.rpc(
+    'knit_find_user_id_by_email',
+    { p_email: email },
+  )
+  if (lookupErr) {
+    return res.status(500).json({ error: lookupErr.message })
+  }
+  if (existingId) {
+    userId = existingId as string
   } else {
     const { data: invited, error: inviteErr } =
       await sb.auth.admin.inviteUserByEmail(email)
