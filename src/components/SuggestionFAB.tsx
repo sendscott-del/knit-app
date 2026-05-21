@@ -123,7 +123,7 @@ export default function SuggestionFAB() {
               </button>
             </div>
             <p className="text-xs text-gray-500 mb-3">
-              What would make Knit better? Goes straight to Scott.
+              What would make Knit better?
             </p>
             <textarea
               value={text}

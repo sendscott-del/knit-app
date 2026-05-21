@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.26.2',
+    date: '2026-05-20',
+    summary: 'Suggestion FAB copy trimmed.',
+    details: [
+      'Removed the "Goes straight to Scott." line from under the prompt in the suggestion modal so it stays focused on the question itself.',
+    ],
+  },
+  {
     version: '0.26.1',
     date: '2026-05-20',
     summary: 'Fixed admin invite failing with "user already registered" when the email already had an auth account.',
