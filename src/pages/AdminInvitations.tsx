@@ -1,0 +1,341 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import type { AdminProfile } from '@/lib/useAdmin'
+import { canSendInvitations } from '@/lib/roles'
+
+type Ctx = { profile: AdminProfile }
+
+type MemberRow = {
+  id: string
+  ward_id: string
+  first_name: string | null
+  last_name: string | null
+  preferred_name: string | null
+  email: string | null
+  phone: string | null
+  opted_out_at: string | null
+  ward: { id: string; name: string } | null
+}
+
+type InvitationRow = {
+  id: string
+  member_id: string
+  ward_id: string
+  sent_by_admin_id: string | null
+  sent_by_label: string | null
+  source: 'admin_app' | 'missionary_sheet'
+  channel: 'email' | 'sms'
+  recipient: string
+  outcome: 'sent' | 'failed'
+  outcome_detail: string | null
+  created_at: string
+  member: { id: string; first_name: string | null; last_name: string | null; preferred_name: string | null } | null
+  ward: { id: string; name: string } | null
+}
+
+async function authorizedFetch(path: string, init: RequestInit = {}) {
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token
+  const headers = new Headers(init.headers)
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  headers.set('Content-Type', 'application/json')
+  return fetch(path, { ...init, headers })
+}
+
+function memberDisplayName(m: Pick<MemberRow, 'first_name' | 'last_name' | 'preferred_name'>): string {
+  if (m.preferred_name) return m.preferred_name
+  const full = [m.first_name, m.last_name].filter(Boolean).join(' ').trim()
+  return full || '—'
+}
+
+export default function AdminInvitations() {
+  const { profile } = useOutletContext<Ctx>()
+  const allowed = canSendInvitations(profile)
+
+  const [members, setMembers] = useState<MemberRow[]>([])
+  const [history, setHistory] = useState<InvitationRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<MemberRow | null>(null)
+  const [sending, setSending] = useState<'email' | 'sms' | null>(null)
+  const [outcome, setOutcome] = useState<
+    | { kind: 'ok'; text: string }
+    | { kind: 'err'; text: string }
+    | null
+  >(null)
+
+  async function loadAll() {
+    setLoading(true)
+    setError(null)
+    const [membersRes, historyRes] = await Promise.all([
+      supabase
+        .from('knit_members')
+        .select(
+          'id, ward_id, first_name, last_name, preferred_name, email, phone, opted_out_at, ward:knit_wards(id, name)',
+        )
+        .is('opted_out_at', null)
+        .order('first_name', { ascending: true })
+        .limit(2000),
+      supabase
+        .from('knit_member_invitations')
+        .select(
+          'id, member_id, ward_id, sent_by_admin_id, sent_by_label, source, channel, recipient, outcome, outcome_detail, created_at, member:knit_members(id, first_name, last_name, preferred_name), ward:knit_wards(id, name)',
+        )
+        .order('created_at', { ascending: false })
+        .limit(100),
+    ])
+    if (membersRes.error) setError(membersRes.error.message)
+    else setMembers((membersRes.data ?? []) as unknown as MemberRow[])
+    if (historyRes.error && !error) setError(historyRes.error.message)
+    else setHistory((historyRes.data ?? []) as unknown as InvitationRow[])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (allowed) void loadAll()
+    else setLoading(false)
+  }, [allowed])
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return [] as MemberRow[]
+    return members
+      .filter((m) => {
+        const name = memberDisplayName(m).toLowerCase()
+        const phone = (m.phone ?? '').replace(/[\s\-()+]/g, '').toLowerCase()
+        const email = (m.email ?? '').toLowerCase()
+        return name.includes(q) || phone.includes(q.replace(/[\s\-()+]/g, '')) || email.includes(q)
+      })
+      .slice(0, 12)
+  }, [query, members])
+
+  async function send(channel: 'email' | 'sms') {
+    if (!selected) return
+    setOutcome(null)
+    setSending(channel)
+    try {
+      const res = await authorizedFetch('/api/admin/invitations', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'send', member_id: selected.id, channel }),
+      })
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; outcome?: string; recipient?: string; error?: string }
+        | null
+      if (!res.ok || !body?.ok) {
+        setOutcome({
+          kind: 'err',
+          text: body?.error ?? `Send failed (${res.status})`,
+        })
+      } else {
+        setOutcome({
+          kind: 'ok',
+          text:
+            channel === 'email'
+              ? `Emailed ${memberDisplayName(selected)} at ${body.recipient ?? selected.email}`
+              : `Texted ${memberDisplayName(selected)} at ${body.recipient ?? selected.phone}`,
+        })
+        await loadAll()
+      }
+    } catch (e) {
+      setOutcome({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setSending(null)
+    }
+  }
+
+  if (!allowed) {
+    return (
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold text-gray-900">Invitations</h1>
+        <p className="text-sm text-gray-600">
+          You don't have permission to send Knit invitations. Ask your stake president, stake clerk, the high
+          councilor over missionary work, or a ward mission leader.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">Invitations</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          Send a member the Knit availability survey. Search by name, phone, or email, pick the channel, and Knit
+          sends the personalized link — no copy-paste needed.
+        </p>
+      </div>
+
+      <section className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Search members</span>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setSelected(null)
+              setOutcome(null)
+            }}
+            placeholder="Start typing a name, phone, or email"
+            className="form-input mt-1"
+            autoFocus
+          />
+        </label>
+
+        {query && !selected ? (
+          <div className="rounded-md border border-gray-200 overflow-hidden">
+            {matches.length === 0 ? (
+              <div className="p-4 text-sm text-gray-500">No matching members.</div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {matches.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      onClick={() => {
+                        setSelected(m)
+                        setQuery(memberDisplayName(m))
+                      }}
+                      className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="text-sm text-gray-900">{memberDisplayName(m)}</div>
+                        <div className="text-xs text-gray-500">
+                          {m.ward?.name ?? '—'} · {m.phone ?? 'no phone'} · {m.email ?? 'no email'}
+                        </div>
+                      </div>
+                      <span className="text-xs text-knit-primary">Choose</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+
+        {selected ? (
+          <div className="rounded-md border-[1.5px] border-knit-primary/30 bg-knit-primary/5 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">{memberDisplayName(selected)}</div>
+                <div className="text-xs text-gray-600">
+                  {selected.ward?.name ?? '—'} · {selected.phone ?? 'no phone'} · {selected.email ?? 'no email'}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setSelected(null)
+                  setQuery('')
+                  setOutcome(null)
+                }}
+                className="text-xs text-gray-600 hover:text-gray-900"
+              >
+                Change
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                onClick={() => void send('email')}
+                disabled={!selected.email || sending !== null}
+                className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending === 'email'
+                  ? 'Sending email…'
+                  : selected.email
+                    ? 'Send by email'
+                    : 'Send by email (no email)'}
+              </button>
+              <button
+                onClick={() => void send('sms')}
+                disabled={!selected.phone || sending !== null}
+                className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending === 'sms'
+                  ? 'Sending text…'
+                  : selected.phone
+                    ? 'Send by text'
+                    : 'Send by text (no phone)'}
+              </button>
+            </div>
+            {outcome ? (
+              <div
+                className={`text-sm ${outcome.kind === 'ok' ? 'text-emerald-700' : 'text-error'}`}
+              >
+                {outcome.text}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+
+      <section className="rounded-md border border-gray-200 bg-white overflow-hidden">
+        <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">Recent invitations</h2>
+          <span className="text-xs text-gray-500">Last 100 across your scope</span>
+        </header>
+        {loading ? (
+          <div className="p-6 text-sm text-gray-500">Loading…</div>
+        ) : error ? (
+          <div className="p-6 text-sm text-error">{error}</div>
+        ) : history.length === 0 ? (
+          <div className="p-10 text-center text-sm text-gray-500">
+            No invitations yet. Send the first above.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="bg-gray-50 text-left text-gray-600">
+                <tr>
+                  <th className="px-4 py-2 font-medium">When</th>
+                  <th className="px-4 py-2 font-medium">Member</th>
+                  <th className="px-4 py-2 font-medium hidden sm:table-cell">Ward</th>
+                  <th className="px-4 py-2 font-medium hidden md:table-cell">Sent by</th>
+                  <th className="px-4 py-2 font-medium">Channel</th>
+                  <th className="px-4 py-2 font-medium hidden md:table-cell">Recipient</th>
+                  <th className="px-4 py-2 font-medium">Outcome</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {history.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-4 py-2 text-gray-700 whitespace-nowrap">
+                      {new Date(row.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-gray-900">
+                      {row.member ? memberDisplayName(row.member) : '—'}
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 hidden sm:table-cell">
+                      {row.ward?.name ?? '—'}
+                    </td>
+                    <td className="px-4 py-2 text-gray-600 hidden md:table-cell">
+                      {row.source === 'missionary_sheet'
+                        ? 'Missionary sheet'
+                        : row.sent_by_label ?? '—'}
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">{row.channel === 'sms' ? 'Text' : 'Email'}</td>
+                    <td className="px-4 py-2 text-gray-600 hidden md:table-cell">{row.recipient}</td>
+                    <td className="px-4 py-2">
+                      {row.outcome === 'sent' ? (
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">
+                          Sent
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-xs font-medium"
+                          title={row.outcome_detail ?? ''}
+                        >
+                          Failed
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}

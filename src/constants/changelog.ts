@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.0',
+    date: '2026-05-22',
+    summary: 'New /admin/invitations page: search a member, click Send, Knit emails or texts them — every send is logged for stake visibility.',
+    details: [
+      "New `Invitations` nav item between Members and Friends. Type a name (or phone or email) to autocomplete from members in your scope (own ward for WMLs; the whole stake for app super admins), pick the row, then click Send by email or Send by text. Knit emails via Resend (existing v0.32.0 path) or texts via the Tidings edge function (existing v0.33.0 path) — no more handing off to the WML's own Messages/Mail app.",
+      "Every send writes a row to the new `knit_member_invitations` table (member, ward, channel, recipient, outcome, who sent it, plus the provider message id when the channel returns one). The same page shows the last 100 sends across the caller's scope so leaders can see who has been invited and whether the send actually succeeded. The missionary-sheet \"Members to Invite\" sweep now logs to this table too, so missionary-initiated invites appear in the same history.",
+      "Audience: WMLs see and send for their own ward. Stake president, stake clerk, and the high councilor over missionary work see and send across the entire stake. Permission is enforced server-side via `knit_is_app_super_admin()` / `knit_is_ward_super_admin()`, which read from both `knit_admin_users` and the `gather_user_roles` catalog — so a stake clerk in `gather_user_roles` can invite without needing a `knit_admin_users` row created (though they still need that row to sign in at /admin until the no-admin-row gate is broadened in a follow-up).",
+      "The Members tab's per-row \"Invite link\" modal also switches to in-app send: the primary buttons now post to `/api/admin/invitations` and report the outcome inline. The old mailto:/sms: device-handoff is folded into a collapsed \"Or copy the link to send another way\" disclosure.",
+      "RLS: `knit_member_invitations` is read-only to authenticated callers via the same helpers; inserts are service-role only (the new endpoint and the sheet-pull sweep). `knit_can_view_ward` is extended to honor the gather_user_roles catalog for stake-level roles so the new page's member search returns rows for stake_clerk and hc_missionary_work without a knit_admin_users seat at the same ward.",
+    ],
+  },
+  {
     version: '0.33.0',
     date: '2026-05-22',
     summary: 'Missionary-designated invites now auto-send via SMS too (cross-project Twilio through Tidings).',

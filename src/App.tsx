@@ -11,6 +11,7 @@ import AdminCallback from '@/pages/AdminCallback'
 import AdminLayout from '@/pages/AdminLayout'
 import AdminDashboard from '@/pages/AdminDashboard'
 import AdminMembers from '@/pages/AdminMembers'
+import AdminInvitations from '@/pages/AdminInvitations'
 import AdminFriends from '@/pages/AdminFriends'
 import AdminSuggest from '@/pages/AdminSuggest'
 import AdminOutings from '@/pages/AdminOutings'
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="members" element={<AdminMembers />} />
+            <Route path="invitations" element={<AdminInvitations />} />
             <Route path="friends" element={<AdminFriends />} />
             <Route path="outings" element={<AdminOutings />} />
             <Route path="suggest" element={<AdminSuggest />} />

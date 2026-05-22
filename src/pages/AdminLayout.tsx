@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
-import { ROLE_LABELS, canManageStake, type AdminRole } from '@/lib/roles'
+import {
+  ROLE_LABELS,
+  canManageStake,
+  canSendInvitations,
+  type AdminRole,
+} from '@/lib/roles'
 import KnitMark from '@/components/KnitMark'
 import AppSwitcher from '@/components/AppSwitcher'
 import KnitLangToggle from '@/components/KnitLangToggle'
@@ -73,6 +78,7 @@ export default function AdminLayout() {
     ? profile.ward?.name ?? 'Your ward'
     : profile.stake?.name ?? 'Your stake'
   const showStakeAdminTabs = canManageStake(profile)
+  const showInvitations = canSendInvitations(profile)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,10 +93,14 @@ export default function AdminLayout() {
         onSignOut={() => void signOut()}
       />
       <div className="md:flex">
-        <Sidebar showStakeAdminTabs={showStakeAdminTabs} />
+        <Sidebar
+          showStakeAdminTabs={showStakeAdminTabs}
+          showInvitations={showInvitations}
+        />
         {drawerOpen && (
           <MobileDrawer
             showStakeAdminTabs={showStakeAdminTabs}
+            showInvitations={showInvitations}
             onClose={() => setDrawerOpen(false)}
           />
         )}
@@ -168,10 +178,11 @@ function SuiteTopBar({
   )
 }
 
-function navLinks(showStakeAdminTabs: boolean) {
+function navLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
   return [
     { to: '/admin', label: 'Dashboard', end: true },
     { to: '/admin/members', label: 'Members' },
+    ...(showInvitations ? [{ to: '/admin/invitations', label: 'Invitations' }] : []),
     { to: '/admin/friends', label: 'Friends' },
     { to: '/admin/outings', label: 'Outings' },
     { to: '/admin/suggest', label: 'Suggest' },
@@ -183,8 +194,14 @@ function navLinks(showStakeAdminTabs: boolean) {
   ]
 }
 
-function Sidebar({ showStakeAdminTabs }: { showStakeAdminTabs: boolean }) {
-  const links = navLinks(showStakeAdminTabs)
+function Sidebar({
+  showStakeAdminTabs,
+  showInvitations,
+}: {
+  showStakeAdminTabs: boolean
+  showInvitations: boolean
+}) {
+  const links = navLinks(showStakeAdminTabs, showInvitations)
   return (
     <aside
       className="hidden md:flex md:flex-col md:flex-shrink-0 sticky top-0 h-screen text-white"
@@ -244,12 +261,14 @@ function Sidebar({ showStakeAdminTabs }: { showStakeAdminTabs: boolean }) {
 
 function MobileDrawer({
   showStakeAdminTabs,
+  showInvitations,
   onClose,
 }: {
   showStakeAdminTabs: boolean
+  showInvitations: boolean
   onClose: () => void
 }) {
-  const links = navLinks(showStakeAdminTabs)
+  const links = navLinks(showStakeAdminTabs, showInvitations)
   return (
     <>
       <div

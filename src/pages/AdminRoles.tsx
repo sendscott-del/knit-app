@@ -170,7 +170,7 @@ export default function AdminRoles() {
         const { error } = await supabase.rpc('gather_revoke_role', {
           p_email: email,
           p_role: r.role_key,
-          p_ward: r.ward,
+          p_ward: r.ward ?? undefined,
         })
         if (error) throw new Error(`Revoke ${r.role_key}: ${error.message}`)
       }
@@ -178,8 +178,8 @@ export default function AdminRoles() {
         const { error } = await supabase.rpc('gather_grant_role', {
           p_email: email,
           p_role: r.role_key,
-          p_ward: r.ward,
-          p_full_name: null,
+          p_ward: r.ward ?? undefined,
+          p_full_name: undefined,
         })
         if (error) throw new Error(`Grant ${r.role_key}: ${error.message}`)
       }

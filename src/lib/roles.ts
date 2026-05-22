@@ -42,3 +42,17 @@ export function canManageStake(
 ): boolean {
   return profile.is_super_admin || profile.role === 'stake_presidency'
 }
+
+/**
+ * True if this admin can send member invitations and view the invitations
+ * audit page. Covers ward-edit roles (WML / RS / EQ presidencies) and any
+ * "app super admin" — i.e. stake_president, stake_clerk, hc_missionary_work
+ * (via gather_user_roles) or knit_admin_users.is_super_admin. Server enforces
+ * the same gate via knit_is_app_super_admin / knit_is_ward_super_admin.
+ */
+export function canSendInvitations(
+  profile: Pick<AdminProfile, 'role' | 'is_super_admin' | 'is_app_super_admin'>,
+): boolean {
+  if (profile.is_super_admin || profile.is_app_super_admin) return true
+  return WARD_EDIT_ROLES.includes(profile.role)
+}

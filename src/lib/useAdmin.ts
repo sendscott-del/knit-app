@@ -10,6 +10,11 @@ type WardRow = Database['public']['Tables']['knit_wards']['Row']
 export type AdminProfile = AdminRow & {
   stake: StakeRow | null
   ward: WardRow | null
+  // True when the caller qualifies as an "app super admin" via either
+  // knit_admin_users.is_super_admin OR the gather_user_roles catalog
+  // (stake_president, stake_clerk, hc_missionary_work). Populated by the
+  // knit_is_app_super_admin() RPC.
+  is_app_super_admin: boolean
 }
 
 type AdminState =
@@ -36,30 +41,40 @@ export function useAdmin(): AdminState {
     let cancelled = false
 
     ;(async () => {
-      const { data, error } = await supabase
-        .from('knit_admin_users')
-        .select(
-          'id, email, name, role, stake_id, ward_id, is_super_admin, created_at, stake:knit_stakes(*), ward:knit_wards(*)',
-        )
-        .eq('id', user.id)
-        .maybeSingle()
+      const [adminRes, appSuperRes] = await Promise.all([
+        supabase
+          .from('knit_admin_users')
+          .select(
+            'id, email, name, role, stake_id, ward_id, is_super_admin, created_at, stake:knit_stakes(*), ward:knit_wards(*)',
+          )
+          .eq('id', user.id)
+          .maybeSingle(),
+        supabase.rpc('knit_is_app_super_admin'),
+      ])
 
       if (cancelled) return
 
-      if (error) {
-        setState({ status: 'error', message: error.message })
+      if (adminRes.error) {
+        setState({ status: 'error', message: adminRes.error.message })
         return
       }
-      if (!data) {
+      if (!adminRes.data) {
         setState({ status: 'no_admin_row', email: user.email ?? '' })
         return
       }
+      const isAppSuper =
+        Boolean(adminRes.data.is_super_admin) || Boolean(appSuperRes.data)
       setState({
         status: 'ready',
         profile: {
-          ...data,
-          stake: Array.isArray(data.stake) ? data.stake[0] ?? null : data.stake,
-          ward: Array.isArray(data.ward) ? data.ward[0] ?? null : data.ward,
+          ...adminRes.data,
+          stake: Array.isArray(adminRes.data.stake)
+            ? adminRes.data.stake[0] ?? null
+            : adminRes.data.stake,
+          ward: Array.isArray(adminRes.data.ward)
+            ? adminRes.data.ward[0] ?? null
+            : adminRes.data.ward,
+          is_app_super_admin: isAppSuper,
         } as AdminProfile,
       })
     })()

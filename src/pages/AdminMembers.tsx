@@ -8,6 +8,7 @@ import AvailabilityGrid from '@/components/AvailabilityGrid'
 import DemoBadge from '@/components/DemoBadge'
 import { slotsToString, type Slot, type TimeSlot, type DayOfWeek } from '@/lib/availability'
 import { memberInviteUrl } from '@/lib/memberAuth'
+import { Link } from 'react-router-dom'
 import type { Database } from '@/lib/database.types'
 
 type MemberRow = Database['public']['Tables']['knit_members']['Row']
@@ -28,6 +29,7 @@ export default function AdminMembers() {
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [inviteLink, setInviteLink] = useState<{
+    memberId: string
     memberName: string
     url: string
     phone: string | null
@@ -83,6 +85,7 @@ export default function AdminMembers() {
     }
     const url = memberInviteUrl(window.location.origin, member.id, data as string)
     setInviteLink({
+      memberId: member.id,
       memberName: displayName(member),
       url,
       phone: member.phone ?? null,
@@ -211,6 +214,7 @@ export default function AdminMembers() {
 
       {inviteLink ? (
         <InviteLinkModal
+          memberId={inviteLink.memberId}
           memberName={inviteLink.memberName}
           url={inviteLink.url}
           phone={inviteLink.phone}
@@ -218,17 +222,26 @@ export default function AdminMembers() {
           onClose={() => setInviteLink(null)}
         />
       ) : null}
+
+      <p className="text-xs text-gray-500">
+        Want to search across the whole stake?{' '}
+        <Link to="/admin/invitations" className="text-knit-primary hover:underline">
+          Open the Invitations page →
+        </Link>
+      </p>
     </div>
   )
 }
 
 function InviteLinkModal({
+  memberId,
   memberName,
   url,
   phone,
   email,
   onClose,
 }: {
+  memberId: string
   memberName: string
   url: string
   phone: string | null
@@ -236,36 +249,53 @@ function InviteLinkModal({
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
+  const [sending, setSending] = useState<'email' | 'sms' | null>(null)
+  const [outcome, setOutcome] = useState<
+    | { kind: 'ok'; text: string }
+    | { kind: 'err'; text: string }
+    | null
+  >(null)
+
   async function copy() {
     await navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
   }
 
-  // Pre-filled message for both email and SMS. Kept short on purpose; the
-  // missionary friend-matching context lives in the survey itself.
-  const firstName = memberName.split(' ')[0] || 'there'
-  const smsBody = `Hi ${firstName} — here's your Knit availability survey so we can pair you with missionaries you'd be a great fit for. Takes about a minute. ${url}`
-  const emailSubject = 'Your Knit availability survey'
-  const emailBody = `Hi ${firstName},
-
-Here's your personal link to fill in your Knit availability so the missionaries can pair you with people who'd be a great fit for the times you're free. Takes about a minute.
-
-${url}
-
-This link is unique to you and is valid for 30 days. Thanks!`
-
-  // Build mailto: / sms: URLs only when the recipient field is present.
-  // For sms:, iOS prefers "&body=" with the phone in the path; both iOS and
-  // Android accept "?body=" — use ? for cross-platform safety. Phone gets
-  // a light cleanup (strip spaces, dashes, parens) since some SMS handlers
-  // are picky about formatting.
-  const smsHref = phone
-    ? `sms:${phone.replace(/[\s\-()]/g, '')}?body=${encodeURIComponent(smsBody)}`
-    : null
-  const mailHref = email
-    ? `mailto:${email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
-    : null
+  async function send(channel: 'email' | 'sms') {
+    setOutcome(null)
+    setSending(channel)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      const res = await fetch('/api/admin/invitations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: 'send', member_id: memberId, channel }),
+      })
+      const body = (await res.json().catch(() => null)) as
+        | { ok?: boolean; recipient?: string; error?: string }
+        | null
+      if (!res.ok || !body?.ok) {
+        setOutcome({ kind: 'err', text: body?.error ?? `Send failed (${res.status})` })
+      } else {
+        setOutcome({
+          kind: 'ok',
+          text:
+            channel === 'email'
+              ? `Emailed ${memberName} at ${body.recipient ?? email}`
+              : `Texted ${memberName} at ${body.recipient ?? phone}`,
+        })
+      }
+    } catch (e) {
+      setOutcome({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setSending(null)
+    }
+  }
 
   return (
     <div
@@ -278,50 +308,55 @@ This link is unique to you and is valid for 30 days. Thanks!`
       >
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
-            Invite link for {memberName}
+            Invite {memberName}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            This link is personal to {memberName.split(' ')[0]} and valid for 30 days. Send it
-            however you like — the Email and Text buttons will open your default app with the
-            message pre-filled, or copy and paste manually.
+            Knit will send {memberName.split(' ')[0]} a personal link to the availability survey.
+            The link is unique to them and valid for 30 days.
           </p>
         </div>
-        <div className="rounded-md border-[1.5px] border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 break-all font-mono">
-          {url}
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <a
-            href={smsHref ?? undefined}
-            onClick={(e) => {
-              if (!smsHref) { e.preventDefault(); alert('No phone number on file for this member. Add one in their profile.') }
-            }}
-            className={`text-center rounded-md border-[1.5px] px-3 py-2 text-sm font-medium ${
-              smsHref ? 'border-knit-primary text-knit-primary hover:bg-knit-primary/5' : 'border-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
-            aria-disabled={!smsHref}
-          >
-            Text invite{phone ? '' : ' (no phone)'}
-          </a>
-          <a
-            href={mailHref ?? undefined}
-            onClick={(e) => {
-              if (!mailHref) { e.preventDefault(); alert('No email on file for this member. Add one in their profile.') }
-            }}
-            className={`text-center rounded-md border-[1.5px] px-3 py-2 text-sm font-medium ${
-              mailHref ? 'border-knit-primary text-knit-primary hover:bg-knit-primary/5' : 'border-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
-            aria-disabled={!mailHref}
-          >
-            Email invite{email ? '' : ' (no email)'}
-          </a>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
-            onClick={() => void copy()}
-            className="rounded-md border-[1.5px] border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm font-medium"
+            onClick={() => void send('email')}
+            disabled={!email || sending !== null}
+            className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {copied ? 'Copied!' : 'Copy link'}
+            {sending === 'email' ? 'Sending email…' : email ? 'Send by email' : 'Send by email (no email)'}
+          </button>
+          <button
+            onClick={() => void send('sms')}
+            disabled={!phone || sending !== null}
+            className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {sending === 'sms' ? 'Sending text…' : phone ? 'Send by text' : 'Send by text (no phone)'}
           </button>
         </div>
+
+        {outcome ? (
+          <div
+            className={`text-sm ${outcome.kind === 'ok' ? 'text-emerald-700' : 'text-error'}`}
+          >
+            {outcome.text}
+          </div>
+        ) : null}
+
+        <details className="text-xs text-gray-500">
+          <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
+            Or copy the link to send another way
+          </summary>
+          <div className="mt-2 space-y-2">
+            <div className="rounded-md border-[1.5px] border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 break-all font-mono">
+              {url}
+            </div>
+            <button
+              onClick={() => void copy()}
+              className="rounded-md border-[1.5px] border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 text-xs font-medium"
+            >
+              {copied ? 'Copied!' : 'Copy link'}
+            </button>
+          </div>
+        </details>
 
         <div className="flex items-center justify-end pt-1">
           <button
