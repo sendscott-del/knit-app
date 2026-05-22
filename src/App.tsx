@@ -17,6 +17,7 @@ import AdminOutings from '@/pages/AdminOutings'
 import AdminSheet from '@/pages/AdminSheet'
 import AdminSettings from '@/pages/AdminSettings'
 import AdminUsers from '@/pages/AdminUsers'
+import AdminRoles from '@/pages/AdminRoles'
 import AdminDemo from '@/pages/AdminDemo'
 import AdminGather from '@/pages/AdminGather'
 import AdminGuide from '@/pages/AdminGuide'
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="sheet" element={<AdminSheet />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="roles" element={<AdminRoles />} />
             <Route path="demo" element={<AdminDemo />} />
             <Route path="gather" element={<AdminGather />} />
             <Route path="guide" element={<AdminGuide />} />

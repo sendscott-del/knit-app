@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.27.0',
+    date: '2026-05-22',
+    summary: 'New /admin/roles screen for assigning the 19 Gathered suite roles + Knit-side helper functions for the Ward Super Admin tier.',
+    details: [
+      "New Roles tab in the admin sidebar (super-admins only). Lists every signed-in user and lets you tick any of the 19 Gathered roles per person — Stake President through Ward Member. Ward-scoped roles get a ward picker; stake roles cover the stake. Writes to the shared `gather_user_roles` table — the same source of truth Glean's /admin/roles uses and that Tidings syncs into via its trigger.",
+      "DB foundation for the eventual Knit RLS work: new SECURITY DEFINER helpers `knit_current_user_has_gather_role(role)`, `knit_is_app_super_admin()` (true for SP / Stake Clerk / HC Missionary Work — the three Knit super-admins per the spreadsheet), and `knit_is_ward_super_admin(ward_id)` (Ward Mission Leader within their ward — the \"ward super admin\" tier). Helpers fall back to the existing `knit_admin_users` table so nothing breaks; they aren't yet wired into Knit's RLS policies.",
+    ],
+  },
+  {
     version: '0.26.3',
     date: '2026-05-22',
     summary: 'Super admins can now create, refresh, and sync missionary sheets.',

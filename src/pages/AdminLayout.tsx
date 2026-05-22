@@ -177,6 +177,7 @@ function navLinks(showStakeAdminTabs: boolean) {
     { to: '/admin/suggest', label: 'Suggest' },
     { to: '/admin/sheet', label: 'Sheet' },
     ...(showStakeAdminTabs ? [{ to: '/admin/users', label: 'Users' }] : []),
+    ...(showStakeAdminTabs ? [{ to: '/admin/roles', label: 'Roles' }] : []),
     { to: '/admin/settings', label: 'Settings' },
     { to: '/admin/gather', label: 'Gather' },
   ]
