@@ -30,6 +30,8 @@ export default function AdminMembers() {
   const [inviteLink, setInviteLink] = useState<{
     memberName: string
     url: string
+    phone: string | null
+    email: string | null
   } | null>(null)
   const [generating, setGenerating] = useState<string | null>(null)
 
@@ -80,7 +82,12 @@ export default function AdminMembers() {
       return
     }
     const url = memberInviteUrl(window.location.origin, member.id, data as string)
-    setInviteLink({ memberName: displayName(member), url })
+    setInviteLink({
+      memberName: displayName(member),
+      url,
+      phone: member.phone ?? null,
+      email: member.email ?? null,
+    })
   }
 
   return (
@@ -206,6 +213,8 @@ export default function AdminMembers() {
         <InviteLinkModal
           memberName={inviteLink.memberName}
           url={inviteLink.url}
+          phone={inviteLink.phone}
+          email={inviteLink.email}
           onClose={() => setInviteLink(null)}
         />
       ) : null}
@@ -216,10 +225,14 @@ export default function AdminMembers() {
 function InviteLinkModal({
   memberName,
   url,
+  phone,
+  email,
   onClose,
 }: {
   memberName: string
   url: string
+  phone: string | null
+  email: string | null
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
@@ -228,6 +241,32 @@ function InviteLinkModal({
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
   }
+
+  // Pre-filled message for both email and SMS. Kept short on purpose; the
+  // missionary friend-matching context lives in the survey itself.
+  const firstName = memberName.split(' ')[0] || 'there'
+  const smsBody = `Hi ${firstName} — here's your Knit availability survey so we can pair you with missionaries you'd be a great fit for. Takes about a minute. ${url}`
+  const emailSubject = 'Your Knit availability survey'
+  const emailBody = `Hi ${firstName},
+
+Here's your personal link to fill in your Knit availability so the missionaries can pair you with people who'd be a great fit for the times you're free. Takes about a minute.
+
+${url}
+
+This link is unique to you and is valid for 30 days. Thanks!`
+
+  // Build mailto: / sms: URLs only when the recipient field is present.
+  // For sms:, iOS prefers "&body=" with the phone in the path; both iOS and
+  // Android accept "?body=" — use ? for cross-platform safety. Phone gets
+  // a light cleanup (strip spaces, dashes, parens) since some SMS handlers
+  // are picky about formatting.
+  const smsHref = phone
+    ? `sms:${phone.replace(/[\s\-()]/g, '')}?body=${encodeURIComponent(smsBody)}`
+    : null
+  const mailHref = email
+    ? `mailto:${email}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
+    : null
+
   return (
     <div
       className="fixed inset-0 z-40 bg-brand-primary-dark/50 flex items-center justify-center p-4 backdrop-blur-sm"
@@ -242,26 +281,54 @@ function InviteLinkModal({
             Invite link for {memberName}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Copy this link and send it to them — by text, email, or in person.
-            It's personal to them and is valid for 30 days. Generating a new link
-            invalidates the old one.
+            This link is personal to {memberName.split(' ')[0]} and valid for 30 days. Send it
+            however you like — the Email and Text buttons will open your default app with the
+            message pre-filled, or copy and paste manually.
           </p>
         </div>
         <div className="rounded-md border-[1.5px] border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 break-all font-mono">
           {url}
         </div>
-        <div className="flex items-center justify-end gap-3">
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <a
+            href={smsHref ?? undefined}
+            onClick={(e) => {
+              if (!smsHref) { e.preventDefault(); alert('No phone number on file for this member. Add one in their profile.') }
+            }}
+            className={`text-center rounded-md border-[1.5px] px-3 py-2 text-sm font-medium ${
+              smsHref ? 'border-knit-primary text-knit-primary hover:bg-knit-primary/5' : 'border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+            aria-disabled={!smsHref}
+          >
+            Text invite{phone ? '' : ' (no phone)'}
+          </a>
+          <a
+            href={mailHref ?? undefined}
+            onClick={(e) => {
+              if (!mailHref) { e.preventDefault(); alert('No email on file for this member. Add one in their profile.') }
+            }}
+            className={`text-center rounded-md border-[1.5px] px-3 py-2 text-sm font-medium ${
+              mailHref ? 'border-knit-primary text-knit-primary hover:bg-knit-primary/5' : 'border-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+            aria-disabled={!mailHref}
+          >
+            Email invite{email ? '' : ' (no email)'}
+          </a>
+          <button
+            onClick={() => void copy()}
+            className="rounded-md border-[1.5px] border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-2 text-sm font-medium"
+          >
+            {copied ? 'Copied!' : 'Copy link'}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-end pt-1">
           <button
             onClick={onClose}
             className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
             Close
-          </button>
-          <button
-            onClick={() => void copy()}
-            className="btn-primary text-sm py-2 px-4"
-          >
-            {copied ? 'Copied!' : 'Copy link'}
           </button>
         </div>
       </div>

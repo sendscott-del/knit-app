@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.29.0',
+    date: '2026-05-22',
+    summary: 'Send availability-survey invites by text or email straight from the Knit app.',
+    details: [
+      'Per the Gathered User Access spreadsheet, the Ward Mission Leader should be able to "send an email or a text to a ward member from the Knit app that has a link inviting them to fill out their availability survey." The unique-link generation has worked since v0.1 — the gap was that the WML had to copy the link out, switch apps, and compose the message themselves. The invite modal now has three buttons: Text invite, Email invite, and Copy link. Text and Email open your device\'s default app pre-filled with a short, friendly message and the unique link; you just review and hit send. Members with no phone (or no email) get a disabled button with a hint to add it to their profile.',
+      'The pre-filled message is intentionally light — first-name only, one-line context ("so we can pair you with missionaries you\'d be a great fit for"), the link, and "takes about a minute." Email gets an extra sentence about the 30-day validity. Easy to tweak in `InviteLinkModal` if a stake wants a different tone.',
+      'SMS URL gets a light phone-number cleanup (strips spaces / dashes / parens) since some SMS handlers reject non-digit characters in the path.',
+    ],
+  },
+  {
     version: '0.28.1',
     date: '2026-05-22',
     summary: '"Active" status now requires a completed availability update, not just onboarding.',
