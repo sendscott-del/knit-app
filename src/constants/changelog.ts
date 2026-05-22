@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.1',
+    date: '2026-05-22',
+    summary: 'Deploy fix: collapse the three Google OAuth admin endpoints into one so v0.34.0 fits under Vercel Hobby\'s 12-function cap.',
+    details: [
+      "v0.34.0 added /api/admin/invitations as a 13th serverless function, which hit the Hobby plan's 12-function ceiling — the build compiled but the deploy step failed at \"Deploying outputs.\" /api/admin/google/{authorize,disconnect,status} are now one /api/admin/google endpoint with action routing (GET ?action=status, POST { action: 'authorize' }, POST { action: 'disconnect' }). The OAuth callback stays at /api/admin/google/callback because Google redirects there directly. AdminSheet.tsx callers updated accordingly. Net function count: 11.",
+    ],
+  },
+  {
     version: '0.34.0',
     date: '2026-05-22',
     summary: 'New /admin/invitations page: search a member, click Send, Knit emails or texts them — every send is logged for stake visibility.',

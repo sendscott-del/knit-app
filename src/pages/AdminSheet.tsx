@@ -71,7 +71,7 @@ export default function AdminSheet() {
   async function loadStatus() {
     setLoadingStatus(true)
     try {
-      const r = await authorizedFetch('/api/admin/google/status')
+      const r = await authorizedFetch('/api/admin/google?action=status')
       const body = (await r.json()) as OAuthStatus
       setOauthStatus(body)
     } finally {
@@ -112,8 +112,9 @@ export default function AdminSheet() {
     setErr(null)
     setNotice(null)
     try {
-      const r = await authorizedFetch('/api/admin/google/authorize', {
+      const r = await authorizedFetch('/api/admin/google', {
         method: 'POST',
+        body: JSON.stringify({ action: 'authorize' }),
       })
       const body = await r.json()
       if (!r.ok || !body.url) throw new Error(body.error ?? 'Failed to start connect')
@@ -129,8 +130,9 @@ export default function AdminSheet() {
     setBusy(true)
     setErr(null)
     try {
-      const r = await authorizedFetch('/api/admin/google/disconnect', {
+      const r = await authorizedFetch('/api/admin/google', {
         method: 'POST',
+        body: JSON.stringify({ action: 'disconnect' }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       setNotice('Disconnected.')
