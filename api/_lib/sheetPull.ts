@@ -188,11 +188,52 @@ export async function pullSheet(args: {
  * matching knit_members row, generate a magic link, write the link + a
  * timestamp back into the sheet.
  *
- * Server-side auto-send of email/SMS is intentionally NOT in scope for this
- * release. Missionaries copy the link from the sheet and send themselves
- * (or follow up via the WML's send-invite UI in /admin/members which
- * already does mailto:/sms: handoffs).
+ * Server-side auto-send: when the matched member has an email AND the
+ * RESEND_API_KEY env var is set, this function POSTs to Resend's send API
+ * with a short pre-formatted invitation. On success the row gets
+ * "Emailed YYYY-MM-DD" in the Status column. If the email send fails or
+ * the member has no email on file, we fall back to the v0.31.0 behavior:
+ * write the link + a Sent At timestamp to the sheet so the missionary can
+ * copy + send manually. SMS auto-send is still a follow-up (would require
+ * cross-project plumbing to Tidings' Twilio integration).
  */
+async function sendInviteEmail(
+  toEmail: string,
+  firstName: string,
+  url: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, error: 'RESEND_API_KEY not set' }
+
+  const from = process.env.KNIT_INVITE_FROM ?? 'Knit <noreply@gathered.app>'
+  const subject = 'Your Knit availability survey'
+  const text = `Hi ${firstName || 'there'},
+
+Here's your personal link to fill in your Knit availability so the missionaries can pair you with people who'd be a great fit for the times you're free. Takes about a minute.
+
+${url}
+
+This link is unique to you and valid for 30 days. Thanks!`
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from, to: toEmail, subject, text }),
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      return { ok: false, error: `Resend ${res.status}: ${body.slice(0, 180)}` }
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 async function pullInvites(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any
@@ -281,17 +322,44 @@ async function pullInvites(args: {
       'https://knit-app.vercel.app'
     const url = `${origin}/m/${match.id}/${token}`
 
-    // Write Status + Invite link + Sent at; clear the Send flag so it doesn't re-trigger.
+    // Auto-send via Resend when there's an email on file (either typed into the
+    // sheet, or — fallback — already on the matched knit_members row). The link
+    // is still written to the sheet either way so the missionary has a record.
     const stamp = new Date().toISOString().slice(0, 10)
+    const recipientEmail = email || (match.email ?? '')
+    const firstName =
+      match.preferred_name ||
+      match.first_name ||
+      (fullName.split(/\s+/)[0] ?? 'there')
+
+    let status = `Invited ${stamp}`
+    let emailErr: string | null = null
+    if (recipientEmail) {
+      const sendRes = await sendInviteEmail(recipientEmail, firstName, url)
+      if (sendRes.ok) {
+        status = `Emailed ${stamp}`
+      } else {
+        emailErr = sendRes.error ?? null
+        status = `Link generated ${stamp} (email failed: ${(sendRes.error ?? '').slice(0, 80)})`
+        report.invitesErrors.push(`Row ${rowNum}: email send failed — ${sendRes.error}`)
+      }
+    } else {
+      status = `Link generated ${stamp} (no email on file)`
+    }
+
+    // Clear Send flag (D), write Status (E), Invite link (F), Sent at (G).
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `${TABS.INVITE_MEMBERS}!D${rowNum}:G${rowNum}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [['', `Invited ${stamp}`, url, stamp]],
+        values: [['', status, url, stamp]],
       },
     })
     report.invitesProcessed += 1
+    if (emailErr) {
+      // Already pushed to invitesErrors above; nothing else to do.
+    }
   }
 }
 

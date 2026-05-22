@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.32.0',
+    date: '2026-05-22',
+    summary: 'Missionary-designated invites now auto-send via email (Resend) when a Members to Invite row has an email on file.',
+    details: [
+      "Upgrade to the v0.31.0 \"Members to Invite\" flow. Previously a missionary ticked a row and Knit wrote the magic link back into the sheet — they then copied it into a personal text/email. Now, when the matched `knit_members` row (or the sheet row itself) has an email, the sync sends a short, friendly invite via Resend automatically. Row status reflects the outcome: \"Emailed 2026-05-22\" on success, \"Link generated 2026-05-22 (no email on file)\" when there's no address, or \"Link generated … (email failed: …)\" with a one-line reason if Resend rejects. The link is always written to the sheet too, so the missionary has a record.",
+      "Setup needed for auto-send: set `RESEND_API_KEY` on the Knit Vercel project (env var). Optional `KNIT_INVITE_FROM` to override the From address; defaults to `Knit <noreply@gathered.app>`. Without the API key, the sync silently falls back to v0.31.0 behavior — link written to sheet, no email sent — so the absence of the secret doesn't break anything.",
+      "Still a follow-up: SMS auto-send. Needs cross-project plumbing into Tidings' Twilio integration (Twilio creds live on the Tidings project). For now, missionaries with phone-only contacts can still pull the link from the sheet and use the WML's text-invite handoff in /admin/members.",
+    ],
+  },
+  {
     version: '0.31.0',
     date: '2026-05-22',
     summary: 'New "Members to Invite" tab on the missionary sheet — they tick names, Knit generates the magic links.',
