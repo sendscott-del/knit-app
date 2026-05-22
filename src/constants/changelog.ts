@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.28.1',
+    date: '2026-05-22',
+    summary: '"Active" status now requires a completed availability update, not just onboarding.',
+    details: [
+      'The status badge on /admin/members previously showed "Active" the moment a member finished signup, even if they hadn\'t set any availability. That meant Ward Mission Leaders couldn\'t tell at a glance who was actually ready for a missionary pairing vs. who was still on the hook to fill in their weekly times. Per the Gathered User Access spreadsheet — "Ward members don\'t show as active options until they have completed a Knit availability update" — the badge now requires both: onboarding done AND at least one `knit_availability_baselines` row. A new amber "No availability yet" badge sits in between so leaders can spot who needs a nudge.',
+      'DB foundation: new SECURITY DEFINER helpers `knit_member_is_active(member_id)` and `knit_active_member_ids_in_ward(ward_id)`. Same predicate the badge uses; available to any future RLS rewrite, report, or dashboard widget that wants a single source of truth for "active". The suggestion engine in `src/lib/suggestion.ts` already filters per-day/per-slot availability, which is stricter than the predicate — it continues to work unchanged.',
+    ],
+  },
+  {
     version: '0.28.0',
     date: '2026-05-22',
     summary: 'Pull the Tidings member directory into knit_members with one click.',

@@ -275,12 +275,23 @@ function displayName(m: MemberRow): string {
   return full || '—'
 }
 
-function StatusBadge({ member }: { member: MemberRow }) {
+function StatusBadge({ member }: { member: MemberWithExtras }) {
   if (member.opted_out_at) return <Badge tone="rose">Opted out</Badge>
   if (member.paused_until && new Date(member.paused_until) > new Date()) {
     return <Badge tone="amber">Paused</Badge>
   }
-  if (member.onboarding_completed_at) return <Badge tone="emerald">Active</Badge>
+  // Per the Gathered User Access spreadsheet: "Ward members don't show as
+  // active options until they have completed a Knit availability update."
+  // So "Active" requires onboarding done AND at least one availability
+  // baseline row. Onboarded-but-no-availability gets its own state so admins
+  // can see who needs a nudge.
+  const hasAvailability = (member.availability?.length ?? 0) > 0
+  if (member.onboarding_completed_at && hasAvailability) {
+    return <Badge tone="emerald">Active</Badge>
+  }
+  if (member.onboarding_completed_at) {
+    return <Badge tone="amber">No availability yet</Badge>
+  }
   return <Badge tone="slate">Not onboarded</Badge>
 }
 
