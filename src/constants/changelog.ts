@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.33.0',
+    date: '2026-05-22',
+    summary: 'Missionary-designated invites now auto-send via SMS too (cross-project Twilio through Tidings).',
+    details: [
+      "Closes the email-only gap from v0.32.0. The pullInvites sweep now routes by preference: (1) Email via Resend if there's an email on file — outcome reads \"Emailed 2026-05-22\". (2) Otherwise SMS via the new Tidings `gather-send-invite-sms` edge function — outcome reads \"Texted 2026-05-22\". (3) Email failure with a phone on file automatically falls back to SMS — outcome reads \"Texted 2026-05-22 (email failed)\". (4) If everything fails or no contact info exists, the link is still written to the sheet and the status notes why.",
+      "SMS is dispatched cross-project: Knit's Vercel function POSTs to the Tidings edge function with a shared `TIDINGS_INTERNAL_FN_SECRET`. Twilio credentials stay on Tidings; Knit never sees them. Setup auto-applied on Knit's Vercel project (TIDINGS_SMS_URL + TIDINGS_INTERNAL_FN_SECRET set on Production + Development).",
+      "Closes #24 — all missionary-designated invite paths (email OR SMS) auto-send without the missionary copying the link manually.",
+    ],
+  },
+  {
     version: '0.32.0',
     date: '2026-05-22',
     summary: 'Missionary-designated invites now auto-send via email (Resend) when a Members to Invite row has an email on file.',

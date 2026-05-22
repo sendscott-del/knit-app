@@ -234,6 +234,36 @@ This link is unique to you and valid for 30 days. Thanks!`
   }
 }
 
+async function sendInviteSms(
+  toPhone: string,
+  firstName: string,
+  url: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const smsUrl = process.env.TIDINGS_SMS_URL
+  const secret = process.env.TIDINGS_INTERNAL_FN_SECRET
+  if (!smsUrl || !secret) return { ok: false, error: 'TIDINGS_SMS_URL / TIDINGS_INTERNAL_FN_SECRET not set' }
+
+  const body = `Hi ${firstName || 'there'} — here's your Knit availability survey so we can pair you with missionaries you'd be a great fit for. Takes about a minute. ${url}`
+
+  try {
+    const res = await fetch(smsUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ phone: toPhone, body, audit_tag: 'knit-invite' }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `gather-send-invite-sms ${res.status}: ${text.slice(0, 180)}` }
+    }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 async function pullInvites(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any
@@ -322,29 +352,50 @@ async function pullInvites(args: {
       'https://knit-app.vercel.app'
     const url = `${origin}/m/${match.id}/${token}`
 
-    // Auto-send via Resend when there's an email on file (either typed into the
-    // sheet, or — fallback — already on the matched knit_members row). The link
-    // is still written to the sheet either way so the missionary has a record.
+    // Auto-send routing:
+    //   1. Prefer email if there's an address on file (or typed into the sheet)
+    //   2. Fall back to SMS via Tidings' gather-send-invite-sms edge function
+    //   3. If neither works, status notes the link was generated only
+    // The link is always written to the sheet so the missionary has a record.
     const stamp = new Date().toISOString().slice(0, 10)
     const recipientEmail = email || (match.email ?? '')
+    const recipientPhone = phone || (match.phone ?? '')
     const firstName =
       match.preferred_name ||
       match.first_name ||
       (fullName.split(/\s+/)[0] ?? 'there')
 
     let status = `Invited ${stamp}`
-    let emailErr: string | null = null
+
     if (recipientEmail) {
       const sendRes = await sendInviteEmail(recipientEmail, firstName, url)
       if (sendRes.ok) {
         status = `Emailed ${stamp}`
       } else {
-        emailErr = sendRes.error ?? null
-        status = `Link generated ${stamp} (email failed: ${(sendRes.error ?? '').slice(0, 80)})`
         report.invitesErrors.push(`Row ${rowNum}: email send failed — ${sendRes.error}`)
+        // Try SMS as a fallback if a phone is on file
+        if (recipientPhone) {
+          const smsRes = await sendInviteSms(recipientPhone, firstName, url)
+          if (smsRes.ok) {
+            status = `Texted ${stamp} (email failed)`
+          } else {
+            status = `Link generated ${stamp} (email + SMS failed)`
+            report.invitesErrors.push(`Row ${rowNum}: SMS fallback also failed — ${smsRes.error}`)
+          }
+        } else {
+          status = `Link generated ${stamp} (email failed: ${(sendRes.error ?? '').slice(0, 80)})`
+        }
+      }
+    } else if (recipientPhone) {
+      const smsRes = await sendInviteSms(recipientPhone, firstName, url)
+      if (smsRes.ok) {
+        status = `Texted ${stamp}`
+      } else {
+        status = `Link generated ${stamp} (SMS failed: ${(smsRes.error ?? '').slice(0, 80)})`
+        report.invitesErrors.push(`Row ${rowNum}: SMS send failed — ${smsRes.error}`)
       }
     } else {
-      status = `Link generated ${stamp} (no email on file)`
+      status = `Link generated ${stamp} (no contact info)`
     }
 
     // Clear Send flag (D), write Status (E), Invite link (F), Sent at (G).
@@ -357,9 +408,6 @@ async function pullInvites(args: {
       },
     })
     report.invitesProcessed += 1
-    if (emailErr) {
-      // Already pushed to invitesErrors above; nothing else to do.
-    }
   }
 }
 
