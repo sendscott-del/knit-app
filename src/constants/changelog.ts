@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.30.0',
+    date: '2026-05-22',
+    summary: 'Ward members can opt out of Knit (and rejoin) from their availability page.',
+    details: [
+      'Per the Gathered User Access spreadsheet: "allow a ward member to opt out, which means they no longer want to participate in Knit." The MemberDashboard now has an "Opt out of Knit" link at the bottom of the "Need a break?" section, separated visually from the pause buttons. Clicking it shows a confirm with plain-language explanation ("Missionaries won\'t be paired with you anymore and you\'ll stop getting the weekly check-in. You can rejoin anytime from this same page.").',
+      "Once opted out, the dashboard top banner switches to a rose-toned card explaining the state, with a 'Rejoin Knit' button. Member's data (availability, interests, styles) is kept untouched in case they come back — the opt-out is fully reversible from the same magic link.",
+      "Backend: new SECURITY DEFINER RPC `knit_member_self_opt_out(member_id, token, opt_out boolean)`. Token-gated like the existing self-service RPCs. Sets `opted_out_at = now()` on opt-out, `NULL` on rejoin. The downstream effects (suggestion engine drops opted-out members, /admin/members shows the rose 'Opted out' badge) were already in place from earlier releases.",
+    ],
+  },
+  {
     version: '0.29.0',
     date: '2026-05-22',
     summary: 'Send availability-survey invites by text or email straight from the Knit app.',

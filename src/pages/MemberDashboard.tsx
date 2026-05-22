@@ -135,7 +135,9 @@ function Dashboard({
     member.paused_until && new Date(member.paused_until) > new Date()
 
   const [pausing, setPausing] = useState(false)
+  const [optingOut, setOptingOut] = useState(false)
   const [editing, setEditing] = useState<'availability' | 'interests' | 'styles' | null>(null)
+  const isOptedOut = !!member.opted_out_at
 
   async function pauseForDays(days: number | null) {
     setPausing(true)
@@ -149,6 +151,27 @@ function Dashboard({
       p_until: until as string,
     })
     setPausing(false)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    await onRefresh()
+  }
+
+  async function setOptOut(optOut: boolean) {
+    if (optOut) {
+      const confirmed = confirm(
+        "Opt out of Knit?\n\nMissionaries won't be paired with you anymore and you'll stop getting the weekly check-in. You can rejoin anytime from this same page.",
+      )
+      if (!confirmed) return
+    }
+    setOptingOut(true)
+    const { error } = await supabase.rpc('knit_member_self_opt_out', {
+      p_member_id: auth.memberId,
+      p_token: auth.token,
+      p_opt_out: optOut,
+    })
+    setOptingOut(false)
     if (error) {
       alert(error.message)
       return
@@ -180,7 +203,24 @@ function Dashboard({
           </p>
         </div>
 
-        {isPausedNow ? (
+        {isOptedOut ? (
+          <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-gray-900 text-sm space-y-3">
+            <div>
+              <p className="font-medium text-rose-900">You've opted out of Knit.</p>
+              <p className="text-gray-700 mt-1">
+                Missionaries won't be paired with you and you won't get the weekly check-in.
+                Your availability and preferences are kept in case you want to come back.
+              </p>
+            </div>
+            <button
+              onClick={() => void setOptOut(false)}
+              disabled={optingOut}
+              className="rounded-md bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-3 py-1.5 disabled:opacity-50"
+            >
+              {optingOut ? 'Rejoining…' : 'Rejoin Knit'}
+            </button>
+          </div>
+        ) : isPausedNow ? (
           <div className="rounded-md border border-warning/30 bg-warning/5 p-4 text-gray-900 text-sm">
             You're paused until <strong>{member.paused_until}</strong>.{' '}
             <button
@@ -230,27 +270,42 @@ function Dashboard({
           }}
         />
 
-        <Section title="Need a break?">
-          <p className="text-gray-600 text-sm">
-            Pause and we won't send the weekly check-in for a while.
-          </p>
-          <div className="flex flex-wrap gap-2 pt-3">
-            <button
-              onClick={() => void pauseForDays(30)}
-              disabled={pausing}
-              className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
-            >
-              Pause 30 days
-            </button>
-            <button
-              onClick={() => void pauseForDays(90)}
-              disabled={pausing}
-              className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
-            >
-              Pause 90 days
-            </button>
-          </div>
-        </Section>
+        {!isOptedOut && (
+          <Section title="Need a break?">
+            <p className="text-gray-600 text-sm">
+              Pause and we won't send the weekly check-in for a while.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-3">
+              <button
+                onClick={() => void pauseForDays(30)}
+                disabled={pausing}
+                className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                Pause 30 days
+              </button>
+              <button
+                onClick={() => void pauseForDays(90)}
+                disabled={pausing}
+                className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
+              >
+                Pause 90 days
+              </button>
+            </div>
+
+            <div className="border-t border-gray-100 mt-4 pt-4">
+              <p className="text-gray-600 text-sm">
+                Or, if you'd rather not be part of Knit at all —
+              </p>
+              <button
+                onClick={() => void setOptOut(true)}
+                disabled={optingOut}
+                className="mt-2 text-sm font-medium text-rose-700 hover:text-rose-800 underline disabled:opacity-50"
+              >
+                {optingOut ? 'Opting out…' : 'Opt out of Knit'}
+              </button>
+            </div>
+          </Section>
+        )}
       </main>
     </div>
   )
