@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.26.3',
+    date: '2026-05-22',
+    summary: 'Super admins can now create, refresh, and sync missionary sheets.',
+    details: [
+      'Three sheet endpoints (`/api/admin/sheet/create`, `/refresh`, `/sync-now`) gated on `roleIsWritable(role)`, which only checks `WARD_EDIT_ROLES` (Ward Mission Leader, RS Presidency, EQ Presidency) and ignored the `is_super_admin` flag. As a result, a stake president with `is_super_admin = true` hit "Your role cannot create a sheet" even though the frontend correctly let them try (the frontend uses `canEdit({role, is_super_admin})`).',
+      'Added an `adminCanWrite(admin)` helper in `api/_lib/auth.ts` that mirrors the frontend pattern — super admins always pass; otherwise the role must be in `WARD_EDIT_ROLES`. Pointed all three endpoints at the new helper. `roleIsWritable(role)` remains for any role-only checks.',
+    ],
+  },
+  {
     version: '0.26.2',
     date: '2026-05-20',
     summary: 'Suggestion FAB copy trimmed.',

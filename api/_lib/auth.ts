@@ -79,3 +79,16 @@ export async function adminCanViewWard(
 export function roleIsWritable(role: AdminRole): boolean {
   return (WARD_EDIT_ROLES as readonly AdminRole[]).includes(role)
 }
+
+/**
+ * True when this admin is allowed to write at all (regardless of ward).
+ * Super admins always pass; otherwise the role must be in WARD_EDIT_ROLES.
+ * Stake-view roles (stake_presidency, high_councilor) without super-admin
+ * are view-only.
+ */
+export function adminCanWrite(
+  admin: Pick<AdminRow, 'role' | 'is_super_admin'>,
+): boolean {
+  if (admin.is_super_admin) return true
+  return (WARD_EDIT_ROLES as readonly AdminRole[]).includes(admin.role)
+}

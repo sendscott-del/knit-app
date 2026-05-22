@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireAdmin, adminCanActOnWard, roleIsWritable } from '../../_lib/auth.js'
+import { requireAdmin, adminCanActOnWard, adminCanWrite } from '../../_lib/auth.js'
 import { supabaseAdmin } from '../../_lib/supabaseAdmin.js'
 import { populateDataTabs, protectSpreadsheet } from '../../_lib/sheetSync.js'
 import { formatGoogleError } from '../../_lib/sheets.js'
@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { wardId } = (req.body ?? {}) as { wardId?: string }
   if (!wardId) return res.status(400).json({ error: 'Missing wardId' })
-  if (!roleIsWritable(auth.admin.role)) {
+  if (!adminCanWrite(auth.admin)) {
     return res.status(403).json({ error: 'Your role cannot refresh the sheet' })
   }
   if (!(await adminCanActOnWard(auth.admin, wardId))) {

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import {
   requireAdmin,
   adminCanActOnWard,
-  roleIsWritable,
+  adminCanWrite,
 } from '../../_lib/auth.js'
 import { supabaseAdmin } from '../../_lib/supabaseAdmin.js'
 import { pullSheet } from '../../_lib/sheetPull.js'
@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const { wardId } = (req.body ?? {}) as { wardId?: string }
   if (!wardId) return res.status(400).json({ error: 'Missing wardId' })
-  if (!roleIsWritable(auth.admin.role)) {
+  if (!adminCanWrite(auth.admin)) {
     return res.status(403).json({ error: 'Your role cannot sync sheets' })
   }
   if (!(await adminCanActOnWard(auth.admin, wardId))) {
