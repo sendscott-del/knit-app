@@ -81,6 +81,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Tidings RPC returns a single JSONB array (sidesteps PostgREST's 1000-row cap).
   const contactsRes = await fetch(
     `${TIDINGS_URL}/rest/v1/rpc/gather_tidings_contacts_for_sync`,
     {
