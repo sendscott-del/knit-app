@@ -57,6 +57,8 @@ export default function AdminRoles() {
   const [draft, setDraft] = useState<DraftRole[]>([])
   const [savingFor, setSavingFor] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
 
   const rolesByEmail = useMemo(() => {
     const map: Record<string, RoleRow[]> = {}
@@ -121,6 +123,35 @@ export default function AdminRoles() {
 
   function setWardForRole(roleKey: string, ward: string | null) {
     setDraft((prev) => prev.map((d) => (d.role_key === roleKey ? { ...d, ward } : d)))
+  }
+
+  async function syncFromTidings() {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) throw new Error('No session')
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/knit-sync-tidings-members`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      )
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setSyncResult(
+        `Pulled ${data.contact_count ?? 0} contacts: ${data.inserted ?? 0} new, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped, ${data.missing_ward ?? 0} unmapped ward.`,
+      )
+      await refresh()
+    } catch (e) {
+      setSyncResult(`Sync failed: ${(e as Error).message}`)
+    } finally {
+      setSyncing(false)
+    }
   }
 
   async function saveRoles() {
@@ -189,6 +220,30 @@ export default function AdminRoles() {
           placeholder="Filter by email…"
           className="w-full px-3 py-2 border border-gray-300 rounded text-sm"
         />
+      </div>
+
+      <div className="bg-white rounded-md border border-gray-200 p-4 mb-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Tidings member directory</p>
+            <p className="text-xs text-gray-500">
+              Pulls every active contact from Tidings into knit_members (split into first + last name, phone, email, callings).
+              Safe to run anytime — keyed by tidings_member_id.
+            </p>
+          </div>
+          <button
+            onClick={syncFromTidings}
+            disabled={syncing}
+            className="px-3 py-1.5 text-xs font-medium rounded text-white disabled:opacity-50 bg-knit-primary whitespace-nowrap"
+          >
+            {syncing ? 'Syncing…' : 'Sync from Tidings'}
+          </button>
+        </div>
+        {syncResult && (
+          <p className="mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+            {syncResult}
+          </p>
+        )}
       </div>
 
       {loading ? (

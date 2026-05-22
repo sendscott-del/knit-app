@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.28.0',
+    date: '2026-05-22',
+    summary: 'Pull the Tidings member directory into knit_members with one click.',
+    details: [
+      "/admin/roles now has a \"Sync from Tidings\" button. It calls the new `knit-sync-tidings-members` edge function, which fetches every active contact from Tidings via the shared service-role RPC `gather_tidings_contacts_for_sync`, splits each `full_name` into first + last (last token wins), and upserts into `knit_members` keyed by `tidings_member_id`. Safe to re-run — no duplicates. Surface reports counts: pulled / new / updated / skipped (opted out or blank) / unmapped ward.",
+      "Schema: new columns on `knit_members` — `email`, `callings text[]`, `synced_at`, `sync_source`. New `knit_wards.tidings_unit_name` mapping column seeded for all stake wards so \"Hyde Park 1st Ward\" (Tidings) routes to Knit's \"Hyde Park 1st\". GIN index on `knit_members.callings` for fast filtering in the upcoming friend-finder and invite features.",
+      "Deferred to follow-ups: weekly pg_cron schedule (same task as Glean's), and the auto-grant-by-calling rule (will land alongside Knit's RLS rewrite when the `knit_*` helpers from v0.27.0 get wired in).",
+    ],
+  },
+  {
     version: '0.27.0',
     date: '2026-05-22',
     summary: 'New /admin/roles screen for assigning the 19 Gathered suite roles + Knit-side helper functions for the Ward Super Admin tier.',
