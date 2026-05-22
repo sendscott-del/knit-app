@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.31.0',
+    date: '2026-05-22',
+    summary: 'New "Members to Invite" tab on the missionary sheet — they tick names, Knit generates the magic links.',
+    details: [
+      "Per the Gathered User Access spreadsheet: \"allow missionaries to designate in their sheet ward members they want to get a Knit availability survey; have Knit send an email or text invitation to that member.\" New `Members to Invite` tab joins the existing 7 sheet tabs. Headers: Full name, Phone, Email, Send invite?, Status, Invite link, Sent at. Header row is hard-locked; Status / Invite link / Sent at are warning-protected (Knit-fill).",
+      "Flow: missionary types a ward member's name (and ideally phone or email to disambiguate), checks Send invite? (yes / TRUE / ✓ all accepted). On the next Sync from sheet now (manual or cron), Knit looks up the matching `knit_members` row by ward + name/phone/email, calls `knit_generate_member_magic_link`, and writes the unique URL into Invite link + today's date into Sent at. The missionary then copies the link into a text or email — same magic-link routing as the WML send-invite flow.",
+      "If no matching member is found, Status reads \"Not found — add them in /admin/members first\" and the Send flag is cleared so the row doesn't keep retrying. Opted-out members never match.",
+      "Server-side auto-send via email or SMS is intentionally NOT in this release. The missionary copy-pastes the generated link — same friction as the v0.29.0 WML mailto:/sms: flow. Auto-send (Resend for email, Twilio cross-project for SMS) is the next-tier upgrade.",
+      "Sync result toast now also surfaces \"N invites generated\" alongside the existing suggestions and outings counts.",
+    ],
+  },
+  {
     version: '0.30.0',
     date: '2026-05-22',
     summary: 'Ward members can opt out of Knit (and rejoin) from their availability page.',

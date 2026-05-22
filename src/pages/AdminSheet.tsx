@@ -210,6 +210,8 @@ export default function AdminSheet() {
         suggestionErrors: string[]
         outingsInserted: number
         outingErrors: string[]
+        invitesProcessed?: number
+        invitesErrors?: string[]
         headersRepaired?: string[]
       }
       const parts: string[] = []
@@ -217,10 +219,12 @@ export default function AdminSheet() {
         parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
       if (rep.outingsInserted > 0)
         parts.push(`${rep.outingsInserted} outing${rep.outingsInserted === 1 ? '' : 's'} logged`)
+      if (rep.invitesProcessed && rep.invitesProcessed > 0)
+        parts.push(`${rep.invitesProcessed} invite${rep.invitesProcessed === 1 ? '' : 's'} generated`)
       if (rep.headersRepaired && rep.headersRepaired.length > 0)
         parts.push(`Restored headers on: ${rep.headersRepaired.join(', ')}`)
       if (parts.length === 0) parts.push('Nothing new to sync')
-      const errs = [...rep.suggestionErrors, ...rep.outingErrors]
+      const errs = [...rep.suggestionErrors, ...rep.outingErrors, ...(rep.invitesErrors ?? [])]
       if (errs.length > 0) parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)
       setNotice(parts.join(' · '))
       await loadBinding()

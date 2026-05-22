@@ -21,6 +21,7 @@ export const TABS = {
   LOG_OUTING: 'Log an Outing',
   URGENT: 'Urgent Need',
   RECENT: 'Recent Outings',
+  INVITE_MEMBERS: 'Members to Invite',
 } as const
 
 export const TAB_ORDER: string[] = [
@@ -31,6 +32,7 @@ export const TAB_ORDER: string[] = [
   TABS.LOG_OUTING,
   TABS.URGENT,
   TABS.RECENT,
+  TABS.INVITE_MEMBERS,
 ]
 
 const HEADERS: Record<string, string[]> = {
@@ -94,6 +96,19 @@ const HEADERS: Record<string, string[]> = {
     'Member',
     'Status',
     'Outcome notes',
+  ],
+  // Mixed tab: missionaries type a ward member's name + (phone or email) and
+  // check the "Send invite" cell. On the next pull cycle, Knit finds the
+  // matching knit_members row, generates a magic-link invite, writes the URL
+  // back into the "Invite link" cell, and stamps "Sent at". Header is locked.
+  [TABS.INVITE_MEMBERS]: [
+    'Full name',
+    'Phone',
+    'Email',
+    'Send invite?',
+    'Status',
+    'Invite link',
+    'Sent at',
   ],
 }
 
@@ -195,6 +210,20 @@ const PROTECTION_RULES: ProtectionRule[] = [
     description: `${KNIT_PROTECT_TAG} Knit fills the Replies column`,
     warningOnly: true,
     range: { startCol: 5, endCol: 6 },
+  },
+  {
+    // Members to Invite: header lock
+    tab: TABS.INVITE_MEMBERS,
+    description: `${KNIT_PROTECT_TAG} Header row — do not change column titles`,
+    warningOnly: false,
+    range: { startRow: 0, endRow: 1 },
+  },
+  {
+    // Members to Invite: Knit writes Status, Invite link, Sent at (cols E-G)
+    tab: TABS.INVITE_MEMBERS,
+    description: `${KNIT_PROTECT_TAG} Knit fills these columns after sync — your edits will be overwritten`,
+    warningOnly: true,
+    range: { startCol: 4, endCol: 7 },
   },
 ]
 

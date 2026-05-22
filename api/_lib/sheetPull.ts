@@ -41,6 +41,8 @@ export type PullReport = {
   suggestionErrors: string[]
   outingsInserted: number
   outingErrors: string[]
+  invitesProcessed: number
+  invitesErrors: string[]
   /** Tabs whose header row was repaired during this pull (drift detected and rewritten). */
   headersRepaired: string[]
 }
@@ -97,6 +99,8 @@ export async function pullSheet(args: {
     suggestionErrors: [],
     outingsInserted: 0,
     outingErrors: [],
+    invitesProcessed: 0,
+    invitesErrors: [],
     headersRepaired: [],
   }
 
@@ -150,7 +154,145 @@ export async function pullSheet(args: {
     report.outingErrors.push(errMsg(e))
   }
 
+  /* ---------------- Members to Invite tab ---------------- */
+  try {
+    const check = await verifyAndRestoreHeaders(
+      sheets,
+      args.spreadsheetId,
+      TABS.INVITE_MEMBERS,
+    )
+    if (check.repaired) {
+      report.headersRepaired.push(TABS.INVITE_MEMBERS)
+      report.invitesErrors.push(
+        'Members to Invite tab headers were missing or changed — restored. Skipping this pass.',
+      )
+    } else {
+      await pullInvites({
+        sb,
+        sheets,
+        wardId: args.wardId,
+        spreadsheetId: args.spreadsheetId,
+        report,
+      })
+    }
+  } catch (e) {
+    report.invitesErrors.push(errMsg(e))
+  }
+
   return report
+}
+
+/**
+ * Processes the Members to Invite tab. For each row where the missionary
+ * has checked "Send invite?" and "Sent at" is still blank, look up the
+ * matching knit_members row, generate a magic link, write the link + a
+ * timestamp back into the sheet.
+ *
+ * Server-side auto-send of email/SMS is intentionally NOT in scope for this
+ * release. Missionaries copy the link from the sheet and send themselves
+ * (or follow up via the WML's send-invite UI in /admin/members which
+ * already does mailto:/sms: handoffs).
+ */
+async function pullInvites(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any
+  sheets: SheetsClient
+  wardId: string
+  spreadsheetId: string
+  report: PullReport
+}) {
+  const { sb, sheets, wardId, spreadsheetId, report } = args
+  const expected = getExpectedHeaders(TABS.INVITE_MEMBERS) ?? []
+  const range = `${TABS.INVITE_MEMBERS}!A2:${colLetter(expected.length)}500`
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const rows = (res.data.values ?? []) as string[][]
+  if (rows.length === 0) return
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowNum = i + 2 // 1-indexed, +1 for header
+    const fullName = (row[0] ?? '').trim()
+    const phone = (row[1] ?? '').trim()
+    const email = (row[2] ?? '').trim()
+    const sendFlag = (row[3] ?? '').trim().toLowerCase()
+    const sentAt = (row[6] ?? '').trim()
+
+    // Skip if not requested, already sent, or no name
+    if (!fullName) continue
+    const isChecked =
+      sendFlag === 'true' || sendFlag === 'yes' || sendFlag === 'y' || sendFlag === '✓' || sendFlag === '✔'
+    if (!isChecked) continue
+    if (sentAt) continue
+
+    // Find the member. Match by ward + (name OR phone OR email).
+    // Names are split first_name + last_name in the table; reconstruct full
+    // name (or use preferred_name when set) and match case-insensitive.
+    const { data: candidates, error } = await sb
+      .from('knit_members')
+      .select('id, first_name, last_name, preferred_name, phone, email, opted_out_at')
+      .eq('ward_id', wardId)
+    if (error) {
+      report.invitesErrors.push(`Row ${rowNum}: ${error.message}`)
+      continue
+    }
+    const normalizedName = fullName.toLowerCase()
+    const normalizedPhone = phone.replace(/[\s\-()+]/g, '')
+    const normalizedEmail = email.toLowerCase()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const match = (candidates ?? []).find((m: any) => {
+      if (m.opted_out_at) return false
+      const memberFull = (m.preferred_name || [m.first_name, m.last_name].filter(Boolean).join(' ')).toLowerCase()
+      if (memberFull && memberFull === normalizedName) return true
+      if (normalizedPhone && (m.phone ?? '').replace(/[\s\-()+]/g, '') === normalizedPhone) return true
+      if (normalizedEmail && (m.email ?? '').toLowerCase() === normalizedEmail) return true
+      return false
+    })
+
+    if (!match) {
+      // Write a not-found status; clear send flag so this row doesn't keep retrying.
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${TABS.INVITE_MEMBERS}!D${rowNum}:E${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['', 'Not found — add them in /admin/members first']] },
+      })
+      report.invitesErrors.push(`Row ${rowNum}: no matching knit_members row for "${fullName}"`)
+      continue
+    }
+
+    // Generate the magic link
+    const { data: token, error: tokenErr } = await sb.rpc('knit_generate_member_magic_link', {
+      p_member_id: match.id,
+    })
+    if (tokenErr || !token) {
+      report.invitesErrors.push(`Row ${rowNum}: ${tokenErr?.message ?? 'no token returned'}`)
+      continue
+    }
+
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      process.env.VITE_APP_URL ??
+      'https://knit-app.vercel.app'
+    const url = `${origin}/m/${match.id}/${token}`
+
+    // Write Status + Invite link + Sent at; clear the Send flag so it doesn't re-trigger.
+    const stamp = new Date().toISOString().slice(0, 10)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${TABS.INVITE_MEMBERS}!D${rowNum}:G${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [['', `Invited ${stamp}`, url, stamp]],
+      },
+    })
+    report.invitesProcessed += 1
+  }
 }
 
 async function pullSuggestions(args: {
