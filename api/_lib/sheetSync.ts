@@ -19,35 +19,35 @@ import {
  */
 export const TABS = {
   START_HERE: 'Start Here',
+  // Static instructions tab with the /join self-service link. Moved up to
+  // position 2 in v0.40.0 so it sits right after Start Here.
+  INVITE_HOWTO: 'How to Invite Members',
   AVAILABLE: 'Available This Week',
   FRIENDS: 'Friends We are Teaching',
   // Missionary entry tab for adding a brand-new friend the ward is starting
-  // to teach. Rows get inserted into knit_friends on the next pull; the
-  // refreshed friend then shows up on the Friends We are Teaching tab.
+  // to teach.
   ADD_FRIEND: 'Add a Friend',
   SUGGESTIONS: 'Suggestions',
   LOG_OUTING: 'Log an Outing',
-  RECENT: 'Recent Outings',
-  // Static instructions tab that points missionaries at the /join self-service
-  // link. Replaces the v0.31.0 "Members to Invite" workflow.
-  INVITE_HOWTO: 'How to Invite Members',
-  // Missionary-only feedback box. Each filled row gets inserted into
-  // app_suggestions on the next pull.
+  // Tab name carries the read-only hint since Sheets has no per-tab banner
+  // primitive. The old name 'Recent Outings' is in OBSOLETE_TABS so existing
+  // sheets shed it on the next sync.
+  RECENT: 'Recent Outings (read-only)',
+  // Missionary-only feedback box.
   FEEDBACK: 'Send Feedback',
-  // Hidden — backing list for the Log an Outing → Member dropdown. One
-  // row per ONBOARDED ward member.
+  // Hidden — backing list for the Log an Outing → Member dropdown.
   ROSTER: 'Member Roster (do not edit)',
 } as const
 
 export const TAB_ORDER: string[] = [
   TABS.START_HERE,
+  TABS.INVITE_HOWTO,
   TABS.AVAILABLE,
   TABS.FRIENDS,
   TABS.ADD_FRIEND,
   TABS.SUGGESTIONS,
   TABS.LOG_OUTING,
   TABS.RECENT,
-  TABS.INVITE_HOWTO,
   TABS.FEEDBACK,
   TABS.ROSTER,
 ]
@@ -60,6 +60,7 @@ export const TAB_ORDER: string[] = [
 export const OBSOLETE_TABS = [
   'Urgent Need',        // never had real functionality; dropped in v0.38.0
   'Members to Invite',  // replaced by self-service /join + How to Invite tab
+  'Recent Outings',     // renamed to "Recent Outings (read-only)" in v0.40.0
 ] as const
 
 const HEADERS: Record<string, string[]> = {
@@ -104,7 +105,7 @@ const HEADERS: Record<string, string[]> = {
     'Time',
     'Friend',
     'Member',
-    'What happened',
+    'Status',
     'Outcome notes',
     'Synced',
   ],
@@ -662,6 +663,16 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     'paused',
     'lost_contact',
   ]
+  // Rolling window: the seven most recent dates (today and the six days
+  // before). Recomputed every sync so the dropdown always reflects the
+  // current week.
+  const TODAY = new Date()
+  const LAST_7_DAYS: string[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(TODAY)
+    d.setDate(d.getDate() - i)
+    LAST_7_DAYS.push(d.toISOString().slice(0, 10))
+  }
 
   const oneOfList = (
     sheetId: number,
@@ -726,6 +737,11 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     // Add a Friend: Language col C dropdown, Teaching status col D dropdown.
     oneOfList(addFriendId, 1, 200, 2, LANGUAGES, 'English or Spanish.'),
     oneOfList(addFriendId, 1, 200, 3, TEACHING_STATUSES, 'Where this friend is in the teaching process.'),
+
+    // Log an Outing — column A (Date), B (Time), E (Status) all dropdowns.
+    oneOfList(logOutingId, 1, 200, 0, LAST_7_DAYS, 'Pick a date from the last 7 days.'),
+    oneOfList(logOutingId, 1, 200, 1, TIME_SLOTS, 'morning, afternoon, or evening.'),
+    oneOfList(logOutingId, 1, 200, 4, STATUSES, 'What happened? Pick a status.'),
 
     // Log an Outing, column C ("Friend") — dropdown of currently teaching friends.
     {

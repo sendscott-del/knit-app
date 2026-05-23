@@ -786,6 +786,7 @@ function composeScheduledAt(date: Date, slot: TimeSlot): string {
 
 function parseOutingStatus(raw: string): string | null {
   const s = raw.toLowerCase().trim()
+  // Canonical DB enum values stay valid for backward compat.
   const valid = [
     'scheduled',
     'happened',
@@ -795,9 +796,13 @@ function parseOutingStatus(raw: string): string | null {
     'needs_checkin',
   ]
   if (valid.includes(s)) return s
+  // Map the sheet's 4 dropdown labels (and a few common synonyms) to the
+  // DB enum. "Didn't happen" is the new app/sheet label for what the DB
+  // calls 'flaked'.
+  if (s.startsWith("didn") || s === 'flake' || s === 'no-show' || s === 'missed')
+    return 'flaked'
   if (s.startsWith('happen') || s === 'done' || s === 'completed' || s === 'yes')
     return 'happened'
-  if (s === 'flake' || s === 'no-show' || s === 'missed') return 'flaked'
   if (s === 'cancelled') return 'canceled'
   if (s === 'reschedule') return 'rescheduled'
   return null

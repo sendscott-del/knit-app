@@ -5,6 +5,8 @@ import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
 import { canEdit, isWardScoped } from '@/lib/roles'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
+import InterestChipPicker from '@/components/InterestChipPicker'
+import StylePicker from '@/components/StylePicker'
 import DemoBadge from '@/components/DemoBadge'
 import { slotsToString, type Slot, type TimeSlot, type DayOfWeek } from '@/lib/availability'
 import { memberInviteUrl } from '@/lib/memberAuth'
@@ -39,8 +41,12 @@ export default function AdminMembers() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [totalCount, setTotalCount] = useState<number | null>(null)
+  // Default view is "only members who have completed the survey." Search
+  // overrides this so admins can still find someone in the broader roster
+  // (e.g. to manually add them or check why they aren't showing up).
+  const [showAll, setShowAll] = useState(false)
+  const [detailId, setDetailId] = useState<string | null>(null)
 
-  // Debounce keystrokes so we don't fire a query per character.
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 200)
     return () => clearTimeout(t)
@@ -49,12 +55,6 @@ export default function AdminMembers() {
   async function refresh() {
     setLoading(true)
     setError(null)
-    // Server-side everything. Critical because PostgREST caps responses at
-    // 1000 rows regardless of the client's .limit(), so a stake-scale
-    // browse of 3K+ members silently truncates and the in-browser filter
-    // can't see anyone past row 1000 alphabetically. When the user types,
-    // run a real .or() ilike across name/phone in the DB. When idle, show
-    // the first slice with a clear "type to search the whole roster" cue.
     let q = supabase
       .from('knit_members')
       .select(
@@ -64,6 +64,11 @@ export default function AdminMembers() {
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true })
     if (wardFilter) q = q.eq('ward_id', wardFilter)
+    if (!showAll && !debouncedQuery) {
+      // Idle view: registered members only. Searching or toggling "show all"
+      // widens the set; the row cap still applies via PostgREST.
+      q = q.not('onboarding_completed_at', 'is', null).is('opted_out_at', null)
+    }
     if (debouncedQuery) {
       const safe = debouncedQuery.replace(/[%,()]/g, ' ').trim()
       if (safe) {
@@ -92,7 +97,7 @@ export default function AdminMembers() {
 
   useEffect(() => {
     void refresh()
-  }, [wardFilter, debouncedQuery])
+  }, [wardFilter, debouncedQuery, showAll])
 
   // Server-side filter already trimmed the list; this is just an alias so
   // the JSX doesn't need to change much.
@@ -194,21 +199,34 @@ export default function AdminMembers() {
           </select>
         ) : null}
       </div>
-      <p className="text-xs text-gray-500 -mt-2">
-        {(() => {
-          const wardLabel = wardFilter
-            ? ` in ${wards.find((w) => w.id === wardFilter)?.name ?? 'selected ward'}`
-            : ''
-          const total = totalCount ?? members.length
-          if (debouncedQuery) {
-            return `${members.length.toLocaleString()} ${members.length === 1 ? 'match' : 'matches'} for "${debouncedQuery}"${wardLabel} (of ${total.toLocaleString()} total).`
-          }
-          if (totalCount !== null && members.length < totalCount) {
-            return `Showing first ${members.length.toLocaleString()} of ${totalCount.toLocaleString()} members${wardLabel}. Type a name or phone to search the rest.`
-          }
-          return `${members.length.toLocaleString()} member${members.length === 1 ? '' : 's'}${wardLabel}.`
-        })()}
-      </p>
+      <div className="flex items-center justify-between flex-wrap gap-2 -mt-2">
+        <p className="text-xs text-gray-500">
+          {(() => {
+            const wardLabel = wardFilter
+              ? ` in ${wards.find((w) => w.id === wardFilter)?.name ?? 'selected ward'}`
+              : ''
+            const total = totalCount ?? members.length
+            if (debouncedQuery) {
+              return `${members.length.toLocaleString()} ${members.length === 1 ? 'match' : 'matches'} for "${debouncedQuery}"${wardLabel} (of ${total.toLocaleString()} ${showAll ? 'in roster' : 'registered'}).`
+            }
+            if (showAll) {
+              if (totalCount !== null && members.length < totalCount) {
+                return `Showing first ${members.length.toLocaleString()} of ${totalCount.toLocaleString()} members in the roster${wardLabel}. Type a name or phone to search the rest.`
+              }
+              return `${members.length.toLocaleString()} member${members.length === 1 ? '' : 's'} in roster${wardLabel}.`
+            }
+            return `${members.length.toLocaleString()} registered member${members.length === 1 ? '' : 's'}${wardLabel}.`
+          })()}
+        </p>
+        <label className="flex items-center gap-2 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+          />
+          Show everyone in the roster (not just registered)
+        </label>
+      </div>
 
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
@@ -251,7 +269,12 @@ export default function AdminMembers() {
               {visibleMembers.map((m) => (
                 <tr key={m.id}>
                   <td className="px-4 py-3 text-gray-900">
-                    {displayName(m)}
+                    <button
+                      onClick={() => setDetailId(m.id)}
+                      className="text-left text-gray-900 hover:text-knit-primary hover:underline"
+                    >
+                      {displayName(m)}
+                    </button>
                     <DemoBadge when={m.is_demo} />
                   </td>
                   <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{m.phone ?? '—'}</td>
@@ -312,6 +335,16 @@ export default function AdminMembers() {
           url={inviteLink.url}
           phone={inviteLink.phone}
           onClose={() => setInviteLink(null)}
+        />
+      ) : null}
+
+      {detailId ? (
+        <MemberDetailModal
+          memberId={detailId}
+          onClose={() => setDetailId(null)}
+          onSaved={async () => {
+            await refresh()
+          }}
         />
       ) : null}
 
@@ -671,5 +704,568 @@ function Field({
       {children}
       {hint ? <span className="text-xs text-gray-500">{hint}</span> : null}
     </label>
+  )
+}
+
+/**
+ * Detail / edit modal for a member's survey answers. Loads availability,
+ * interests, and styles directly from the DB (we're admin — RLS lets us
+ * write to these tables for members in our scope, no token needed). Saves
+ * write back to the same tables. The modal is a viewer first; clicking
+ * "Edit" on each section flips it to edit mode.
+ */
+function MemberDetailModal({
+  memberId,
+  onClose,
+  onSaved,
+}: {
+  memberId: string
+  onClose: () => void
+  onSaved: () => Promise<void>
+}) {
+  type DetailData = {
+    member: MemberRow
+    ward: { id: string; name: string } | null
+    availability: Slot[]
+    interestIds: string[]
+    styleKeys: string[]
+  }
+  const [data, setData] = useState<DetailData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [editing, setEditing] = useState<'availability' | 'interests' | 'styles' | 'profile' | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    const [memberRes, availRes, interestRes, styleRes] = await Promise.all([
+      supabase
+        .from('knit_members')
+        .select('*, ward:knit_wards(id, name)')
+        .eq('id', memberId)
+        .maybeSingle(),
+      supabase
+        .from('knit_availability_baselines')
+        .select('day_of_week, time_slot')
+        .eq('member_id', memberId),
+      supabase
+        .from('knit_member_interests')
+        .select('interest_tag_id')
+        .eq('member_id', memberId),
+      supabase
+        .from('knit_member_participation_styles')
+        .select('style_key')
+        .eq('member_id', memberId),
+    ])
+    if (memberRes.error || !memberRes.data) {
+      setError(memberRes.error?.message ?? 'Member not found.')
+      setLoading(false)
+      return
+    }
+    const m = memberRes.data as MemberRow & { ward: unknown }
+    const wardRaw = (m as { ward: unknown }).ward
+    const ward = Array.isArray(wardRaw)
+      ? ((wardRaw[0] as { id: string; name: string } | undefined) ?? null)
+      : ((wardRaw as { id: string; name: string } | null) ?? null)
+    const availability: Slot[] = (availRes.data ?? []).map((a) => ({
+      day: a.day_of_week as DayOfWeek,
+      timeSlot: a.time_slot as TimeSlot,
+    }))
+    setData({
+      member: m as MemberRow,
+      ward,
+      availability,
+      interestIds: (interestRes.data ?? []).map((i) => i.interest_tag_id as string),
+      styleKeys: (styleRes.data ?? []).map((s) => s.style_key as string),
+    })
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberId])
+
+  async function saveAvailability(slots: Slot[]) {
+    setSaving(true)
+    setError(null)
+    const { error: delErr } = await supabase
+      .from('knit_availability_baselines')
+      .delete()
+      .eq('member_id', memberId)
+    if (delErr) {
+      setError(delErr.message)
+      setSaving(false)
+      return
+    }
+    if (slots.length > 0) {
+      const { error: insErr } = await supabase
+        .from('knit_availability_baselines')
+        .insert(
+          slots.map((s) => ({
+            member_id: memberId,
+            day_of_week: s.day,
+            time_slot: s.timeSlot,
+          })),
+        )
+      if (insErr) {
+        setError(insErr.message)
+        setSaving(false)
+        return
+      }
+    }
+    setSaving(false)
+    setEditing(null)
+    await load()
+    await onSaved()
+  }
+
+  async function saveInterests(ids: string[]) {
+    setSaving(true)
+    setError(null)
+    const { error: delErr } = await supabase
+      .from('knit_member_interests')
+      .delete()
+      .eq('member_id', memberId)
+    if (delErr) {
+      setError(delErr.message)
+      setSaving(false)
+      return
+    }
+    if (ids.length > 0) {
+      const { error: insErr } = await supabase
+        .from('knit_member_interests')
+        .insert(ids.map((id) => ({ member_id: memberId, interest_tag_id: id })))
+      if (insErr) {
+        setError(insErr.message)
+        setSaving(false)
+        return
+      }
+    }
+    setSaving(false)
+    setEditing(null)
+    await load()
+    await onSaved()
+  }
+
+  async function saveStyles(keys: string[]) {
+    setSaving(true)
+    setError(null)
+    const { error: delErr } = await supabase
+      .from('knit_member_participation_styles')
+      .delete()
+      .eq('member_id', memberId)
+    if (delErr) {
+      setError(delErr.message)
+      setSaving(false)
+      return
+    }
+    if (keys.length > 0) {
+      const { error: insErr } = await supabase
+        .from('knit_member_participation_styles')
+        .insert(keys.map((k) => ({ member_id: memberId, style_key: k })))
+      if (insErr) {
+        setError(insErr.message)
+        setSaving(false)
+        return
+      }
+    }
+    setSaving(false)
+    setEditing(null)
+    await load()
+    await onSaved()
+  }
+
+  async function saveProfile(patch: {
+    preferred_name: string | null
+    locale: 'en' | 'es'
+    phone: string | null
+  }) {
+    setSaving(true)
+    setError(null)
+    const { error: upErr } = await supabase
+      .from('knit_members')
+      .update(patch)
+      .eq('id', memberId)
+    setSaving(false)
+    if (upErr) {
+      setError(upErr.message)
+      return
+    }
+    setEditing(null)
+    await load()
+    await onSaved()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-brand-primary-dark/50 flex items-center justify-center p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-md shadow-xl max-w-2xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 space-y-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {loading ? (
+          <p className="text-sm text-gray-500">Loading…</p>
+        ) : error ? (
+          <div className="space-y-3">
+            <p className="text-sm text-error">{error}</p>
+            <button onClick={onClose} className="btn-primary text-sm py-2 px-4">
+              Close
+            </button>
+          </div>
+        ) : data ? (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {displayName(data.member)}
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {data.ward?.name ?? '—'} · {data.member.phone ?? 'no phone'} ·{' '}
+                  {data.member.locale === 'es' ? 'Spanish' : 'English'}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {data.member.onboarding_completed_at
+                    ? `Registered ${new Date(data.member.onboarding_completed_at).toLocaleDateString()}`
+                    : 'Not yet onboarded'}
+                </p>
+              </div>
+              <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-900">
+                Close
+              </button>
+            </div>
+
+            <ProfileSection
+              member={data.member}
+              editing={editing === 'profile'}
+              saving={saving}
+              onStartEdit={() => setEditing('profile')}
+              onCancel={() => setEditing(null)}
+              onSave={(p) => void saveProfile(p)}
+            />
+
+            <AvailabilitySection
+              slots={data.availability}
+              editing={editing === 'availability'}
+              saving={saving}
+              onStartEdit={() => setEditing('availability')}
+              onCancel={() => setEditing(null)}
+              onSave={(s) => void saveAvailability(s)}
+            />
+
+            <InterestsSection
+              wardId={data.member.ward_id}
+              ids={data.interestIds}
+              editing={editing === 'interests'}
+              saving={saving}
+              onStartEdit={() => setEditing('interests')}
+              onCancel={() => setEditing(null)}
+              onSave={(ids) => void saveInterests(ids)}
+            />
+
+            <StylesSection
+              keys={data.styleKeys}
+              editing={editing === 'styles'}
+              saving={saving}
+              onStartEdit={() => setEditing('styles')}
+              onCancel={() => setEditing(null)}
+              onSave={(keys) => void saveStyles(keys)}
+            />
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function SectionShell({
+  title,
+  editing,
+  onStartEdit,
+  children,
+}: {
+  title: string
+  editing: boolean
+  onStartEdit: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <section className="rounded-md border border-gray-200 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        {!editing ? (
+          <button
+            onClick={onStartEdit}
+            className="text-xs text-gray-700 hover:text-gray-900 underline"
+          >
+            Edit
+          </button>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function ProfileSection({
+  member,
+  editing,
+  saving,
+  onStartEdit,
+  onCancel,
+  onSave,
+}: {
+  member: MemberRow
+  editing: boolean
+  saving: boolean
+  onStartEdit: () => void
+  onCancel: () => void
+  onSave: (p: { preferred_name: string | null; locale: 'en' | 'es'; phone: string | null }) => void
+}) {
+  const [preferred, setPreferred] = useState(member.preferred_name ?? '')
+  const [locale, setLocale] = useState<'en' | 'es'>(member.locale ?? 'en')
+  const [phone, setPhone] = useState(member.phone ?? '')
+
+  useEffect(() => {
+    if (editing) {
+      setPreferred(member.preferred_name ?? '')
+      setLocale(member.locale ?? 'en')
+      setPhone(member.phone ?? '')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  return (
+    <SectionShell title="Profile" editing={editing} onStartEdit={onStartEdit}>
+      {editing ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-600">Preferred name</span>
+            <input
+              type="text"
+              value={preferred}
+              onChange={(e) => setPreferred(e.target.value)}
+              className="form-input"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-600">Phone</span>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="form-input"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs text-gray-600">Language</span>
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as 'en' | 'es')}
+              className="form-input"
+            >
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+            </select>
+          </label>
+          <div className="sm:col-span-2 flex gap-2 pt-1">
+            <button
+              onClick={() =>
+                onSave({
+                  preferred_name: preferred.trim() || null,
+                  locale,
+                  phone: phone.trim() || null,
+                })
+              }
+              disabled={saving}
+              className="btn-primary text-sm py-1.5 px-3"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={saving}
+              className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm text-gray-700 space-y-1">
+          <div>
+            <span className="text-gray-500">Preferred name:</span>{' '}
+            {member.preferred_name || '—'}
+          </div>
+          <div>
+            <span className="text-gray-500">Phone:</span> {member.phone ?? '—'}
+          </div>
+          <div>
+            <span className="text-gray-500">Language:</span>{' '}
+            {member.locale === 'es' ? 'Spanish' : 'English'}
+          </div>
+        </div>
+      )}
+    </SectionShell>
+  )
+}
+
+function AvailabilitySection({
+  slots,
+  editing,
+  saving,
+  onStartEdit,
+  onCancel,
+  onSave,
+}: {
+  slots: Slot[]
+  editing: boolean
+  saving: boolean
+  onStartEdit: () => void
+  onCancel: () => void
+  onSave: (s: Slot[]) => void
+}) {
+  const [draft, setDraft] = useState<Slot[]>(slots)
+  useEffect(() => {
+    if (editing) setDraft(slots)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  return (
+    <SectionShell title="Availability" editing={editing} onStartEdit={onStartEdit}>
+      {editing ? (
+        <div className="space-y-3">
+          <AvailabilityGrid value={draft} onChange={setDraft} />
+          <p className="text-xs text-gray-500">{slotsToString(draft) || 'No times set.'}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSave(draft)}
+              disabled={saving}
+              className="btn-primary text-sm py-1.5 px-3"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={saving}
+              className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-700">{slotsToString(slots) || 'No times set yet.'}</p>
+      )}
+    </SectionShell>
+  )
+}
+
+function InterestsSection({
+  wardId,
+  ids,
+  editing,
+  saving,
+  onStartEdit,
+  onCancel,
+  onSave,
+}: {
+  wardId: string | null
+  ids: string[]
+  editing: boolean
+  saving: boolean
+  onStartEdit: () => void
+  onCancel: () => void
+  onSave: (ids: string[]) => void
+}) {
+  const [draft, setDraft] = useState<string[]>(ids)
+  useEffect(() => {
+    if (editing) setDraft(ids)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  return (
+    <SectionShell title="Interests" editing={editing} onStartEdit={onStartEdit}>
+      {editing ? (
+        <div className="space-y-3">
+          <InterestChipPicker wardId={wardId} value={draft} onChange={setDraft} />
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSave(draft)}
+              disabled={saving}
+              className="btn-primary text-sm py-1.5 px-3"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={saving}
+              className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : ids.length === 0 ? (
+        <p className="text-sm text-gray-500">No interests set.</p>
+      ) : (
+        <p className="text-sm text-gray-700">{ids.length} picked.</p>
+      )}
+    </SectionShell>
+  )
+}
+
+function StylesSection({
+  keys,
+  editing,
+  saving,
+  onStartEdit,
+  onCancel,
+  onSave,
+}: {
+  keys: string[]
+  editing: boolean
+  saving: boolean
+  onStartEdit: () => void
+  onCancel: () => void
+  onSave: (keys: string[]) => void
+}) {
+  const [draft, setDraft] = useState<string[]>(keys)
+  useEffect(() => {
+    if (editing) setDraft(keys)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  return (
+    <SectionShell title="How they help" editing={editing} onStartEdit={onStartEdit}>
+      {editing ? (
+        <div className="space-y-3">
+          <StylePicker value={draft} onChange={setDraft} />
+          <div className="flex gap-2">
+            <button
+              onClick={() => onSave(draft)}
+              disabled={saving}
+              className="btn-primary text-sm py-1.5 px-3"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              onClick={onCancel}
+              disabled={saving}
+              className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : keys.length === 0 ? (
+        <p className="text-sm text-gray-500">Not set.</p>
+      ) : (
+        <p className="text-sm text-gray-700">{keys.length} picked.</p>
+      )}
+    </SectionShell>
   )
 }

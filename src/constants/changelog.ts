@@ -7,6 +7,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.40.0',
+    date: '2026-05-22',
+    summary: 'Members page defaults to registered + clickable detail, Invitations outcome flips to Complete on onboard, Friends are editable inline, Sheet round 3.',
+    details: [
+      "Members page (/admin/members): default view now only loads members who have completed the survey. A \"Show everyone in the roster\" toggle widens it to the full 3K+ when admins need to look up someone outside the registered set. Click a member's name to open a detail modal with their availability, interests, styles, language, phone, and preferred name — each section has an Edit button that writes directly to the underlying tables. Same components the member-facing /me dashboard uses, so the experience is consistent.",
+      "Invitations page (/admin/invitations): outcome column now shows \"Complete\" (in Knit-primary) when the member completed onboarding after the invitation was sent. The previous \"Sent\" / \"Failed\" pill still applies for everything pre-onboard. Pure display change — derived from member.onboarding_completed_at vs invitation.created_at.",
+      "Friends page (/admin/friends): each row has an Edit button. Inline editor lets a ward leader change name, nickname, phone, language, teaching status, typical availability, and notes. Changes write straight to knit_friends; the next hourly sync rewrites Friends We are Teaching on the sheet so missionaries see the updated info within an hour.",
+      "Sheet — How to Invite Members moved to position 2 (right after Start Here). Existing sheets get reordered on next sync via enforceTabOrder.",
+      "Sheet — Recent Outings tab renamed to \"Recent Outings (read-only)\" so the read-only nature is visible at a glance. Old tab name added to OBSOLETE_TABS; existing sheets drop the old tab on next sync.",
+      "Sheet — Log an Outing: \"What happened\" column renamed to \"Status\" with a 4-value dropdown (Scheduled / Happened / Didn't happen / Rescheduled) that matches the app's outing status dropdown exactly. The pull parser maps these labels back to the DB enum (Didn't happen → 'flaked').",
+      "Sheet — Log an Outing: Date column is now a dropdown of the last 7 days (today plus the six previous), refreshed every sync. Time column is now a morning/afternoon/evening dropdown. Friend + Member dropdowns were already in place (Member is registered-members-only).",
+      "All sheet changes propagate to every ward's bound sheet on the next morning push / hourly pull / WML's Sync now click — no manual intervention needed.",
+    ],
+  },
+  {
     version: '0.39.0',
     date: '2026-05-22',
     summary: 'Users + Roles consolidated into one page. /admin/roles redirects.',

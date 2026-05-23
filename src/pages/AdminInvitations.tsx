@@ -29,7 +29,15 @@ type InvitationRow = {
   outcome: 'sent' | 'failed'
   outcome_detail: string | null
   created_at: string
-  member: { id: string; first_name: string | null; last_name: string | null; preferred_name: string | null } | null
+  member:
+    | {
+        id: string
+        first_name: string | null
+        last_name: string | null
+        preferred_name: string | null
+        onboarding_completed_at: string | null
+      }
+    | null
   ward: { id: string; name: string } | null
 }
 
@@ -73,7 +81,7 @@ export default function AdminInvitations() {
     const { data, error: historyErr } = await supabase
       .from('knit_member_invitations')
       .select(
-        'id, member_id, ward_id, sent_by_admin_id, sent_by_label, source, channel, recipient, outcome, outcome_detail, created_at, member:knit_members(id, first_name, last_name, preferred_name), ward:knit_wards(id, name)',
+        'id, member_id, ward_id, sent_by_admin_id, sent_by_label, source, channel, recipient, outcome, outcome_detail, created_at, member:knit_members(id, first_name, last_name, preferred_name, onboarding_completed_at), ward:knit_wards(id, name)',
       )
       .order('created_at', { ascending: false })
       .limit(100)
@@ -335,18 +343,38 @@ export default function AdminInvitations() {
                     <td className="px-4 py-2 text-gray-600">{row.channel === 'sms' ? 'Text' : 'Email'}</td>
                     <td className="px-4 py-2 text-gray-600 hidden md:table-cell">{row.recipient}</td>
                     <td className="px-4 py-2">
-                      {row.outcome === 'sent' ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">
-                          Sent
-                        </span>
-                      ) : (
-                        <span
-                          className="inline-flex items-center rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-xs font-medium"
-                          title={row.outcome_detail ?? ''}
-                        >
-                          Failed
-                        </span>
-                      )}
+                      {(() => {
+                        // If the member completed the survey AFTER this
+                        // invitation went out, the invitation effectively
+                        // succeeded — show "Complete" regardless of the
+                        // stored send outcome.
+                        const onboardedAt = row.member?.onboarding_completed_at
+                        if (
+                          onboardedAt &&
+                          new Date(onboardedAt).getTime() > new Date(row.created_at).getTime()
+                        ) {
+                          return (
+                            <span className="inline-flex items-center rounded-full bg-knit-primary/15 text-knit-primary px-2 py-0.5 text-xs font-medium">
+                              Complete
+                            </span>
+                          )
+                        }
+                        if (row.outcome === 'sent') {
+                          return (
+                            <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">
+                              Sent
+                            </span>
+                          )
+                        }
+                        return (
+                          <span
+                            className="inline-flex items-center rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-xs font-medium"
+                            title={row.outcome_detail ?? ''}
+                          >
+                            Failed
+                          </span>
+                        )
+                      })()}
                     </td>
                   </tr>
                 ))}

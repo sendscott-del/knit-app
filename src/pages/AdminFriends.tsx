@@ -32,6 +32,7 @@ export default function AdminFriends() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)
@@ -56,6 +57,16 @@ export default function AdminFriends() {
       alert(error.message)
       return
     }
+    await refresh()
+  }
+
+  async function saveFriend(id: string, patch: Partial<FriendRow>) {
+    const { error } = await supabase.from('knit_friends').update(patch).eq('id', id)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    setEditingId(null)
     await refresh()
   }
 
@@ -117,37 +128,58 @@ export default function AdminFriends() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {friends.map((f) => (
-                <tr key={f.id}>
-                  <td className="px-4 py-3 text-gray-900">
-                    {[f.first_name, f.last_name].filter(Boolean).join(' ')}
-                    {f.nickname ? (
-                      <span className="text-gray-500"> "{f.nickname}"</span>
-                    ) : null}
-                    <DemoBadge when={f.is_demo} />
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {STATUS_LABELS[f.teaching_status]}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
-                    {f.locale === 'es' ? 'Spanish' : 'English'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">{f.typical_availability ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{f.ward?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-right">
-                    {editor ? (
-                      <button
-                        onClick={() => void remove(f.id)}
-                        className="text-sm text-error hover:opacity-80"
-                      >
-                        Remove
-                      </button>
-                    ) : (
-                      <span className="text-xs text-gray-400">View-only</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {friends.map((f) =>
+                editingId === f.id ? (
+                  <EditFriendRow
+                    key={f.id}
+                    friend={f}
+                    onCancel={() => setEditingId(null)}
+                    onSave={(patch) => void saveFriend(f.id, patch)}
+                  />
+                ) : (
+                  <tr key={f.id}>
+                    <td className="px-4 py-3 text-gray-900">
+                      {[f.first_name, f.last_name].filter(Boolean).join(' ')}
+                      {f.nickname ? (
+                        <span className="text-gray-500"> "{f.nickname}"</span>
+                      ) : null}
+                      <DemoBadge when={f.is_demo} />
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {STATUS_LABELS[f.teaching_status]}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
+                      {f.locale === 'es' ? 'Spanish' : 'English'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
+                      {f.typical_availability ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
+                      {f.ward?.name ?? '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      {editor ? (
+                        <>
+                          <button
+                            onClick={() => setEditingId(f.id)}
+                            className="text-sm text-gray-700 hover:text-gray-900 mr-4"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => void remove(f.id)}
+                            className="text-sm text-error hover:opacity-80"
+                          >
+                            Remove
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-400">View-only</span>
+                      )}
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
           </div>
@@ -355,5 +387,143 @@ function Field({
       {children}
       {hint ? <span className="text-xs text-gray-500">{hint}</span> : null}
     </label>
+  )
+}
+
+/**
+ * Inline edit row. Edits land directly on knit_friends; the next
+ * populateDataTabs / morning push rewrites Friends We are Teaching on the
+ * sheet so changes propagate within the hour without any extra work.
+ */
+function EditFriendRow({
+  friend,
+  onCancel,
+  onSave,
+}: {
+  friend: FriendWithWard
+  onCancel: () => void
+  onSave: (patch: Partial<FriendRow>) => void
+}) {
+  const [firstName, setFirstName] = useState(friend.first_name ?? '')
+  const [lastName, setLastName] = useState(friend.last_name ?? '')
+  const [nickname, setNickname] = useState(friend.nickname ?? '')
+  const [phone, setPhone] = useState(friend.phone ?? '')
+  const [locale, setLocale] = useState<'en' | 'es'>(friend.locale ?? 'en')
+  const [teachingStatus, setTeachingStatus] = useState<TeachingStatus>(
+    friend.teaching_status,
+  )
+  const [typicalAvailability, setTypicalAvailability] = useState(
+    friend.typical_availability ?? '',
+  )
+  const [notes, setNotes] = useState(friend.notes ?? '')
+
+  function save() {
+    onSave({
+      first_name: firstName.trim(),
+      last_name: lastName.trim() || null,
+      nickname: nickname.trim() || null,
+      phone: phone.trim() || null,
+      locale,
+      teaching_status: teachingStatus,
+      typical_availability: typicalAvailability.trim() || null,
+      notes: notes.trim() || null,
+    })
+  }
+
+  return (
+    <tr className="bg-gray-50/60">
+      <td colSpan={6} className="px-4 py-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="First name">
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="form-input"
+            />
+          </Field>
+          <Field label="Last name">
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="form-input"
+            />
+          </Field>
+          <Field label="Nickname">
+            <input
+              type="text"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="form-input"
+            />
+          </Field>
+          <Field label="Phone">
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="form-input"
+            />
+          </Field>
+          <Field label="Language">
+            <select
+              value={locale}
+              onChange={(e) => setLocale(e.target.value as 'en' | 'es')}
+              className="form-input"
+            >
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+            </select>
+          </Field>
+          <Field label="Teaching status">
+            <select
+              value={teachingStatus}
+              onChange={(e) => setTeachingStatus(e.target.value as TeachingStatus)}
+              className="form-input"
+            >
+              {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field
+            label="Typical availability"
+            hint="Free-form, e.g. 'Tue/Thu evenings'"
+          >
+            <input
+              type="text"
+              value={typicalAvailability}
+              onChange={(e) => setTypicalAvailability(e.target.value)}
+              className="form-input"
+            />
+          </Field>
+          <Field label="Notes" hint="Visible to leaders only">
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="form-input"
+            />
+          </Field>
+        </div>
+        <div className="flex gap-2 pt-3">
+          <button onClick={save} className="btn-primary text-sm py-1.5 px-3">
+            Save
+          </button>
+          <button
+            onClick={onCancel}
+            className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <p className="text-xs text-gray-500 self-center">
+            Changes appear on the missionary sheet within the hour.
+          </p>
+        </div>
+      </td>
+    </tr>
   )
 }
