@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.40.3',
+    date: '2026-05-22',
+    summary: 'Read-only tabs: reapply protections on every sync + close the "domain users" edit path.',
+    details: [
+      "Existing hard-lock protections (warningOnly: false) blocked missionaries but not the sheet owner — Google gives owners an implicit override on every protected range. We can't bypass that without transferring sheet ownership to the service account (which would lose your ability to delete the sheet, so we're not doing it). Missionaries WERE blocked; the lock looked broken to Scott because he was testing as the OAuth-connected owner.",
+      "Tightened two things that were real gaps: (1) added domainUsersCanEdit: false to every hard-lock protection so anyone on the same Workspace domain as the file owner doesn't get an implicit edit path either; (2) populateDataTabs now calls protectSpreadsheet() at the end, so every sync (push, pull, refresh, manual Sync now) reapplies the rules — closes the case where Google silently drops a protection and the tab goes unguarded until the next morning push.",
+      "To verify the lock works for missionaries: ask one to open the sheet and try editing a yellow cell on Start Here. They'll see \"You don't have permission to edit this cell.\"",
+    ],
+  },
+  {
     version: '0.40.2',
     date: '2026-05-22',
     summary: 'Recent missionary requests table on the Suggestions page.',

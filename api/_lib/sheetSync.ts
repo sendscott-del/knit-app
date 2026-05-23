@@ -408,6 +408,12 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   // row 2 in v0.40.1).
   await writeReadOnlyBanners(spreadsheetId)
 
+  // Re-apply the protection ruleset every sync. Idempotent (removes any
+  // existing Knit-tagged protections first, then adds them fresh). Closes
+  // an edge case where a missionary or Google could silently drop a
+  // protection and the tabs went unguarded until the next morning push.
+  await protectSpreadsheet(spreadsheetId)
+
   /* ---- Available This Week ---- */
   const { data: members } = await sb
     .from('knit_members')

@@ -393,9 +393,16 @@ export async function applyProtectedRanges(
 
     // For hard locks the SA must be in editors so our own writes still work.
     // For warning-only, editors is unused (anyone with edit can override).
+    // domainUsersCanEdit=false closes the implicit "everyone in our Workspace
+    // domain can edit" path that Google enables by default — without it a
+    // missionary on the same domain as the file owner can sometimes edit
+    // protected ranges without the popup.
     const editors = rule.warningOnly
       ? undefined
-      : { users: saEmail ? [saEmail] : [] }
+      : {
+          users: saEmail ? [saEmail] : [],
+          domainUsersCanEdit: false,
+        }
 
     additions.push({
       addProtectedRange: {
