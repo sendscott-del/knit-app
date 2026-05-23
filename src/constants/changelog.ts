@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.38.0',
+    date: '2026-05-22',
+    summary: 'Missionary sheet redesigned: self-service invites, missionary feedback tab, color-coded entry vs auto cells, Urgent Need retired, Log an Outing dropdown narrowed to onboarded members.',
+    details: [
+      "Members to Invite tab is gone. Missionaries now share the /join self-service link instead of designating members in the sheet. New \"How to Invite Members\" tab shows the link plus a 3-step instruction blurb (sourced from NEXT_PUBLIC_APP_URL so it points at the real production host).",
+      "Urgent Need tab is gone — the feature was never built and the tab was just confusing the workspace.",
+      "New \"Send Feedback\" tab. Missionaries type their name + an idea / bug / wish in the yellow cells. On the next pull (hourly via pg_cron, or click \"Sync from sheet now\" for instant), Knit inserts the row into app_suggestions (app='knit'), stamps the gray Status + Submitted at columns, and surfaces it on the Gather suggestions board alongside the in-app 💡 button output.",
+      "Color-coded cells with a key on Start Here. Yellow = missionary entry. Gray = Knit fills + hard-locked so they can't be typed in. Headers always darker gray + bold. Idempotent — every morning push (and every hourly pull, via the new tab-reconciler) reapplies the formatting and protections.",
+      "Log an Outing → Member dropdown now only lists onboarded members (members with onboarding_completed_at set). Missionaries can't accidentally log an outing against a member who hasn't actually said they're available yet. The Member Roster query was narrowed accordingly.",
+      "All existing sheets get updated on the next sync. populateDataTabs now calls ensureTabs(TAB_ORDER) + removeObsoleteKnitTabs() before writing data, so wards bound on earlier templates pick up the new tabs (How to Invite Members, Send Feedback) and lose the retired ones (Urgent Need, Members to Invite) without any manual cleanup. No WML action needed — the next hourly pull / morning push / Sync from sheet now click reconciles.",
+    ],
+  },
+  {
     version: '0.37.1',
     date: '2026-05-22',
     summary: 'Member Roster stays in step with Tidings + member self-opt-outs automatically — nightly Tidings sync + hourly sheet roster refresh.',
