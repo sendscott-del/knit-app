@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.2',
+    date: '2026-05-22',
+    summary: '/join now picks the right row when a member has duplicates — returning members land on their existing data instead of a blank wizard.',
+    details: [
+      "Bug from Scott testing: tapped /join → his text arrived → tap → blank onboarding wizard, even though he had already completed the survey. Root cause: he had two knit_members rows in his ward with the same name + phone — one manually added before the Tidings sync (onboarded, full data) and one created by the Tidings sync afterward (un-onboarded shell). The lookup picked whichever PostgREST returned first, which happened to be the empty shell.",
+      "Fix: when multiple matches exist, prefer the row with onboarding_completed_at set; if neither is onboarded, prefer the older one (more likely the manually-created \"real\" row). Cleaning up the underlying duplicates is a separate follow-up — the Tidings sync should reconcile by ward+phone or ward+name when there's no tidings_member_id on the existing row.",
+    ],
+  },
+  {
     version: '0.36.1',
     date: '2026-05-22',
     summary: 'Self-service member /join page, fixes a bunch of Tidings + Google Sheet sync regressions, and consolidates the sheet/* endpoints.',

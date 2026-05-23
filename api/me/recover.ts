@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { data: candidates, error: candErr } = await sb
     .from('knit_members')
     .select(
-      'id, ward_id, first_name, last_name, preferred_name, phone, opted_out_at, paused_until',
+      'id, ward_id, first_name, last_name, preferred_name, phone, opted_out_at, paused_until, onboarding_completed_at, created_at',
     )
     .ilike('last_name', lastIlike)
     .is('opted_out_at', null)
@@ -82,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const firstNeedle = firstName.toLowerCase()
   const lastNeedle = lastName.toLowerCase()
-  const match = (candidates ?? []).find((m) => {
+  const matches = (candidates ?? []).filter((m) => {
     const ln = (m.last_name ?? '').toLowerCase()
     if (ln !== lastNeedle) return false
     const fn = (m.first_name ?? '').toLowerCase()
@@ -92,6 +92,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!memberPhone) return false
     return memberPhone.endsWith(last10) || last10.endsWith(memberPhone.slice(-10))
   })
+
+  // Tie-break: prefer the row that has already completed onboarding (so a
+  // returning member always lands on their existing data). If neither is
+  // onboarded, prefer the older row — manually-added rows pre-date the
+  // Tidings sync and tend to be the "real" one. Same-name duplicates can
+  // arise when a member was added in /admin/members before the Tidings sync
+  // first ran (the sync didn't see a tidings_member_id and inserted a new
+  // shell). Cleaning up duplicates is a separate follow-up.
+  matches.sort((a, b) => {
+    if (a.onboarding_completed_at && !b.onboarding_completed_at) return -1
+    if (!a.onboarding_completed_at && b.onboarding_completed_at) return 1
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  })
+  const match = matches[0] ?? null
 
   if (!match) {
     // No match. Log the attempt so we can see legitimate misses (and abuse
