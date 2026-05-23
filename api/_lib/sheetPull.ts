@@ -1,7 +1,7 @@
 import { google } from 'googleapis'
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { TABS, getExpectedHeaders } from './sheetSync.js'
-import { colLetter } from './sheets.js'
+import { TABS, TAB_ORDER, getExpectedHeaders } from './sheetSync.js'
+import { colLetter, ensureTabs } from './sheets.js'
 import {
   sendInviteSms,
   memberInviteUrl,
@@ -108,6 +108,17 @@ export async function pullSheet(args: {
     invitesProcessed: 0,
     invitesErrors: [],
     headersRepaired: [],
+  }
+
+  // Make sure every expected tab exists before we try to read from it.
+  // Sheets bound before v0.31.0 don't have the "Members to Invite" tab, and
+  // a `values.get` against a missing tab returns "Unable to parse range",
+  // which previously surfaced as a generic "1 issue" on the Sync from sheet
+  // now button. ensureTabs is idempotent and only adds missing tabs.
+  try {
+    await ensureTabs(args.spreadsheetId, TAB_ORDER)
+  } catch (e) {
+    report.invitesErrors.push(`ensureTabs failed: ${errMsg(e)}`)
   }
 
   /* ---------------- Suggestions tab ---------------- */

@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.4',
+    date: '2026-05-22',
+    summary: '"Sync from sheet now" no longer errors on sheets that pre-date the Members to Invite tab.',
+    details: [
+      "Sheets bound before v0.31.0 don't have the \"Members to Invite\" tab. The pull sweep tried to read it anyway and Google returned \"Unable to parse range,\" which surfaced as the 1-issue error on the Sync now button. Now pullSheet calls ensureTabs(TAB_ORDER) up front — it's idempotent and only adds missing tabs — so the missing tab gets created on the next sync and headers are written by the existing verifyAndRestoreHeaders path.",
+    ],
+  },
+  {
     version: '0.36.3',
     date: '2026-05-22',
     summary: 'Members page search is server-side now — \"Shurtliff\" (and anyone else past row 1,000 alphabetically) actually shows up.',
