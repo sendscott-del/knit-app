@@ -43,6 +43,8 @@ export type PullReport = {
   outingErrors: string[]
   feedbackProcessed: number
   feedbackErrors: string[]
+  friendsInserted: number
+  friendErrors: string[]
   /** Tabs whose header row was repaired during this pull (drift detected and rewritten). */
   headersRepaired: string[]
 }
@@ -101,6 +103,8 @@ export async function pullSheet(args: {
     outingErrors: [],
     feedbackProcessed: 0,
     feedbackErrors: [],
+    friendsInserted: 0,
+    friendErrors: [],
     headersRepaired: [],
   }
 
@@ -165,10 +169,32 @@ export async function pullSheet(args: {
     report.outingErrors.push(errMsg(e))
   }
 
+  /* ---------------- Add a Friend tab ---------------- */
+  try {
+    const check = await verifyAndRestoreHeaders(
+      sheets,
+      args.spreadsheetId,
+      TABS.ADD_FRIEND,
+    )
+    if (check.repaired) {
+      report.headersRepaired.push(TABS.ADD_FRIEND)
+      report.friendErrors.push(
+        'Add a Friend tab headers were missing or changed — restored. Skipping this pass.',
+      )
+    } else {
+      await pullAddFriend({
+        sb,
+        sheets,
+        wardId: args.wardId,
+        spreadsheetId: args.spreadsheetId,
+        report,
+      })
+    }
+  } catch (e) {
+    report.friendErrors.push(errMsg(e))
+  }
+
   /* ---------------- Send Feedback tab ---------------- */
-  // Each row missionaries fill becomes a row in app_suggestions (app='knit')
-  // and Knit stamps the Status + Submitted at columns so the missionary can
-  // see their feedback was received.
   try {
     const check = await verifyAndRestoreHeaders(
       sheets,
@@ -289,6 +315,83 @@ async function pullFeedback(args: {
       },
     })
     report.feedbackProcessed += 1
+  }
+}
+
+/**
+ * Reads the Add a Friend tab. Each row with First name + Last name + empty
+ * Synced at gets inserted into knit_friends with the missionary's notes and
+ * the teaching status they picked. After insert we stamp Status + Synced at
+ * back into the row so the missionary sees it landed; the existing row stays
+ * on this tab for their reference until they choose to delete it.
+ */
+async function pullAddFriend(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any
+  sheets: SheetsClient
+  wardId: string
+  spreadsheetId: string
+  report: PullReport
+}) {
+  const { sb, sheets, wardId, spreadsheetId, report } = args
+  const expected = getExpectedHeaders(TABS.ADD_FRIEND) ?? []
+  const range = `${TABS.ADD_FRIEND}!A2:${colLetter(expected.length)}500`
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+    valueRenderOption: 'FORMATTED_VALUE',
+  })
+  const rows = (res.data.values ?? []) as string[][]
+  if (rows.length === 0) return
+
+  const VALID_TEACHING_STATUSES = new Set([
+    'investigating',
+    'progressing',
+    'on_date',
+    'baptized',
+    'paused',
+    'lost_contact',
+  ])
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowNum = i + 2
+    const firstName = (row[0] ?? '').trim()
+    const lastName = (row[1] ?? '').trim()
+    const languageRaw = (row[2] ?? '').trim().toLowerCase()
+    const teachingStatus = (row[3] ?? '').trim().toLowerCase()
+    const notes = (row[4] ?? '').trim()
+    const syncedAt = (row[6] ?? '').trim()
+
+    if (!firstName) continue
+    if (syncedAt) continue
+
+    const locale = languageRaw.startsWith('s') ? 'es' : 'en'
+    const ts = VALID_TEACHING_STATUSES.has(teachingStatus)
+      ? teachingStatus
+      : 'investigating'
+
+    const { error: insertErr } = await sb.from('knit_friends').insert({
+      ward_id: wardId,
+      first_name: firstName,
+      last_name: lastName || null,
+      locale,
+      teaching_status: ts,
+      notes: notes || null,
+      added_by: 'Missionary sheet',
+    })
+    if (insertErr) {
+      report.friendErrors.push(`Row ${rowNum}: ${insertErr.message}`)
+      continue
+    }
+    const stamp = new Date().toISOString().slice(0, 10)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${TABS.ADD_FRIEND}!F${rowNum}:G${rowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [['Added ✓', stamp]] },
+    })
+    report.friendsInserted += 1
   }
 }
 

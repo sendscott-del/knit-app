@@ -21,20 +21,21 @@ export const TABS = {
   START_HERE: 'Start Here',
   AVAILABLE: 'Available This Week',
   FRIENDS: 'Friends We are Teaching',
+  // Missionary entry tab for adding a brand-new friend the ward is starting
+  // to teach. Rows get inserted into knit_friends on the next pull; the
+  // refreshed friend then shows up on the Friends We are Teaching tab.
+  ADD_FRIEND: 'Add a Friend',
   SUGGESTIONS: 'Suggestions',
   LOG_OUTING: 'Log an Outing',
   RECENT: 'Recent Outings',
   // Static instructions tab that points missionaries at the /join self-service
-  // link. Replaces the v0.31.0 "Members to Invite" workflow — missionaries no
-  // longer designate members in the sheet; they just share the link and the
-  // member fills out the survey themselves.
+  // link. Replaces the v0.31.0 "Members to Invite" workflow.
   INVITE_HOWTO: 'How to Invite Members',
   // Missionary-only feedback box. Each filled row gets inserted into
-  // app_suggestions on the next pull, same destination as the in-app 💡 button.
+  // app_suggestions on the next pull.
   FEEDBACK: 'Send Feedback',
-  // Hidden tab — backing list for the Log an Outing → Member dropdown.
-  // Populated by the morning push and the hourly pull with one row per
-  // ONBOARDED ward member. Missionaries don't see or edit this tab.
+  // Hidden — backing list for the Log an Outing → Member dropdown. One
+  // row per ONBOARDED ward member.
   ROSTER: 'Member Roster (do not edit)',
 } as const
 
@@ -42,11 +43,12 @@ export const TAB_ORDER: string[] = [
   TABS.START_HERE,
   TABS.AVAILABLE,
   TABS.FRIENDS,
+  TABS.ADD_FRIEND,
   TABS.SUGGESTIONS,
   TABS.LOG_OUTING,
+  TABS.RECENT,
   TABS.INVITE_HOWTO,
   TABS.FEEDBACK,
-  TABS.RECENT,
   TABS.ROSTER,
 ]
 
@@ -118,6 +120,17 @@ const HEADERS: Record<string, string[]> = {
   [TABS.INVITE_HOWTO]: ['How to invite a member'],
   // Missionary feedback — typed rows flow into app_suggestions on next pull.
   [TABS.FEEDBACK]: ['Your name', 'Your idea or feedback', 'Status', 'Submitted at'],
+  // Missionary entry tab for new friends. Yellow cols (A-E) are entry; gray
+  // (F-G) are filled by Knit after the pull picks the row up.
+  [TABS.ADD_FRIEND]: [
+    'First name',
+    'Last name',
+    'Language',
+    'Teaching status',
+    'Notes',
+    'Status',
+    'Synced at',
+  ],
   // Hidden roster — one row per onboarded ward member. Used as a
   // data-validation source for the Log an Outing → Member dropdown.
   [TABS.ROSTER]: ['Member ID', 'Full name', 'Phone'],
@@ -206,6 +219,12 @@ const PROTECTION_RULES: ProtectionRule[] = [
     warningOnly: false,
     range: { startRow: 0, endRow: 1 },
   },
+  {
+    tab: TABS.ADD_FRIEND,
+    description: `${KNIT_PROTECT_TAG} Header row — do not change column titles`,
+    warningOnly: false,
+    range: { startRow: 0, endRow: 1 },
+  },
 
   // Knit-fill columns on mixed tabs — HARD LOCK so missionaries can't even
   // type in them. Combined with the entry/auto color coding this makes the
@@ -231,6 +250,13 @@ const PROTECTION_RULES: ProtectionRule[] = [
     warningOnly: false,
     range: { startCol: 2, endCol: 4 },
   },
+  {
+    // Add a Friend: Knit fills Status (col F) and Synced at (col G)
+    tab: TABS.ADD_FRIEND,
+    description: `${KNIT_PROTECT_TAG} Knit fills these columns automatically`,
+    warningOnly: false,
+    range: { startCol: 5, endCol: 7 },
+  },
 ]
 
 /** Idempotent — removes any prior Knit protections then applies the canonical rule set. */
@@ -255,7 +281,10 @@ export async function writeStartHere(spreadsheetId: string, wardName: string) {
     ['  Auto-refreshed.'],
     [''],
     ['• Friends We are Teaching — the friends we are fellowshipping.'],
-    ['  Auto-refreshed.'],
+    ['  Auto-refreshed. To add a new friend, use the next tab.'],
+    [''],
+    ['• Add a Friend — type a new friend in the yellow cells. On the next'],
+    ['  sync Knit adds them to the app and the Friends We are Teaching tab.'],
     [''],
     ['• Suggestions — want ideas for a friend? Fill the yellow cells (friend,'],
     ['  day, time, optional need) and check Generate. Within an hour we will fill'],
@@ -334,7 +363,12 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   // so existing sheets get reconciled to the new shape without manual cleanup.
   await removeObsoleteKnitTabs(spreadsheetId)
 
-  // Refresh the static instruction tabs so any wording changes land.
+  // Reorder so Start Here sits first and the rest match TAB_ORDER.
+  await enforceTabOrder(spreadsheetId)
+
+  // Refresh the static instruction tabs and rewrite headers so any new tab
+  // additions / column renames land on existing sheets.
+  await writeAllHeaders(spreadsheetId)
   await writeInviteHowto(spreadsheetId)
 
   /* ---- Available This Week ---- */
@@ -596,7 +630,8 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
   const logOutingId = tabId(TABS.LOG_OUTING)
   const suggestionsId = tabId(TABS.SUGGESTIONS)
   const friendsId = tabId(TABS.FRIENDS)
-  if (!rosterId || !logOutingId || !suggestionsId || !friendsId) {
+  const addFriendId = tabId(TABS.ADD_FRIEND)
+  if (!rosterId || !logOutingId || !suggestionsId || !friendsId || !addFriendId) {
     // ensureTabs will create any missing tab on the next run; bail rather
     // than partially apply.
     return
@@ -604,6 +639,57 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
 
   const auth = getAuth()
   const sheets = google.sheets({ version: 'v4', auth })
+
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const TIME_SLOTS = ['morning', 'afternoon', 'evening']
+  const NEEDS = [
+    '',
+    'Host a meal',
+    'Give a ride',
+    'Sit in on a lesson',
+    'Invite a friend to an activity',
+    'Take a friend to an event',
+    'Share a skill I have',
+    'Share my testimony',
+  ]
+  const STATUSES = ['Scheduled', 'Happened', "Didn't happen", 'Rescheduled']
+  const LANGUAGES = ['English', 'Spanish']
+  const TEACHING_STATUSES = [
+    'investigating',
+    'progressing',
+    'on_date',
+    'baptized',
+    'paused',
+    'lost_contact',
+  ]
+
+  const oneOfList = (
+    sheetId: number,
+    startRow: number,
+    endRow: number,
+    col: number,
+    values: string[],
+    inputMessage: string,
+  ): sheets_v4.Schema$Request => ({
+    setDataValidation: {
+      range: {
+        sheetId,
+        startRowIndex: startRow,
+        endRowIndex: endRow,
+        startColumnIndex: col,
+        endColumnIndex: col + 1,
+      },
+      rule: {
+        condition: {
+          type: 'ONE_OF_LIST',
+          values: values.map((v) => ({ userEnteredValue: v })),
+        },
+        strict: false,
+        showCustomUi: true,
+        inputMessage,
+      },
+    },
+  })
 
   const requests: sheets_v4.Schema$Request[] = [
     // Hide the roster tab.
@@ -613,6 +699,34 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
         fields: 'hidden',
       },
     },
+
+    // Suggestions: When (day) col B, Time of day col C, Need col D dropdowns,
+    // Generate col E checkbox.
+    oneOfList(suggestionsId, 1, 200, 1, DAYS, 'Pick a day of the week.'),
+    oneOfList(suggestionsId, 1, 200, 2, TIME_SLOTS, 'Pick morning, afternoon, or evening.'),
+    oneOfList(suggestionsId, 1, 200, 3, NEEDS, 'Pick the kind of help you need (optional).'),
+    {
+      setDataValidation: {
+        range: {
+          sheetId: suggestionsId,
+          startRowIndex: 1,
+          endRowIndex: 200,
+          startColumnIndex: 4,
+          endColumnIndex: 5,
+        },
+        rule: {
+          condition: { type: 'BOOLEAN' },
+          strict: true,
+          showCustomUi: true,
+          inputMessage: 'Check this box when the row is ready for Knit to fill in the suggestions.',
+        },
+      },
+    },
+
+    // Add a Friend: Language col C dropdown, Teaching status col D dropdown.
+    oneOfList(addFriendId, 1, 200, 2, LANGUAGES, 'English or Spanish.'),
+    oneOfList(addFriendId, 1, 200, 3, TEACHING_STATUSES, 'Where this friend is in the teaching process.'),
+
     // Log an Outing, column C ("Friend") — dropdown of currently teaching friends.
     {
       setDataValidation: {
@@ -688,6 +802,30 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     spreadsheetId,
     requestBody: { requests },
   })
+}
+
+/**
+ * Reorders the tabs to match TAB_ORDER so Start Here sits first, the obsolete
+ * ones (if not yet deleted) drift to the right, and any user-added tabs slot
+ * after the Knit-managed ones. Idempotent.
+ */
+export async function enforceTabOrder(spreadsheetId: string) {
+  const meta = await getSheetMeta(spreadsheetId)
+  const requests: sheets_v4.Schema$Request[] = []
+  TAB_ORDER.forEach((title, desiredIndex) => {
+    const tab = meta.tabs.find((t) => t.title === title)
+    if (!tab) return
+    requests.push({
+      updateSheetProperties: {
+        properties: { sheetId: tab.id, index: desiredIndex },
+        fields: 'index',
+      },
+    })
+  })
+  if (requests.length === 0) return
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } })
 }
 
 /**
@@ -802,6 +940,13 @@ export async function applyEntryAutoFormatting(spreadsheetId: string) {
     paint(feedbackId, 0, 2, ENTRY_BG)
     // Cols C-D are Knit-fill (Status, Submitted at)
     paint(feedbackId, 2, 4, AUTO_BG)
+  }
+  const addFriendId = idFor(TABS.ADD_FRIEND)
+  if (addFriendId !== undefined) {
+    // Cols A-E are entry (First name, Last name, Language, Teaching status, Notes)
+    paint(addFriendId, 0, 5, ENTRY_BG)
+    // Cols F-G are Knit-fill (Status, Synced at)
+    paint(addFriendId, 5, 7, AUTO_BG)
   }
 
   if (requests.length === 0) return

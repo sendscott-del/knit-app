@@ -7,6 +7,21 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.38.1',
+    date: '2026-05-22',
+    summary: 'Sheet redesign round 2: Start Here pinned first, Add a Friend tab, Suggestions dropdowns, app outing status simplified, one Sync button.',
+    details: [
+      "Tab order on existing sheets is now enforced — Start Here pinned to position 0, then Available / Friends / Add a Friend / Suggestions / Log an Outing / Recent / How to Invite / Send Feedback / hidden Roster. Runs on every sync.",
+      "New \"Add a Friend\" tab. Missionaries type First name, Last name, Language, Teaching status, Notes — on the next sync Knit inserts a knit_friends row and stamps Status + Synced at back into the sheet. The friend then shows up on Friends We are Teaching (next push) and on /admin/friends. This closes Scott's \"I added a friend to the sheet and nothing happened\" bug — there was no sheet→app friends path at all before today.",
+      "Suggestions tab dropdowns: When (day) → Sun..Sat, Time of day → morning/afternoon/evening, Need → the seven participation styles. Generate column is now a real checkbox.",
+      "Audit of dropdowns: Suggestions (Friend, Day, Time, Need, Generate ✓), Log an Outing (Friend, Member ✓), Add a Friend (Language, Teaching status ✓). Member dropdown remains onboarded-only.",
+      "App's /admin/outings page: outing status simplified from six options to four — Scheduled / Happened / Didn't happen / Rescheduled. The DB enum keeps all six for historical rows; \"Didn't happen\" maps to 'flaked' on write. Same change to the form dropdown and the display badge.",
+      "App's /admin/outings new-outing form: Member dropdown now only lists onboarded, opted-in members. Logging an outing for someone who never set their availability would be nonsensical and we'd been allowing it.",
+      "AdminSheet UI: one \"Sync now\" button replaces \"Push data to sheet\" + \"Sync from sheet now.\" It runs pull then push so missionary writes land before the read-only tabs refresh, and reports the totals (friends added / outings logged / suggestions filled / feedback received) inline.",
+      "Outstanding from Scott's list: consolidating /admin/users and /admin/roles into one page (#10). That's a larger refactor — flagged for a separate round.",
+    ],
+  },
+  {
     version: '0.38.0',
     date: '2026-05-22',
     summary: 'Missionary sheet redesigned: self-service invites, missionary feedback tab, color-coded entry vs auto cells, Urgent Need retired, Log an Outing dropdown narrowed to onboarded members.',

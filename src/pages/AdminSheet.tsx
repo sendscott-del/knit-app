@@ -174,67 +174,73 @@ export default function AdminSheet() {
     }
   }
 
-  async function refresh() {
+  async function syncBoth() {
     if (!wardId) return
     setBusy(true)
     setErr(null)
     setNotice(null)
     try {
-      const r = await authorizedFetch('/api/admin/sheet', {
-        method: 'POST',
-        body: JSON.stringify({ action: 'refresh', wardId }),
-      })
-      const body = await r.json()
-      if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
-      setNotice('Refreshed.')
-      await loadBinding()
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Refresh failed')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function syncNow() {
-    if (!wardId) return
-    setBusy(true)
-    setErr(null)
-    setNotice(null)
-    try {
-      const r = await authorizedFetch('/api/admin/sheet', {
-        method: 'POST',
-        body: JSON.stringify({ action: 'sync_now', wardId }),
-      })
-      const body = await r.json()
-      if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
-      const rep = body.report as {
-        suggestionsProcessed: number
-        suggestionErrors: string[]
-        outingsInserted: number
-        outingErrors: string[]
-        feedbackProcessed?: number
-        feedbackErrors?: string[]
-        headersRepaired?: string[]
-      }
-      const parts: string[] = []
-      if (rep.suggestionsProcessed > 0)
-        parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
-      if (rep.outingsInserted > 0)
-        parts.push(`${rep.outingsInserted} outing${rep.outingsInserted === 1 ? '' : 's'} logged`)
-      if (rep.feedbackProcessed && rep.feedbackProcessed > 0)
-        parts.push(`${rep.feedbackProcessed} feedback note${rep.feedbackProcessed === 1 ? '' : 's'} received`)
-      if (rep.headersRepaired && rep.headersRepaired.length > 0)
-        parts.push(`Restored headers on: ${rep.headersRepaired.join(', ')}`)
-      if (parts.length === 0) parts.push('Nothing new to sync')
-      const errs = [...rep.suggestionErrors, ...rep.outingErrors, ...(rep.feedbackErrors ?? [])]
-      if (errs.length > 0) parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)
-      setNotice(parts.join(' · '))
-      await loadBinding()
+      // Pull first so missionary writes (new friends, feedback, outings,
+      // suggestion requests) land in the DB before the push rewrites the
+      // read-only tabs from the same DB.
+      await pullThenRefresh(wardId)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Sync failed')
     } finally {
       setBusy(false)
     }
+  }
+
+  async function pullThenRefresh(wardId: string) {
+    const pullRes = await authorizedFetch('/api/admin/sheet', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'sync_now', wardId }),
+    })
+    const pullBody = await pullRes.json()
+    if (!pullRes.ok) throw new Error(pullBody.error ?? `HTTP ${pullRes.status}`)
+    const rep = (pullBody.report ?? {}) as {
+      suggestionsProcessed?: number
+      suggestionErrors?: string[]
+      outingsInserted?: number
+      outingErrors?: string[]
+      feedbackProcessed?: number
+      feedbackErrors?: string[]
+      friendsInserted?: number
+      friendErrors?: string[]
+      headersRepaired?: string[]
+    }
+
+    const refreshRes = await authorizedFetch('/api/admin/sheet', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'refresh', wardId }),
+    })
+    if (!refreshRes.ok) {
+      const body = await refreshRes.json().catch(() => null)
+      throw new Error((body as { error?: string } | null)?.error ?? `HTTP ${refreshRes.status}`)
+    }
+
+    const parts: string[] = []
+    if ((rep.friendsInserted ?? 0) > 0)
+      parts.push(`${rep.friendsInserted} friend${rep.friendsInserted === 1 ? '' : 's'} added`)
+    if ((rep.suggestionsProcessed ?? 0) > 0)
+      parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
+    if ((rep.outingsInserted ?? 0) > 0)
+      parts.push(`${rep.outingsInserted} outing${rep.outingsInserted === 1 ? '' : 's'} logged`)
+    if ((rep.feedbackProcessed ?? 0) > 0)
+      parts.push(`${rep.feedbackProcessed} feedback note${rep.feedbackProcessed === 1 ? '' : 's'} received`)
+    if ((rep.headersRepaired ?? []).length > 0)
+      parts.push(`Restored headers on: ${(rep.headersRepaired ?? []).join(', ')}`)
+    if (parts.length === 0) parts.push('Sheet is up to date.')
+    const errs = [
+      ...(rep.suggestionErrors ?? []),
+      ...(rep.outingErrors ?? []),
+      ...(rep.feedbackErrors ?? []),
+      ...(rep.friendErrors ?? []),
+    ]
+    if (errs.length > 0)
+      parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)
+    setNotice(parts.join(' · '))
+    await loadBinding()
   }
 
   return (
@@ -302,8 +308,7 @@ export default function AdminSheet() {
       ) : binding && binding.sheet_id ? (
         <BoundCard
           binding={binding}
-          onRefresh={() => void refresh()}
-          onSyncNow={() => void syncNow()}
+          onSync={() => void syncBoth()}
           busy={busy || !editor}
         />
       ) : (
@@ -386,13 +391,11 @@ function GoogleConnectionCard({
 
 function BoundCard({
   binding,
-  onRefresh,
-  onSyncNow,
+  onSync,
   busy,
 }: {
   binding: BindingRow
-  onRefresh: () => void
-  onSyncNow: () => void
+  onSync: () => void
   busy: boolean
 }) {
   return (
@@ -439,31 +442,19 @@ function BoundCard({
 
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <button
-          onClick={onRefresh}
+          onClick={onSync}
           disabled={busy}
           className="btn-primary text-sm py-2 px-4"
         >
-          {busy ? 'Working…' : 'Push data to sheet'}
-        </button>
-        <button
-          onClick={onSyncNow}
-          disabled={busy}
-          className="rounded-md border-[1.5px] border-gray-200 bg-white text-gray-900 px-4 py-2 text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
-        >
-          Sync from sheet now
+          {busy ? 'Syncing…' : 'Sync now'}
         </button>
       </div>
-      <div className="grid gap-1 text-xs text-gray-500 pt-1">
-        <span>
-          <strong>Push:</strong> Available, Friends, and Recent Outings re-populated
-          from the live DB. Runs automatically every morning at 12:00 UTC.
-        </span>
-        <span>
-          <strong>Sync from sheet:</strong> reads pending Suggestions + Log Outing
-          rows, runs the matching algorithm, and writes the results back. Click
-          this after missionaries fill in the sheet.
-        </span>
-      </div>
+      <p className="text-xs text-gray-500 pt-1">
+        Sync now is two-way: it pulls anything missionaries wrote on the sheet
+        (new friends, outings, suggestion requests, feedback) and then pushes
+        the latest member roster, friends list, and recent outings back. Also
+        runs hourly in the background.
+      </p>
     </div>
   )
 }

@@ -21,13 +21,19 @@ type OutingWithRels = OutingRow & {
 
 type Ctx = { profile: AdminProfile }
 
+// Display buckets. The DB enum has six values (scheduled, happened, flaked,
+// rescheduled, canceled, needs_checkin) but missionaries don't need to
+// distinguish flaked vs canceled vs needs_checkin — they all mean "the
+// outing didn't happen as planned." Surface four buckets and map flaked /
+// canceled / needs_checkin → "Didn't happen" for display. New entries
+// only get to pick from these four; canonical write values are below.
 const STATUS_LABELS: Record<OutingStatus, string> = {
   scheduled: 'Scheduled',
   happened: 'Happened',
-  flaked: 'Flaked',
+  flaked: "Didn't happen",
+  canceled: "Didn't happen",
+  needs_checkin: "Didn't happen",
   rescheduled: 'Rescheduled',
-  canceled: 'Canceled',
-  needs_checkin: 'Needs check-in',
 }
 
 const STATUS_TONE: Record<OutingStatus, 'slate' | 'emerald' | 'amber' | 'rose' | 'sky'> = {
@@ -35,9 +41,18 @@ const STATUS_TONE: Record<OutingStatus, 'slate' | 'emerald' | 'amber' | 'rose' |
   happened: 'emerald',
   flaked: 'rose',
   rescheduled: 'amber',
-  canceled: 'slate',
-  needs_checkin: 'amber',
+  canceled: 'rose',
+  needs_checkin: 'rose',
 }
+
+// The four buckets a missionary can choose when logging or editing an outing.
+// "Didn't happen" canonicalizes to 'flaked' since that's the most common cause.
+const STATUS_OPTIONS: { value: OutingStatus; label: string }[] = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'happened', label: 'Happened' },
+  { value: 'flaked', label: "Didn't happen" },
+  { value: 'rescheduled', label: 'Rescheduled' },
+]
 
 const SLOT_HOURS: Record<TimeSlot, number> = { morning: 9, afternoon: 14, evening: 19 }
 
@@ -260,6 +275,11 @@ function NewOutingForm({
           .from('knit_members')
           .select('*')
           .eq('ward_id', wardId)
+          // Only members who have actually completed the survey can be
+          // logged as participants — they're the only ones the missionaries
+          // have committed availability for.
+          .not('onboarding_completed_at', 'is', null)
+          .is('opted_out_at', null)
           .order('first_name'),
       ])
       setFriends((fRes.data as FriendRow[] | null) ?? [])
@@ -403,9 +423,9 @@ function NewOutingForm({
           onChange={(e) => setStatus(e.target.value as OutingStatus)}
           className="form-input"
         >
-          {(Object.keys(STATUS_LABELS) as OutingStatus[]).map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABELS[s]}
+          {STATUS_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
             </option>
           ))}
         </select>
