@@ -309,7 +309,7 @@ function ScreenConfirm({
         </li>
       </ul>
       <p className="text-sm text-gray-600 pt-2">
-        We'll text you every Sunday — just a quick check-in. You can always adjust.
+        We'll text you again in about 90 days to update your availability. You can always change it sooner by tapping your link.
       </p>
     </div>
   )

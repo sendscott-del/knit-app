@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.35.1',
+    date: '2026-05-22',
+    summary: 'Knit invites two new sport tags, fixes the survey "every Sunday" promise, and starts a 90-day availability refresh cron.',
+    details: [
+      "Sport tags: Baseball and Ultimate frisbee added to the global library. They appear automatically on the onboarding chip picker — no rebuild needed.",
+      "Onboarding confirm screen previously said \"We'll text you every Sunday — just a quick check-in.\" That was a promise we weren't keeping and Scott didn't want anyway. New copy: \"We'll text you again in about 90 days to update your availability. You can always change it sooner by tapping your link.\"",
+      "New daily cron at /api/cron/availability-refresh (16:00 UTC = 11am Central) texts each active member whose last refresh was 90+ days ago. \"Active\" = onboarding completed, not paused, not opted out, has a phone. Each send rotates the member's magic-link token, writes a knit_notifications_log row with type='availability_refresh', and is capped at 200/run as a safety belt. New enum value 'availability_refresh' added to knit_notification_type.",
+      "Why 90 days vs the original spec's weekly cadence: respect for the member. Weekly texts about availability would have been noise; quarterly fits real-life schedule changes (new jobs, school years, moves). The cron is no-op until members start completing onboarding, so it costs nothing to ship now and have it ready.",
+    ],
+  },
+  {
     version: '0.35.0',
     date: '2026-05-22',
     summary: 'Gather page gained a Suggestions section — review and triage 💡 submissions from any of the five apps.',
