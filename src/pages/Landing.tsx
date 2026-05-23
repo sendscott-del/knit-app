@@ -25,11 +25,17 @@ export default function Landing() {
             A fellowship-matching app that helps ward members form lasting friendships
             with the people the missionaries are teaching.
           </p>
-          <div className="pt-2">
-            <Link to="/admin/login" className="btn-primary w-full sm:w-auto">
+          <div className="pt-2 flex flex-col sm:flex-row gap-2 sm:justify-center">
+            <Link to="/join" className="btn-primary w-full sm:w-auto">
+              Get my survey link
+            </Link>
+            <Link to="/admin/login" className="btn-outline w-full sm:w-auto">
               Leader sign in
             </Link>
           </div>
+          <p className="text-xs text-gray-500 pt-1">
+            Members: tap "Get my survey link" if you're not sure what to do with this page.
+          </p>
         </div>
         <p className="text-xs text-gray-400 text-center pt-6">v{CURRENT_VERSION}</p>
       </div>

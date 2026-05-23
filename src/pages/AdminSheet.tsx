@@ -87,7 +87,7 @@ export default function AdminSheet() {
     setLoadingBinding(true)
     try {
       const r = await authorizedFetch(
-        `/api/admin/sheet/get?wardId=${encodeURIComponent(wardId)}`,
+        `/api/admin/sheet?action=get&wardId=${encodeURIComponent(wardId)}`,
       )
       const body = await r.json()
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
@@ -158,9 +158,9 @@ export default function AdminSheet() {
     setErr(null)
     setNotice(null)
     try {
-      const r = await authorizedFetch('/api/admin/sheet/create', {
+      const r = await authorizedFetch('/api/admin/sheet', {
         method: 'POST',
-        body: JSON.stringify({ wardId, emails }),
+        body: JSON.stringify({ action: 'create', wardId, emails }),
       })
       const body = await r.json()
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
@@ -180,9 +180,9 @@ export default function AdminSheet() {
     setErr(null)
     setNotice(null)
     try {
-      const r = await authorizedFetch('/api/admin/sheet/refresh', {
+      const r = await authorizedFetch('/api/admin/sheet', {
         method: 'POST',
-        body: JSON.stringify({ wardId }),
+        body: JSON.stringify({ action: 'refresh', wardId }),
       })
       const body = await r.json()
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
@@ -201,9 +201,9 @@ export default function AdminSheet() {
     setErr(null)
     setNotice(null)
     try {
-      const r = await authorizedFetch('/api/admin/sheet/sync-now', {
+      const r = await authorizedFetch('/api/admin/sheet', {
         method: 'POST',
-        body: JSON.stringify({ wardId }),
+        body: JSON.stringify({ action: 'sync_now', wardId }),
       })
       const body = await r.json()
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)

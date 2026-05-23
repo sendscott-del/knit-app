@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.1',
+    date: '2026-05-22',
+    summary: 'Self-service member /join page, fixes a bunch of Tidings + Google Sheet sync regressions, and consolidates the sheet/* endpoints.',
+    details: [
+      "New public page at /join (Landing → \"Get my survey link\"). A member types first name, last name, and phone — backend looks them up in the Tidings-synced ward roster, mints a fresh magic-link, and texts it to them. Doubles as the missionary-shareable invite URL (no need to know each member's contact info upfront) AND as the \"forgot my link\" path for anyone who lost their original SMS. Privacy-by-design: the response is the same generic \"if we found you, we just texted you\" message whether the lookup hit or missed, so the page can't be used to enumerate phones. Phone-level throttle (5 minutes between sends per matched member). Backed by new /api/me/recover endpoint and a new 'self_recovery' notification type.",
+      "Google Sheet — Available This Week tab was dumping every synced ward member (3K+ rows of mostly-not-onboarded contacts). Filter now matches the admin Members page's \"Active\" badge: opted in, not paused, onboarding completed, AND at least one availability baseline row.",
+      "Google Sheet — missionary writes weren't syncing back to the app because the sheets-pull cron existed in code but was never scheduled in vercel.json. Now wired to run hourly during daytime (13:00–02:00 UTC = ~8am–9pm Central). \"Members to Invite\", Suggestions request rows, and Log an Outing rows all sync into Knit on the next hourly tick.",
+      "Tidings opt-outs now propagate into Knit. Previously the apply RPC saw opted_out=true and CONTINUEd, leaving any existing knit_members row's opted_out_at as null forever. The RPC now updates the matching Knit row (idempotent — only sets opted_out_at when it's currently null) before skipping further work.",
+      "Consolidated /api/admin/sheet/{create,get,refresh,sync-now} (4 files) into a single /api/admin/sheet endpoint with action routing (GET ?action=get, POST { action: 'create' | 'refresh' | 'sync_now' }) so the new /api/me/recover endpoint fits under Vercel Hobby's 12-function cap. Same pattern as the v0.34.1 google/* collapse. AdminSheet.tsx callers updated. Net function count: 10.",
+    ],
+  },
+  {
     version: '0.36.0',
     date: '2026-05-22',
     summary: 'Gather is consolidated into Glean — Knit\'s /admin/gather is now a redirect, sidebar link points straight at the canonical URL.',

@@ -316,10 +316,17 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     }
   }
 
+  // Only members the missionaries can actually act on: opted in, not paused,
+  // onboarding done, and with at least one availability baseline row. This
+  // matches the "Active" badge gate on /admin/members so the sheet and the
+  // admin app agree on who's available. Previously the sheet dumped every
+  // synced ward member, which was 3K+ rows of mostly-not-onboarded contacts.
   const availableRows: string[][] = (members ?? [])
     .filter((m) => {
       if (m.opted_out_at) return false
       if (m.paused_until && new Date(m.paused_until).getTime() > now) return false
+      if (!m.onboarding_completed_at) return false
+      if (!m.availability || m.availability.length === 0) return false
       return true
     })
     .map((m) => {
@@ -359,7 +366,7 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
         m.locale === 'es' ? 'Spanish' : 'English',
         last ? new Date(last).toISOString().slice(0, 10) : '—',
         daysSince,
-        m.onboarding_completed_at ? '' : 'Not yet onboarded',
+        '', // notes column (per v1.4 template header)
       ]
     })
 

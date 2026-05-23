@@ -25,6 +25,7 @@ import AdminGuide from '@/pages/AdminGuide'
 import AdminReleaseNotes from '@/pages/AdminReleaseNotes'
 import MemberMagicLink from '@/pages/MemberMagicLink'
 import MemberDashboard from '@/pages/MemberDashboard'
+import MemberJoin from '@/pages/MemberJoin'
 import NotFound from '@/pages/NotFound'
 
 export default function App() {
@@ -58,6 +59,7 @@ export default function App() {
           </Route>
           <Route path="/m/:memberId/:token" element={<MemberMagicLink />} />
           <Route path="/me" element={<MemberDashboard />} />
+          <Route path="/join" element={<MemberJoin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         </DemoModeProvider>
