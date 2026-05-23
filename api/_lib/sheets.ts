@@ -260,27 +260,28 @@ export async function writeRange(
 }
 
 /**
- * Clear all rows below the header of a tab, then write fresh data.
- * Leaves row 1 (the header) intact.
+ * Clear all rows from `startRow` (default 2 — leaves the header alone) down
+ * to a large row count, then write fresh data starting at `startRow`. Pass
+ * startRow=3 for tabs that have a banner row in row 1 + headers in row 2.
  */
 export async function replaceDataRows(
   spreadsheetId: string,
   tab: string,
   headerColumnCount: number,
   rows: (string | number | boolean | null)[][],
+  startRow: number = 2,
 ) {
   const auth = getAuth()
   const sheets = google.sheets({ version: 'v4', auth })
-  // Clear everything below row 1 up to a large row count.
   const endCol = colLetter(headerColumnCount)
   await sheets.spreadsheets.values.clear({
     spreadsheetId,
-    range: `${tab}!A2:${endCol}1000`,
+    range: `${tab}!A${startRow}:${endCol}1000`,
   })
   if (rows.length > 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `${tab}!A2`,
+      range: `${tab}!A${startRow}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: rows },
     })

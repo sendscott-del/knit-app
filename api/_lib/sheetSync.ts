@@ -29,10 +29,7 @@ export const TABS = {
   ADD_FRIEND: 'Add a Friend',
   SUGGESTIONS: 'Suggestions',
   LOG_OUTING: 'Log an Outing',
-  // Tab name carries the read-only hint since Sheets has no per-tab banner
-  // primitive. The old name 'Recent Outings' is in OBSOLETE_TABS so existing
-  // sheets shed it on the next sync.
-  RECENT: 'Recent Outings (read-only)',
+  RECENT: 'Recent Outings',
   // Missionary-only feedback box.
   FEEDBACK: 'Send Feedback',
   // Hidden — backing list for the Log an Outing → Member dropdown.
@@ -58,10 +55,38 @@ export const TAB_ORDER: string[] = [
  * current TAB_ORDER on the next morning push or hourly pull.
  */
 export const OBSOLETE_TABS = [
-  'Urgent Need',        // never had real functionality; dropped in v0.38.0
-  'Members to Invite',  // replaced by self-service /join + How to Invite tab
-  'Recent Outings',     // renamed to "Recent Outings (read-only)" in v0.40.0
+  'Urgent Need',                  // never had real functionality; dropped in v0.38.0
+  'Members to Invite',            // replaced by self-service /join + How to Invite tab
+  'Recent Outings (read-only)',   // v0.40.0 rename reverted in v0.40.1 in favor of a banner row
 ] as const
+
+/**
+ * Tabs that show a "READ ONLY — DO NOT EDIT" banner in row 1, with headers
+ * shifted down. These five tabs are fully Knit-managed (push only); the
+ * banner makes the rule visually obvious. populateDataTabs writes the
+ * banner on every sync.
+ */
+export const READ_ONLY_BANNER_TABS: readonly string[] = [
+  TABS.START_HERE,
+  TABS.INVITE_HOWTO,
+  TABS.AVAILABLE,
+  TABS.FRIENDS,
+  TABS.RECENT,
+]
+
+/**
+ * For tabs with a banner row in row 1, headers move to row 2 and data starts
+ * at row 3. Everything else keeps headers in row 1 and data in row 2+.
+ */
+export function dataStartRow(tab: string): number {
+  if ((READ_ONLY_BANNER_TABS as readonly string[]).includes(tab)) return 3
+  return 2
+}
+
+export function headerRow(tab: string): number {
+  if ((READ_ONLY_BANNER_TABS as readonly string[]).includes(tab)) return 2
+  return 1
+}
 
 const HEADERS: Record<string, string[]> = {
   [TABS.AVAILABLE]: [
@@ -117,8 +142,6 @@ const HEADERS: Record<string, string[]> = {
     'Status',
     'Outcome notes',
   ],
-  // Static instructions tab. No data rows — the body lives in writeInviteHowto().
-  [TABS.INVITE_HOWTO]: ['How to invite a member'],
   // Missionary feedback — typed rows flow into app_suggestions on next pull.
   [TABS.FEEDBACK]: ['Your name', 'Your idea or feedback', 'Status', 'Submitted at'],
   // Missionary entry tab for new friends. Yellow cols (A-E) are entry; gray
@@ -139,9 +162,12 @@ const HEADERS: Record<string, string[]> = {
 
 export async function writeAllHeaders(spreadsheetId: string) {
   for (const [tab, headers] of Object.entries(HEADERS)) {
-    await writeRange(spreadsheetId, `${tab}!A1:${colLetter(headers.length)}1`, [
-      headers,
-    ])
+    const row = headerRow(tab)
+    await writeRange(
+      spreadsheetId,
+      `${tab}!A${row}:${colLetter(headers.length)}${row}`,
+      [headers],
+    )
   }
 }
 
@@ -304,11 +330,8 @@ export async function writeStartHere(spreadsheetId: string, wardName: string) {
     [''],
     [`Ward contact — ask your ward mission leader if anything looks off.`],
   ]
-  await writeRange(
-    spreadsheetId,
-    `${TABS.START_HERE}!A1`,
-    lines,
-  )
+  // Row 1 is the read-only banner (written separately); content starts at A2.
+  await writeRange(spreadsheetId, `${TABS.START_HERE}!A2`, lines)
 }
 
 export async function writeInviteHowto(spreadsheetId: string) {
@@ -337,7 +360,8 @@ export async function writeInviteHowto(spreadsheetId: string) {
     ['  leader — they may need to be added to the ward roster'],
     ['  in Tidings first.'],
   ]
-  await writeRange(spreadsheetId, `${TABS.INVITE_HOWTO}!A1`, lines)
+  // Row 1 is the read-only banner; instructions start at A2.
+  await writeRange(spreadsheetId, `${TABS.INVITE_HOWTO}!A2`, lines)
 }
 
 type PopulateArgs = {
@@ -371,6 +395,18 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   // additions / column renames land on existing sheets.
   await writeAllHeaders(spreadsheetId)
   await writeInviteHowto(spreadsheetId)
+  // Re-write Start Here too so the layout shift (banner row 1 + content
+  // starting row 2) reaches existing sheets.
+  const { data: wardRow } = await sb
+    .from('knit_wards')
+    .select('name')
+    .eq('id', wardId)
+    .maybeSingle()
+  await writeStartHere(spreadsheetId, (wardRow as { name?: string } | null)?.name ?? 'your ward')
+  // Banner row 1 on the read-only tabs. Done last so the banner overwrites
+  // any old row-1 content (e.g. the old header from before we shifted to
+  // row 2 in v0.40.1).
+  await writeReadOnlyBanners(spreadsheetId)
 
   /* ---- Available This Week ---- */
   const { data: members } = await sb
@@ -457,7 +493,13 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
       ]
     })
 
-  await replaceDataRows(spreadsheetId, TABS.AVAILABLE, 8, availableRows)
+  await replaceDataRows(
+    spreadsheetId,
+    TABS.AVAILABLE,
+    8,
+    availableRows,
+    dataStartRow(TABS.AVAILABLE),
+  )
 
   /* ---- Friends We are Teaching ---- */
   const { data: friends } = await sb
@@ -524,7 +566,13 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     ]
   })
 
-  await replaceDataRows(spreadsheetId, TABS.FRIENDS, 7, friendRows)
+  await replaceDataRows(
+    spreadsheetId,
+    TABS.FRIENDS,
+    7,
+    friendRows,
+    dataStartRow(TABS.FRIENDS),
+  )
 
   /* ---- Recent Outings (last 90 days) ---- */
   const ninetyAgo = new Date(now - 90 * 86400000).toISOString()
@@ -564,7 +612,13 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     ]
   })
 
-  await replaceDataRows(spreadsheetId, TABS.RECENT, 6, recentRows)
+  await replaceDataRows(
+    spreadsheetId,
+    TABS.RECENT,
+    6,
+    recentRows,
+    dataStartRow(TABS.RECENT),
+  )
 
   // Member Roster + dropdowns. Extracted so the hourly pull-cron can also
   // refresh this without doing the full Available/Friends/Recent rewrite.
@@ -818,6 +872,71 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     spreadsheetId,
     requestBody: { requests },
   })
+}
+
+/**
+ * Writes a "READ ONLY — DO NOT EDIT" banner in row 1 of every tab in
+ * READ_ONLY_BANNER_TABS. Merges cells across A:H, paints a bright red
+ * background, and bolds the white text. Idempotent — overwrites whatever
+ * is currently in row 1.
+ */
+const BANNER_TEXT = 'READ ONLY — DO NOT EDIT. This tab is auto-managed by Knit.'
+const BANNER_BG = { red: 0.86, green: 0.15, blue: 0.15 } as const // red-600
+const BANNER_FG = { red: 1, green: 1, blue: 1 } as const // white
+const BANNER_MERGE_WIDTH = 8
+
+export async function writeReadOnlyBanners(spreadsheetId: string) {
+  const meta = await getSheetMeta(spreadsheetId)
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+
+  const requests: sheets_v4.Schema$Request[] = []
+  for (const tabName of READ_ONLY_BANNER_TABS) {
+    const tab = meta.tabs.find((t) => t.title === tabName)
+    if (!tab) continue
+    const range = {
+      sheetId: tab.id,
+      startRowIndex: 0,
+      endRowIndex: 1,
+      startColumnIndex: 0,
+      endColumnIndex: BANNER_MERGE_WIDTH,
+    }
+    // Idempotent unmerge → merge prevents "already merged" errors.
+    requests.push({ unmergeCells: { range } })
+    requests.push({ mergeCells: { range, mergeType: 'MERGE_ALL' } })
+    requests.push({
+      updateCells: {
+        range,
+        rows: [
+          {
+            values: [
+              {
+                userEnteredValue: { stringValue: BANNER_TEXT },
+                userEnteredFormat: {
+                  backgroundColor: BANNER_BG,
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                  textFormat: {
+                    foregroundColor: BANNER_FG,
+                    bold: true,
+                    fontSize: 11,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+        fields:
+          'userEnteredValue,userEnteredFormat(backgroundColor,horizontalAlignment,verticalAlignment,textFormat)',
+      },
+    })
+  }
+  if (requests.length > 0) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests },
+    })
+  }
 }
 
 /**

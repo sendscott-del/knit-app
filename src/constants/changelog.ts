@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.40.1',
+    date: '2026-05-22',
+    summary: 'READ ONLY banner row on the five Knit-managed tabs. Recent Outings tab name reverted.',
+    details: [
+      "Start Here, How to Invite Members, Available This Week, Friends We are Teaching, and Recent Outings each get a bright-red row 1 banner: \"READ ONLY — DO NOT EDIT. This tab is auto-managed by Knit.\" Merged across 8 columns, bold white text. Replaces the v0.40.0 \"(read-only)\" suffix in the Recent Outings tab name — that tab is back to plain \"Recent Outings\" and the renamed version is in OBSOLETE_TABS so existing sheets shed it on next sync.",
+      "Layout shift for the banner tabs: headers move from row 1 to row 2, data starts at row 3 (was row 2). Helpers dataStartRow() and headerRow() decide per-tab; writeAllHeaders, replaceDataRows, writeStartHere, and writeInviteHowto all honor the new layout. The whole-tab hard protection from v0.38.0+ still locks every cell against accidental edits, so the banner + the lock are belt-and-suspenders.",
+      "All existing sheets pick this up on the next sync. populateDataTabs runs ensureTabs → enforceTabOrder → writeAllHeaders → writeInviteHowto → writeStartHere → writeReadOnlyBanners, so old row-1 content (like the previous Start Here greeting) gets shifted to row 2 and replaced with the banner.",
+    ],
+  },
+  {
     version: '0.40.0',
     date: '2026-05-22',
     summary: 'Members page defaults to registered + clickable detail, Invitations outcome flips to Complete on onboard, Friends are editable inline, Sheet round 3.',
