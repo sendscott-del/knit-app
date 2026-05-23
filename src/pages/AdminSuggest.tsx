@@ -19,6 +19,17 @@ type StyleRow = Database['public']['Tables']['knit_participation_styles']['Row']
 type InterestTagRow = Database['public']['Tables']['knit_interest_tags']['Row']
 type Ctx = { profile: AdminProfile }
 
+type RecentRequest = {
+  id: string
+  suggested_at: string
+  time_slot_requested: TimeSlot
+  suggested_member_ids: string[]
+  suggestion_reasons: Record<string, string[]> | null
+  friend: { id: string; first_name: string; last_name: string | null; ward_id: string } | null
+  // Materialized from suggested_member_ids → knit_members on load.
+  member_names: string[]
+}
+
 export default function AdminSuggest() {
   const { profile } = useOutletContext<Ctx>()
   const { wards, loading: wardsLoading } = useWardOptions(profile)
@@ -43,6 +54,13 @@ export default function AdminSuggest() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Recent sheet-initiated suggestion requests (missionaries filling the
+  // Suggestions tab → Knit runs the algorithm → row lands in
+  // knit_outing_suggestions). Mirrors the table on /admin/sheet but lives
+  // here so missionary work doesn't get lost.
+  const [recent, setRecent] = useState<RecentRequest[]>([])
+  const [recentLoading, setRecentLoading] = useState(false)
+
   // Load friends for the ward and styles for label resolution
   useEffect(() => {
     if (!wardId) {
@@ -65,6 +83,75 @@ export default function AdminSuggest() {
       setStyles((stylesRes.data as StyleRow[] | null) ?? [])
       setLoadingFriends(false)
     })()
+  }, [wardId])
+
+  // Recent missionary requests (sheet-initiated). Scoped to the picked
+  // ward when a ward is selected; otherwise stake-wide via RLS (a stake
+  // admin sees every ward in their scope).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setRecentLoading(true)
+      let q = supabase
+        .from('knit_outing_suggestions')
+        .select(
+          'id, suggested_at, time_slot_requested, suggested_member_ids, suggestion_reasons, friend:knit_friends!inner(id, first_name, last_name, ward_id)',
+        )
+        .order('suggested_at', { ascending: false })
+        .limit(25)
+      if (wardId) q = q.eq('friend.ward_id', wardId)
+      const { data } = await q
+      const rows = (data ?? []) as unknown as Array<{
+        id: string
+        suggested_at: string
+        time_slot_requested: TimeSlot
+        suggested_member_ids: string[] | null
+        suggestion_reasons: Record<string, string[]> | null
+        friend: { id: string; first_name: string; last_name: string | null; ward_id: string } | null | Array<{ id: string; first_name: string; last_name: string | null; ward_id: string }>
+      }>
+
+      // Materialize member names so the table can show them inline.
+      const allMemberIds = Array.from(
+        new Set(rows.flatMap((r) => r.suggested_member_ids ?? [])),
+      )
+      let nameById = new Map<string, string>()
+      if (allMemberIds.length > 0) {
+        const { data: memRows } = await supabase
+          .from('knit_members')
+          .select('id, first_name, last_name, preferred_name')
+          .in('id', allMemberIds)
+        nameById = new Map(
+          (memRows ?? []).map((m) => [
+            m.id as string,
+            (m.preferred_name as string | null) ||
+              [m.first_name, m.last_name].filter(Boolean).join(' ') ||
+              '—',
+          ]),
+        )
+      }
+
+      if (cancelled) return
+      setRecent(
+        rows.map((r) => {
+          const friend = Array.isArray(r.friend) ? r.friend[0] ?? null : r.friend
+          return {
+            id: r.id,
+            suggested_at: r.suggested_at,
+            time_slot_requested: r.time_slot_requested,
+            suggested_member_ids: r.suggested_member_ids ?? [],
+            suggestion_reasons: r.suggestion_reasons ?? null,
+            friend,
+            member_names: (r.suggested_member_ids ?? [])
+              .map((id) => nameById.get(id))
+              .filter((n): n is string => !!n),
+          }
+        }),
+      )
+      setRecentLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [wardId])
 
   const styleLabelByKey = useMemo(() => {
@@ -282,7 +369,99 @@ export default function AdminSuggest() {
           }}
         />
       ) : null}
+
+      <RecentRequestsCard rows={recent} loading={recentLoading} />
     </div>
+  )
+}
+
+function RecentRequestsCard({
+  rows,
+  loading,
+}: {
+  rows: RecentRequest[]
+  loading: boolean
+}) {
+  return (
+    <section className="rounded-md border border-gray-200 bg-white overflow-hidden">
+      <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900">
+            Recent missionary requests
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            What missionaries asked for on the sheet's Suggestions tab, with the
+            top members Knit returned.
+          </p>
+        </div>
+        <span className="text-xs text-gray-500 whitespace-nowrap">
+          Last {rows.length}
+        </span>
+      </header>
+      {loading ? (
+        <div className="p-6 text-sm text-gray-500">Loading…</div>
+      ) : rows.length === 0 ? (
+        <div className="p-10 text-center text-sm text-gray-500">
+          No requests yet. When a missionary fills the Suggestions tab on the
+          sheet, they'll appear here.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[560px]">
+            <thead className="bg-gray-50 text-left text-gray-600">
+              <tr>
+                <th className="px-4 py-2 font-medium">When</th>
+                <th className="px-4 py-2 font-medium">Friend</th>
+                <th className="px-4 py-2 font-medium">Slot</th>
+                <th className="px-4 py-2 font-medium">Suggested members</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="px-4 py-2 text-gray-700 whitespace-nowrap">
+                    {new Date(r.suggested_at).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </td>
+                  <td className="px-4 py-2 text-gray-900">
+                    {r.friend
+                      ? [r.friend.first_name, r.friend.last_name]
+                          .filter(Boolean)
+                          .join(' ')
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-gray-600 capitalize">
+                    {r.time_slot_requested}
+                  </td>
+                  <td className="px-4 py-2 text-gray-700">
+                    {r.member_names.length === 0 ? (
+                      <span className="text-gray-400 italic">
+                        No matches at the time
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {r.member_names.slice(0, 5).map((n, i) => (
+                          <span
+                            key={`${r.id}-${i}`}
+                            className="inline-flex items-center rounded-full bg-knit-primary/10 text-knit-primary px-2 py-0.5 text-xs font-medium"
+                          >
+                            {n}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

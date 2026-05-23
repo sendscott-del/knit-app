@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.40.2',
+    date: '2026-05-22',
+    summary: 'Recent missionary requests table on the Suggestions page.',
+    details: [
+      "Every time a missionary fills the Suggestions tab on the sheet and Knit runs the matching algorithm, a row already lands in knit_outing_suggestions (has been since v0.30 or so). The data was never shown anywhere except inside the sheet itself.",
+      "/admin/suggest now has a \"Recent missionary requests\" card under the form. Shows the last 25: when the request was made, which friend, which time slot, and the members Knit returned (as pills). Scoped to the selected ward; stake admins with no ward filter see every ward in their stake (via existing RLS). Member names are fetched in a second batch query and cached client-side.",
+    ],
+  },
+  {
     version: '0.40.1',
     date: '2026-05-22',
     summary: 'READ ONLY banner row on the five Knit-managed tabs. Recent Outings tab name reverted.',
