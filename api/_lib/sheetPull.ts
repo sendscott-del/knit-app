@@ -1,6 +1,6 @@
 import { google } from 'googleapis'
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { TABS, TAB_ORDER, getExpectedHeaders } from './sheetSync.js'
+import { TABS, TAB_ORDER, getExpectedHeaders, populateMemberRoster } from './sheetSync.js'
 import { colLetter, ensureTabs } from './sheets.js'
 import {
   sendInviteSms,
@@ -194,6 +194,18 @@ export async function pullSheet(args: {
     }
   } catch (e) {
     report.invitesErrors.push(errMsg(e))
+  }
+
+  // Refresh the hidden Member Roster + dropdown ranges so any membership
+  // change (Tidings sync, member self-opt-out) propagates into the sheet
+  // within the hour rather than waiting for the next morning push.
+  try {
+    await populateMemberRoster({
+      spreadsheetId: args.spreadsheetId,
+      wardId: args.wardId,
+    })
+  } catch (e) {
+    report.invitesErrors.push(`roster refresh failed: ${errMsg(e)}`)
   }
 
   return report

@@ -490,12 +490,29 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
 
   await replaceDataRows(spreadsheetId, TABS.RECENT, 6, recentRows)
 
-  /* ---- Member Roster (hidden dropdown source) ---- */
-  // Re-pull broader member set than Available This Week — we want every
-  // not-opted-out member, even if onboarding isn't complete, so the
-  // Members to Invite dropdown can include people who haven't onboarded
-  // yet. Phone is included as a tiebreaker for the apply RPC, but the
-  // visible dropdown only shows the Name column.
+  // Member Roster + dropdowns. Extracted so the hourly pull-cron can also
+  // refresh this without doing the full Available/Friends/Recent rewrite.
+  await populateMemberRoster({ spreadsheetId, wardId })
+}
+
+/**
+ * Writes the hidden Member Roster tab (one row per not-opted-out ward
+ * member) and (re)applies the dropdown data-validation rules that depend
+ * on it. Idempotent. Called from the morning push via populateDataTabs
+ * AND from the hourly sheets-pull so dropdowns stay in step with
+ * Tidings opt-outs and member self-opt-outs without waiting a full day.
+ */
+export async function populateMemberRoster({
+  spreadsheetId,
+  wardId,
+}: {
+  spreadsheetId: string
+  wardId: string
+}) {
+  const sb = supabaseAdmin()
+  // Broader than Available This Week — every not-opted-out member, even
+  // those who haven't onboarded yet, so the Members to Invite dropdown
+  // can target people who still need to be invited.
   const { data: rosterRows } = await sb
     .from('knit_members')
     .select(
@@ -515,9 +532,6 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     return [m.id, name, m.phone ?? '']
   })
   await replaceDataRows(spreadsheetId, TABS.ROSTER, 3, rosterValues)
-
-  // Hide the roster tab and (re)apply data validations so the dropdowns
-  // point at fresh ranges. Both are idempotent.
   await ensureRosterHiddenAndDropdowns(spreadsheetId)
 }
 

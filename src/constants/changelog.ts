@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.1',
+    date: '2026-05-22',
+    summary: 'Member Roster stays in step with Tidings + member self-opt-outs automatically — nightly Tidings sync + hourly sheet roster refresh.',
+    details: [
+      "Tidings → Knit sync now runs on a nightly pg_cron job at 07:00 UTC (~2am Central). Calls the existing knit-sync-tidings-members edge function with INTERNAL_SYNC_SECRET pulled from supabase_vault. New members, name changes, and Tidings opt-outs flow into knit_members within 24 hours instead of waiting for someone to click \"Sync from Tidings\" at /admin/roles. Manual sync still works for instant pulls.",
+      "Knit → Sheet roster now refreshes on every hourly sheets-pull (the pg_cron from v0.37.0), not just on the daily morning push. Extracted populateMemberRoster() so the hourly path can run it cheaply — it's one supabase query + one sheet write + one dropdown-validation reapply per ward, all idempotent. A member who self-opt-outs at /me now disappears from the missionary dropdowns within an hour. End-to-end latency for a Tidings change → dropdown reflects it is now at most ~25 hours (24h Tidings sync + 1h roster refresh).",
+    ],
+  },
+  {
     version: '0.37.0',
     date: '2026-05-22',
     summary: 'Three things at once: hourly sheet sync via Supabase pg_cron, dropdowns on the missionary sheet, and a smarter empty-state hint on Suggest.',
