@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.35.0',
+    date: '2026-05-22',
+    summary: 'Gather page gained a Suggestions section — review and triage 💡 submissions from any of the five apps.',
+    details: [
+      "/admin/gather now reads from the shared `app_suggestions` table (where the 💡 button on Magnify / Steward / Glean / Tidings / Knit posts). A per-app summary table shows Open / Backlog / Total counts with a green **New** badge on rows that have unprocessed items.",
+      "Below the summary, each open or backlog suggestion lists in full with submitter, date, and source page URL. Three buttons per item: **Add to backlog**, **Mark complete**, **Decline**. Acting on a suggestion removes it from the view — completed and declined are filtered out.",
+      "Backed by the new `gather_set_suggestion_status` RPC, locked to super admins via gather_super_admins. RLS read policy added on app_suggestions so super admins can see every suggestion.",
+    ],
+  },
+  {
     version: '0.34.4',
     date: '2026-05-22',
     summary: 'Knit invitations are SMS-only now — Tidings does not carry email addresses, so the email path was dead weight.',

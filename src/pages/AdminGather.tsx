@@ -23,6 +23,20 @@ interface GatherAppUser {
   super_admin_role: 'stake_president' | 'stake_clerk' | null
 }
 
+type SuggestionStatus = 'open' | 'backlog' | 'completed' | 'declined'
+
+interface AppSuggestion {
+  id: string
+  app: AppName | string
+  suggestion: string
+  submitted_by_name: string | null
+  submitted_by_email: string | null
+  page_url: string | null
+  status: SuggestionStatus
+  notes: string | null
+  created_at: string
+}
+
 const APP_COLORS: Record<AppName, string> = {
   magnify: '#1B3A6B',
   steward: '#2563EB',
@@ -53,6 +67,9 @@ export default function AdminGather() {
   const [tidingsModal, setTidingsModal] = useState(false)
   const [tidingsForm, setTidingsForm] = useState({ email: '', fullName: '', role: 'viewer', ward: '' })
   const [tidingsBusy, setTidingsBusy] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<AppSuggestion[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -71,6 +88,31 @@ export default function AdminGather() {
     setTidingsUsers(rows)
     setTidingsLoading(false)
   }, [])
+
+  const refreshSuggestions = useCallback(async () => {
+    setSuggestionsLoading(true)
+    const { data, error } = await sb
+      .from('app_suggestions')
+      .select('id, app, suggestion, submitted_by_name, submitted_by_email, page_url, status, notes, created_at')
+      .in('status', ['open', 'backlog'])
+      .order('status', { ascending: true })
+      .order('created_at', { ascending: false })
+    if (error) setError(error.message)
+    else setSuggestions((data as unknown as AppSuggestion[]) ?? [])
+    setSuggestionsLoading(false)
+  }, [])
+
+  async function setSuggestionStatus(id: string, status: SuggestionStatus) {
+    setSuggestionBusyId(id)
+    setError('')
+    const { error } = await sb.rpc('gather_set_suggestion_status', {
+      p_id: id,
+      p_status: status,
+    })
+    if (error) setError(error.message)
+    setSuggestionBusyId(null)
+    void refreshSuggestions()
+  }
 
   useEffect(() => {
     if (!session?.user) return
@@ -92,6 +134,23 @@ export default function AdminGather() {
     if (!isSuperAdmin) return
     void refreshTidings()
   }, [isSuperAdmin, refreshTidings])
+
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    void refreshSuggestions()
+  }, [isSuperAdmin, refreshSuggestions])
+
+  const suggestionCounts = useMemo(() => {
+    const m = new Map<string, { open: number; backlog: number }>()
+    for (const app of APPS) m.set(app, { open: 0, backlog: 0 })
+    for (const s of suggestions) {
+      const bucket = m.get(s.app) ?? { open: 0, backlog: 0 }
+      if (s.status === 'open') bucket.open += 1
+      else if (s.status === 'backlog') bucket.backlog += 1
+      m.set(s.app, bucket)
+    }
+    return m
+  }, [suggestions])
 
   async function toggleApp(target: GatherAppUser, app: AppName) {
     setBusyId(target.user_id)
@@ -407,6 +466,171 @@ export default function AdminGather() {
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Suggestions across apps */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-4">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Suggestions</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Submitted via the 💡 button on each app. Decline / backlog / complete to take it out of view.
+            </p>
+          </div>
+          <button
+            onClick={() => void refreshSuggestions()}
+            disabled={suggestionsLoading}
+            className="text-sm font-medium text-rose-600 hover:underline disabled:opacity-50"
+          >
+            {suggestionsLoading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
+
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="text-left px-4 py-2 font-semibold">App</th>
+              <th className="text-right px-4 py-2 font-semibold">Open</th>
+              <th className="text-right px-4 py-2 font-semibold">Backlog</th>
+              <th className="text-right px-4 py-2 font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {APPS.map(app => {
+              const c = suggestionCounts.get(app) ?? { open: 0, backlog: 0 }
+              const total = c.open + c.backlog
+              return (
+                <tr key={app} className="border-t border-gray-100">
+                  <td className="px-4 py-2">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          width: 18,
+                          height: 18,
+                          borderRadius: 5,
+                          backgroundColor: APP_COLORS[app],
+                          color: 'white',
+                          fontSize: 10,
+                          fontWeight: 800,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                        aria-hidden="true"
+                      >
+                        {APP_LABELS[app][0]}
+                      </span>
+                      <span className="text-gray-900 font-medium">{APP_LABELS[app]}</span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {c.open > 0 ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="text-gray-900 font-semibold">{c.open}</span>
+                        <span className="text-[10px] uppercase tracking-wide font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">New</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">0</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-right text-gray-700">{c.backlog > 0 ? c.backlog : <span className="text-gray-300">0</span>}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{total > 0 ? total : <span className="text-gray-300 font-normal">0</span>}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        {suggestions.length === 0 ? (
+          <p className="px-4 py-6 text-center text-gray-400 text-sm">
+            {suggestionsLoading ? 'Loading…' : 'No open or backlog suggestions.'}
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100 border-t border-gray-100">
+            {suggestions.map(s => {
+              const submitter = s.submitted_by_name || s.submitted_by_email || 'Anonymous'
+              const appLabel = (APP_LABELS as Record<string, string>)[s.app] ?? s.app
+              const appColor = (APP_COLORS as Record<string, string>)[s.app] ?? '#6B7280'
+              const busy = suggestionBusyId === s.id
+              return (
+                <li key={s.id} className="px-4 py-3">
+                  <div className="flex items-start gap-3">
+                    <span
+                      title={appLabel}
+                      style={{
+                        display: 'inline-flex',
+                        flexShrink: 0,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        backgroundColor: appColor,
+                        color: 'white',
+                        fontSize: 11,
+                        fontWeight: 800,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: 2,
+                      }}
+                      aria-hidden="true"
+                    >
+                      {appLabel[0]}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs font-semibold text-gray-700">{appLabel}</span>
+                        {s.status === 'open' && (
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">New</span>
+                        )}
+                        {s.status === 'backlog' && (
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-indigo-700 bg-indigo-100 px-1.5 py-0.5 rounded">Backlog</span>
+                        )}
+                        <span className="text-xs text-gray-400">
+                          {new Date(s.created_at).toLocaleDateString()} · {submitter}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{s.suggestion}</p>
+                      {s.page_url && (
+                        <a
+                          href={s.page_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-blue-600 hover:underline break-all"
+                        >
+                          {s.page_url}
+                        </a>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {s.status !== 'backlog' && (
+                          <button
+                            onClick={() => void setSuggestionStatus(s.id, 'backlog')}
+                            disabled={busy}
+                            className="text-xs px-2.5 py-1 rounded-md border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+                          >
+                            Add to backlog
+                          </button>
+                        )}
+                        <button
+                          onClick={() => void setSuggestionStatus(s.id, 'completed')}
+                          disabled={busy}
+                          className="text-xs px-2.5 py-1 rounded-md border border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                        >
+                          Mark complete
+                        </button>
+                        <button
+                          onClick={() => void setSuggestionStatus(s.id, 'declined')}
+                          disabled={busy}
+                          className="text-xs px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </div>
 
