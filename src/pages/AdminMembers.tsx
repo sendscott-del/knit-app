@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
@@ -37,46 +37,66 @@ export default function AdminMembers() {
   const [generating, setGenerating] = useState<string | null>(null)
   const [wardFilter, setWardFilter] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+
+  // Debounce keystrokes so we don't fire a query per character.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 200)
+    return () => clearTimeout(t)
+  }, [searchQuery])
 
   async function refresh() {
     setLoading(true)
     setError(null)
-    // Pull the full set the caller is allowed to see, then filter client-side.
-    // Supabase's default 1000-row cap would silently truncate at stake scale
-    // (3K+ members), so request 5000 explicitly. Order by last_name so the
-    // ward filter / search reveal alphabetized lists.
+    // Server-side everything. Critical because PostgREST caps responses at
+    // 1000 rows regardless of the client's .limit(), so a stake-scale
+    // browse of 3K+ members silently truncates and the in-browser filter
+    // can't see anyone past row 1000 alphabetically. When the user types,
+    // run a real .or() ilike across name/phone in the DB. When idle, show
+    // the first slice with a clear "type to search the whole roster" cue.
     let q = supabase
       .from('knit_members')
       .select(
         '*, ward:knit_wards(id, name), availability:knit_availability_baselines(day_of_week, time_slot)',
+        { count: 'exact' },
       )
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true })
-      .limit(5000)
     if (wardFilter) q = q.eq('ward_id', wardFilter)
-    const { data, error } = await q
+    if (debouncedQuery) {
+      const safe = debouncedQuery.replace(/[%,()]/g, ' ').trim()
+      if (safe) {
+        const pattern = `%${safe}%`
+        const phoneNeedle = safe.replace(/[\s\-()+]/g, '')
+        const orParts = [
+          `first_name.ilike.${pattern}`,
+          `last_name.ilike.${pattern}`,
+          `preferred_name.ilike.${pattern}`,
+        ]
+        if (phoneNeedle && /^\d+$/.test(phoneNeedle)) {
+          orParts.push(`phone.ilike.%${phoneNeedle}%`)
+        }
+        q = q.or(orParts.join(','))
+      }
+      q = q.limit(200)
+    } else {
+      q = q.limit(1000)
+    }
+    const { data, error, count } = await q
     if (error) setError(error.message)
     else setMembers((data as MemberWithExtras[]) ?? [])
+    setTotalCount(typeof count === 'number' ? count : null)
     setLoading(false)
   }
 
   useEffect(() => {
     void refresh()
-  }, [wardFilter])
+  }, [wardFilter, debouncedQuery])
 
-  const visibleMembers = useMemo(() => {
-    const qs = searchQuery.trim().toLowerCase()
-    if (!qs) return members
-    const phoneNeedle = qs.replace(/[\s\-()+]/g, '')
-    return members.filter((m) => {
-      const name = displayName(m).toLowerCase()
-      const phone = (m.phone ?? '').replace(/[\s\-()+]/g, '').toLowerCase()
-      return (
-        name.includes(qs) ||
-        (phoneNeedle && phone.includes(phoneNeedle))
-      )
-    })
-  }, [members, searchQuery])
+  // Server-side filter already trimmed the list; this is just an alias so
+  // the JSX doesn't need to change much.
+  const visibleMembers = members
 
   async function remove(id: string) {
     if (!confirm('Remove this member? This is permanent for now.')) return
@@ -175,10 +195,19 @@ export default function AdminMembers() {
         ) : null}
       </div>
       <p className="text-xs text-gray-500 -mt-2">
-        Showing {visibleMembers.length.toLocaleString()} of {members.length.toLocaleString()}{' '}
-        member{members.length === 1 ? '' : 's'}
-        {wardFilter ? ` in ${wards.find((w) => w.id === wardFilter)?.name ?? 'selected ward'}` : ''}
-        {searchQuery ? ` matching "${searchQuery}"` : ''}.
+        {(() => {
+          const wardLabel = wardFilter
+            ? ` in ${wards.find((w) => w.id === wardFilter)?.name ?? 'selected ward'}`
+            : ''
+          const total = totalCount ?? members.length
+          if (debouncedQuery) {
+            return `${members.length.toLocaleString()} ${members.length === 1 ? 'match' : 'matches'} for "${debouncedQuery}"${wardLabel} (of ${total.toLocaleString()} total).`
+          }
+          if (totalCount !== null && members.length < totalCount) {
+            return `Showing first ${members.length.toLocaleString()} of ${totalCount.toLocaleString()} members${wardLabel}. Type a name or phone to search the rest.`
+          }
+          return `${members.length.toLocaleString()} member${members.length === 1 ? '' : 's'}${wardLabel}.`
+        })()}
       </p>
 
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">

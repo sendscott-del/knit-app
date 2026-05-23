@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.3',
+    date: '2026-05-22',
+    summary: 'Members page search is server-side now — \"Shurtliff\" (and anyone else past row 1,000 alphabetically) actually shows up.',
+    details: [
+      "Same PostgREST 1000-row cap that bit the Invitations page in v0.34.2 also hit Members. With 3,297 members in the directory and 2,807 sorting before \"Shurtliff,\" the alphabetical first slice never reached S. Client-side filter couldn't match what was never loaded.",
+      "Fix: debounced server-side .or() ilike across first_name / last_name / preferred_name / phone whenever the search box has text — same pattern as the Invitations page. The default (empty search) still loads the first 1,000 alphabetical rows for browsing, and the counter line under the controls now reports honestly: \"Showing first 1,000 of 3,297 — type a name or phone to search the rest\" when truncated, vs. \"N matches for 'shurtliff' (of 3,297 total)\" when filtering. Ward filter applies to both modes.",
+    ],
+  },
+  {
     version: '0.36.2',
     date: '2026-05-22',
     summary: '/join now picks the right row when a member has duplicates — returning members land on their existing data instead of a blank wizard.',
