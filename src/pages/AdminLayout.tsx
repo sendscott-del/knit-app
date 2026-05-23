@@ -178,6 +178,11 @@ function SuiteTopBar({
   )
 }
 
+// Gather is hosted in Glean now — one canonical place to manage user access
+// across all five apps. The Knit /admin/gather route still exists as a
+// redirect for stragglers, but the nav links straight out to skip the hop.
+const GATHER_CANONICAL_URL = 'https://glean-blue.vercel.app/admin/gather'
+
 function navLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
   return [
     { to: '/admin', label: 'Dashboard', end: true },
@@ -190,7 +195,7 @@ function navLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
     ...(showStakeAdminTabs ? [{ to: '/admin/users', label: 'Users' }] : []),
     ...(showStakeAdminTabs ? [{ to: '/admin/roles', label: 'Roles' }] : []),
     { to: '/admin/settings', label: 'Settings' },
-    { to: '/admin/gather', label: 'Gather' },
+    { href: GATHER_CANONICAL_URL, label: 'Gather ↗', external: true as const },
   ]
 }
 
@@ -212,22 +217,34 @@ function Sidebar({
         <div className="text-xl font-bold tracking-tight leading-none">Knit</div>
       </div>
       <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
-        {links.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.end}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
-                isActive
-                  ? 'bg-white/15 text-white'
-                  : 'text-white/70 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
+        {links.map((item) =>
+          'external' in item ? (
+            <a
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              {item.label}
+            </a>
+          ) : (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-white/15 text-white'
+                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          )
+        )}
       </nav>
       <div className="px-2 pb-5 mt-2 space-y-0.5 border-t border-white/10 pt-3">
         <NavLink
@@ -299,23 +316,36 @@ function MobileDrawer({
           </button>
         </div>
         <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
-          {links.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `block px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
-                  isActive
-                    ? 'bg-white/15 text-white'
-                    : 'text-white/70 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {links.map((item) =>
+            'external' in item ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={onClose}
+                className="block px-3 py-2.5 rounded-md text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              >
+                {item.label}
+              </a>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `block px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/70 hover:bg-white/10 hover:text-white'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            )
+          )}
         </nav>
         <div className="px-2 pb-5 mt-2 space-y-0.5 border-t border-white/10 pt-3">
           <NavLink

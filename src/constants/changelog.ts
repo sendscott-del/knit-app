@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.0',
+    date: '2026-05-22',
+    summary: 'Gather is consolidated into Glean — Knit\'s /admin/gather is now a redirect, sidebar link points straight at the canonical URL.',
+    details: [
+      "There are no more three near-identical copies of the Gather page. /admin/gather here is now a redirect to https://glean-blue.vercel.app/admin/gather (the canonical host going forward). Bookmarks still work. The admin sidebar \"Gather ↗\" entry links out directly in a new tab so a click skips the redirect hop.",
+      "Why Glean wins: it had the most-evolved version — the suite-app filter that hides Duty / Sparkle Pro / Squarecana users, the Remove-from-suite control, and today's Suggestions section. Steward and Knit's gather copies (including the suggestions block added in v0.35.0 hours ago) are retired.",
+    ],
+  },
+  {
     version: '0.35.2',
     date: '2026-05-22',
     summary: 'Onboarding picker: culture section header reworded as "Languages or cultures you connect with" so the chips read as connection points, not identity labels.',
