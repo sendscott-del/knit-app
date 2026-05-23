@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
@@ -53,11 +53,13 @@ export default function AdminInvitations() {
   const { profile } = useOutletContext<Ctx>()
   const allowed = canSendInvitations(profile)
 
-  const [members, setMembers] = useState<MemberRow[]>([])
   const [history, setHistory] = useState<InvitationRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [matches, setMatches] = useState<MemberRow[]>([])
+  const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState<MemberRow | null>(null)
   const [sending, setSending] = useState<'email' | 'sms' | null>(null)
   const [outcome, setOutcome] = useState<
@@ -66,50 +68,83 @@ export default function AdminInvitations() {
     | null
   >(null)
 
-  async function loadAll() {
+  async function loadHistory() {
     setLoading(true)
     setError(null)
-    const [membersRes, historyRes] = await Promise.all([
-      supabase
+    const { data, error: historyErr } = await supabase
+      .from('knit_member_invitations')
+      .select(
+        'id, member_id, ward_id, sent_by_admin_id, sent_by_label, source, channel, recipient, outcome, outcome_detail, created_at, member:knit_members(id, first_name, last_name, preferred_name), ward:knit_wards(id, name)',
+      )
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (historyErr) setError(historyErr.message)
+    else setHistory((data ?? []) as unknown as InvitationRow[])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    if (allowed) void loadHistory()
+    else setLoading(false)
+  }, [allowed])
+
+  // Debounce the search query so we hit the DB once after the user pauses
+  // typing instead of on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 200)
+    return () => clearTimeout(t)
+  }, [query])
+
+  // Server-side search. Critical because there are thousands of members
+  // across the stake — a client-side filter over a single LIMIT-capped fetch
+  // misses anyone whose name sorts past the cutoff.
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setMatches([])
+      setSearching(false)
+      return
+    }
+    // Strip PostgREST .or() syntax characters that would break the query.
+    const safe = debouncedQuery.replace(/[%,()]/g, ' ').trim()
+    if (!safe) {
+      setMatches([])
+      setSearching(false)
+      return
+    }
+    let cancelled = false
+    setSearching(true)
+    const pattern = `%${safe}%`
+    ;(async () => {
+      const { data, error: searchErr } = await supabase
         .from('knit_members')
         .select(
           'id, ward_id, first_name, last_name, preferred_name, email, phone, opted_out_at, ward:knit_wards(id, name)',
         )
         .is('opted_out_at', null)
-        .order('first_name', { ascending: true })
-        .limit(2000),
-      supabase
-        .from('knit_member_invitations')
-        .select(
-          'id, member_id, ward_id, sent_by_admin_id, sent_by_label, source, channel, recipient, outcome, outcome_detail, created_at, member:knit_members(id, first_name, last_name, preferred_name), ward:knit_wards(id, name)',
+        .or(
+          [
+            `first_name.ilike.${pattern}`,
+            `last_name.ilike.${pattern}`,
+            `preferred_name.ilike.${pattern}`,
+            `email.ilike.${pattern}`,
+            `phone.ilike.${pattern}`,
+          ].join(','),
         )
-        .order('created_at', { ascending: false })
-        .limit(100),
-    ])
-    if (membersRes.error) setError(membersRes.error.message)
-    else setMembers((membersRes.data ?? []) as unknown as MemberRow[])
-    if (historyRes.error && !error) setError(historyRes.error.message)
-    else setHistory((historyRes.data ?? []) as unknown as InvitationRow[])
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    if (allowed) void loadAll()
-    else setLoading(false)
-  }, [allowed])
-
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return [] as MemberRow[]
-    return members
-      .filter((m) => {
-        const name = memberDisplayName(m).toLowerCase()
-        const phone = (m.phone ?? '').replace(/[\s\-()+]/g, '').toLowerCase()
-        const email = (m.email ?? '').toLowerCase()
-        return name.includes(q) || phone.includes(q.replace(/[\s\-()+]/g, '')) || email.includes(q)
-      })
-      .slice(0, 12)
-  }, [query, members])
+        .order('last_name', { ascending: true })
+        .limit(20)
+      if (cancelled) return
+      if (searchErr) {
+        setError(searchErr.message)
+        setMatches([])
+      } else {
+        setMatches((data ?? []) as unknown as MemberRow[])
+      }
+      setSearching(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedQuery])
 
   async function send(channel: 'email' | 'sms') {
     if (!selected) return
@@ -136,7 +171,7 @@ export default function AdminInvitations() {
               ? `Emailed ${memberDisplayName(selected)} at ${body.recipient ?? selected.email}`
               : `Texted ${memberDisplayName(selected)} at ${body.recipient ?? selected.phone}`,
         })
-        await loadAll()
+        await loadHistory()
       }
     } catch (e) {
       setOutcome({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
@@ -186,7 +221,9 @@ export default function AdminInvitations() {
 
         {query && !selected ? (
           <div className="rounded-md border border-gray-200 overflow-hidden">
-            {matches.length === 0 ? (
+            {searching ? (
+              <div className="p-4 text-sm text-gray-500">Searching…</div>
+            ) : matches.length === 0 ? (
               <div className="p-4 text-sm text-gray-500">No matching members.</div>
             ) : (
               <ul className="divide-y divide-gray-100">

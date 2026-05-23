@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.2',
+    date: '2026-05-22',
+    summary: 'Search/filter fixes after the Tidings sync brought in 3,000+ members: Invitations now searches the whole DB, Members has a search bar and ward dropdown.',
+    details: [
+      "Invitations search was loading the first 2,000 members ordered by first_name and filtering client-side. With 3,297 members in the directory anyone whose name sorted past the cutoff was invisible (\"shurtliff\", \"malli\", \"pope\" missed; \"smith\" hit because at least one Smith was in the first 2K). Switched to debounced server-side .or(...) ilike across first_name / last_name / preferred_name / email / phone — 20 results, runs in the DB, scales independently of the directory size.",
+      "Members page now has a search bar (name / phone / email) and a Ward filter dropdown (visible when 2+ wards are in scope). The list also raises the row cap to 5,000 and orders by last_name then first_name, so the alphabetical scan actually matches the alphabetical mental model. A counter under the controls reports how many of the total are showing.",
+      "No schema or RLS changes — purely client-side fixes.",
+    ],
+  },
+  {
     version: '0.34.1',
     date: '2026-05-22',
     summary: 'Deploy fix: collapse the three Google OAuth admin endpoints into one so v0.34.0 fits under Vercel Hobby\'s 12-function cap.',

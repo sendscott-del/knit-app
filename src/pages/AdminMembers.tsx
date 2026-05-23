@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
@@ -36,16 +36,26 @@ export default function AdminMembers() {
     email: string | null
   } | null>(null)
   const [generating, setGenerating] = useState<string | null>(null)
+  const [wardFilter, setWardFilter] = useState<string>('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   async function refresh() {
     setLoading(true)
     setError(null)
-    const { data, error } = await supabase
+    // Pull the full set the caller is allowed to see, then filter client-side.
+    // Supabase's default 1000-row cap would silently truncate at stake scale
+    // (3K+ members), so request 5000 explicitly. Order by last_name so the
+    // ward filter / search reveal alphabetized lists.
+    let q = supabase
       .from('knit_members')
       .select(
         '*, ward:knit_wards(id, name), availability:knit_availability_baselines(day_of_week, time_slot)',
       )
-      .order('created_at', { ascending: false })
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true })
+      .limit(5000)
+    if (wardFilter) q = q.eq('ward_id', wardFilter)
+    const { data, error } = await q
     if (error) setError(error.message)
     else setMembers((data as MemberWithExtras[]) ?? [])
     setLoading(false)
@@ -53,7 +63,23 @@ export default function AdminMembers() {
 
   useEffect(() => {
     void refresh()
-  }, [])
+  }, [wardFilter])
+
+  const visibleMembers = useMemo(() => {
+    const qs = searchQuery.trim().toLowerCase()
+    if (!qs) return members
+    const phoneNeedle = qs.replace(/[\s\-()+]/g, '')
+    return members.filter((m) => {
+      const name = displayName(m).toLowerCase()
+      const phone = (m.phone ?? '').replace(/[\s\-()+]/g, '').toLowerCase()
+      const email = (m.email ?? '').toLowerCase()
+      return (
+        name.includes(qs) ||
+        (phoneNeedle && phone.includes(phoneNeedle)) ||
+        email.includes(qs)
+      )
+    })
+  }, [members, searchQuery])
 
   async function remove(id: string) {
     if (!confirm('Remove this member? This is permanent for now.')) return
@@ -128,6 +154,37 @@ export default function AdminMembers() {
         />
       ) : null}
 
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by name, phone, or email"
+          className="form-input"
+        />
+        {wards.length > 1 ? (
+          <select
+            value={wardFilter}
+            onChange={(e) => setWardFilter(e.target.value)}
+            disabled={wardsLoading}
+            className="form-input"
+          >
+            <option value="">All wards ({wards.length})</option>
+            {wards.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+      <p className="text-xs text-gray-500 -mt-2">
+        Showing {visibleMembers.length.toLocaleString()} of {members.length.toLocaleString()}{' '}
+        member{members.length === 1 ? '' : 's'}
+        {wardFilter ? ` in ${wards.find((w) => w.id === wardFilter)?.name ?? 'selected ward'}` : ''}
+        {searchQuery ? ` matching "${searchQuery}"` : ''}.
+      </p>
+
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
           <div className="p-6 text-sm text-gray-500">Loading members…</div>
@@ -136,6 +193,17 @@ export default function AdminMembers() {
         ) : members.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
             No members yet. Add your first above.
+          </div>
+        ) : visibleMembers.length === 0 ? (
+          <div className="p-10 text-center text-sm text-gray-500">
+            No members match those filters. {searchQuery ? (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-knit-primary hover:underline"
+              >
+                Clear search
+              </button>
+            ) : null}
           </div>
         ) : (
           // Wrapped in overflow-x-auto for narrow viewports; columns also
@@ -155,7 +223,7 @@ export default function AdminMembers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {members.map((m) => (
+              {visibleMembers.map((m) => (
                 <tr key={m.id}>
                   <td className="px-4 py-3 text-gray-900">
                     {displayName(m)}
