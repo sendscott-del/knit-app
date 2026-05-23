@@ -11,7 +11,7 @@ const CATEGORY_LABELS: Record<Category, string> = {
   sport: 'Sports & activity',
   life_stage: 'Life stage',
   profession: 'Work',
-  culture: 'Language & culture',
+  culture: 'Languages or cultures you connect with',
 }
 
 export default function InterestChipPicker({

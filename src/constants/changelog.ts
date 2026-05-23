@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.35.2',
+    date: '2026-05-22',
+    summary: 'Onboarding picker: culture section header reworded as "Languages or cultures you connect with" so the chips read as connection points, not identity labels.',
+    details: [
+      "Previous label \"Language & culture\" was technically correct but ambiguous — a member who grew up in America might wonder whether to pick European, American, or skip the section entirely. The new header makes the framing explicit: these chips are about connection points the member would love to share (heritage, languages, the cultures the missionaries' friends might be from), not nationality. Skipping is fine; the suggestion engine just uses the rest of the profile.",
+      "Decided against adding an 'American' chip — see Scott / Claude exchange in session notes. tl;dr: in a Chicago stake, American is the unmarked default, so adding it would either become noise (almost everyone picks it) or feel othering (some don't). The chips are match signals for the suggestion engine, not identity labels.",
+    ],
+  },
+  {
     version: '0.35.1',
     date: '2026-05-22',
     summary: 'Knit invites two new sport tags, fixes the survey "every Sunday" promise, and starts a 90-day availability refresh cron.',
