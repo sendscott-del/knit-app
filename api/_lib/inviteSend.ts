@@ -82,10 +82,14 @@ export async function sendInviteSms(
 }
 
 export function appOriginFromEnv(): string {
+  // Default points at the actual production alias for this project. The
+  // earlier "knit-app.vercel.app" guess was unclaimed and 404'd, breaking
+  // every magic link sent before the env var was set. Set NEXT_PUBLIC_APP_URL
+  // (or VITE_APP_URL) on Vercel to override if the alias changes.
   return (
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.VITE_APP_URL ??
-    'https://knit-app.vercel.app'
+    'https://knit-together.vercel.app'
   )
 }
 

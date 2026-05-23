@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.3',
+    date: '2026-05-22',
+    summary: 'Magic-link 404 fix: invitations were pointing at the wrong vercel.app alias.',
+    details: [
+      "Members who tapped their SMS invite link got a Vercel 404 NOT_FOUND page. Root cause: the appOriginFromEnv() helper in api/_lib/inviteSend.ts had a hard-coded fallback of https://knit-app.vercel.app — an unclaimed alias — and no NEXT_PUBLIC_APP_URL / VITE_APP_URL was set on the project, so every invite URL pointed nowhere. Fallback is now the actual project alias (https://knit-together.vercel.app) and NEXT_PUBLIC_APP_URL is set on the Vercel project for Production explicitly.",
+      "Members invited before this release have invalid links; re-invite them from /admin/invitations and the new link will route correctly.",
+    ],
+  },
+  {
     version: '0.34.2',
     date: '2026-05-22',
     summary: 'Search/filter fixes after the Tidings sync brought in 3,000+ members: Invitations now searches the whole DB, Members has a search bar and ward dropdown.',
