@@ -59,8 +59,8 @@ export default function AdminGuide() {
           </li>
           <li>
             <strong>Invitations</strong> — send a member their availability
-            survey from inside Knit. Search by name, phone, or email, pick
-            email or text, and Knit sends the personalized link. The same page
+            survey from inside Knit. Search by name or phone, pick the
+            member, and Knit texts the personalized link. The same page
             shows recent sends and whether they actually went through.
           </li>
           <li>

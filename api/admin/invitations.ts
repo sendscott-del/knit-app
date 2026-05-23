@@ -1,16 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
-import {
-  sendInviteEmail,
-  sendInviteSms,
-  memberInviteUrl,
-} from '../_lib/inviteSend.js'
+import { sendInviteSms, memberInviteUrl } from '../_lib/inviteSend.js'
 
 type SendPayload = {
   action: 'send'
   member_id: string
-  channel: 'email' | 'sms'
+  channel: 'sms'
 }
 
 type Payload = SendPayload
@@ -43,8 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!body?.action) return res.status(400).json({ error: 'Missing action' })
   if (body.action !== 'send') return res.status(400).json({ error: 'Unknown action' })
   if (!body.member_id) return res.status(400).json({ error: 'Missing member_id' })
-  if (body.channel !== 'email' && body.channel !== 'sms') {
-    return res.status(400).json({ error: 'channel must be "email" or "sms"' })
+  if (body.channel !== 'sms') {
+    return res.status(400).json({ error: 'channel must be "sms"' })
   }
 
   const token = getBearer(req)
@@ -64,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { data: member, error: memberErr } = await sb
     .from('knit_members')
     .select(
-      'id, ward_id, first_name, last_name, preferred_name, email, phone, opted_out_at',
+      'id, ward_id, first_name, last_name, preferred_name, phone, opted_out_at',
     )
     .eq('id', body.member_id)
     .maybeSingle()
@@ -76,7 +72,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     first_name: string | null
     last_name: string | null
     preferred_name: string | null
-    email: string | null
     phone: string | null
     opted_out_at: string | null
   }
@@ -111,12 +106,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // 4) Resolve recipient.
-  const recipient =
-    body.channel === 'email' ? (m.email ?? '').trim() : (m.phone ?? '').trim()
+  const recipient = (m.phone ?? '').trim()
   if (!recipient) {
-    return res
-      .status(400)
-      .json({ error: body.channel === 'email' ? 'No email on file.' : 'No phone on file.' })
+    return res.status(400).json({ error: 'No phone on file.' })
   }
 
   // 5) Generate the magic link (service role bypasses RLS; we've already
@@ -132,11 +124,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const firstName =
     m.preferred_name || m.first_name || (m.last_name ? `` : 'there')
 
-  // 6) Send.
-  const sendResult =
-    body.channel === 'email'
-      ? await sendInviteEmail(recipient, firstName, url)
-      : await sendInviteSms(recipient, firstName, url)
+  // 6) Send via SMS.
+  const sendResult = await sendInviteSms(recipient, firstName, url)
 
   // 7) Record audit row. sent_by_admin_id is only set when the caller has a
   //    knit_admin_users row; gather_user_roles-only callers (stake_clerk,

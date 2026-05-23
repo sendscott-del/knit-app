@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.4',
+    date: '2026-05-22',
+    summary: 'Knit invitations are SMS-only now — Tidings does not carry email addresses, so the email path was dead weight.',
+    details: [
+      "Removed the \"Send by email\" buttons from the Invitations page and the per-row Invite-link modal on Members. /api/admin/invitations now rejects any channel other than \"sms\". The missionary-sheet \"Members to Invite\" sweep always texts (the Email column on the sheet is ignored for now; we'll drop it from the template the next time we regenerate sheets). Deleted the unused sendInviteEmail helper. RESEND_API_KEY and KNIT_INVITE_FROM env vars can be removed from Vercel — they're no longer read.",
+      "Search inputs and the user guide updated to say \"name or phone\" instead of \"name, phone, or email.\" The knit_member_invitations.channel column still allows 'email' so historical rows from v0.32–v0.34.2 still render in the audit history.",
+    ],
+  },
+  {
     version: '0.34.3',
     date: '2026-05-22',
     summary: 'Magic-link 404 fix: invitations were pointing at the wrong vercel.app alias.',

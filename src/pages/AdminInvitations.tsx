@@ -12,7 +12,6 @@ type MemberRow = {
   first_name: string | null
   last_name: string | null
   preferred_name: string | null
-  email: string | null
   phone: string | null
   opted_out_at: string | null
   ward: { id: string; name: string } | null
@@ -118,7 +117,7 @@ export default function AdminInvitations() {
       const { data, error: searchErr } = await supabase
         .from('knit_members')
         .select(
-          'id, ward_id, first_name, last_name, preferred_name, email, phone, opted_out_at, ward:knit_wards(id, name)',
+          'id, ward_id, first_name, last_name, preferred_name, phone, opted_out_at, ward:knit_wards(id, name)',
         )
         .is('opted_out_at', null)
         .or(
@@ -126,7 +125,6 @@ export default function AdminInvitations() {
             `first_name.ilike.${pattern}`,
             `last_name.ilike.${pattern}`,
             `preferred_name.ilike.${pattern}`,
-            `email.ilike.${pattern}`,
             `phone.ilike.${pattern}`,
           ].join(','),
         )
@@ -146,14 +144,14 @@ export default function AdminInvitations() {
     }
   }, [debouncedQuery])
 
-  async function send(channel: 'email' | 'sms') {
+  async function send() {
     if (!selected) return
     setOutcome(null)
-    setSending(channel)
+    setSending('sms')
     try {
       const res = await authorizedFetch('/api/admin/invitations', {
         method: 'POST',
-        body: JSON.stringify({ action: 'send', member_id: selected.id, channel }),
+        body: JSON.stringify({ action: 'send', member_id: selected.id, channel: 'sms' }),
       })
       const body = (await res.json().catch(() => null)) as
         | { ok?: boolean; outcome?: string; recipient?: string; error?: string }
@@ -166,10 +164,7 @@ export default function AdminInvitations() {
       } else {
         setOutcome({
           kind: 'ok',
-          text:
-            channel === 'email'
-              ? `Emailed ${memberDisplayName(selected)} at ${body.recipient ?? selected.email}`
-              : `Texted ${memberDisplayName(selected)} at ${body.recipient ?? selected.phone}`,
+          text: `Texted ${memberDisplayName(selected)} at ${body.recipient ?? selected.phone}`,
         })
         await loadHistory()
       }
@@ -197,8 +192,8 @@ export default function AdminInvitations() {
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Invitations</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Send a member the Knit availability survey. Search by name, phone, or email, pick the channel, and Knit
-          sends the personalized link — no copy-paste needed.
+          Send a member the Knit availability survey by text. Search by name or phone, pick the member, and Knit
+          texts the personalized link — no copy-paste needed.
         </p>
       </div>
 
@@ -213,7 +208,7 @@ export default function AdminInvitations() {
               setSelected(null)
               setOutcome(null)
             }}
-            placeholder="Start typing a name, phone, or email"
+            placeholder="Start typing a name or phone"
             className="form-input mt-1"
             autoFocus
           />
@@ -239,7 +234,7 @@ export default function AdminInvitations() {
                       <div>
                         <div className="text-sm text-gray-900">{memberDisplayName(m)}</div>
                         <div className="text-xs text-gray-500">
-                          {m.ward?.name ?? '—'} · {m.phone ?? 'no phone'} · {m.email ?? 'no email'}
+                          {m.ward?.name ?? '—'} · {m.phone ?? 'no phone'}
                         </div>
                       </div>
                       <span className="text-xs text-knit-primary">Choose</span>
@@ -257,7 +252,7 @@ export default function AdminInvitations() {
               <div>
                 <div className="text-sm font-semibold text-gray-900">{memberDisplayName(selected)}</div>
                 <div className="text-xs text-gray-600">
-                  {selected.ward?.name ?? '—'} · {selected.phone ?? 'no phone'} · {selected.email ?? 'no email'}
+                  {selected.ward?.name ?? '—'} · {selected.phone ?? 'no phone'}
                 </div>
               </div>
               <button
@@ -271,30 +266,17 @@ export default function AdminInvitations() {
                 Change
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                onClick={() => void send('email')}
-                disabled={!selected.email || sending !== null}
-                className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sending === 'email'
-                  ? 'Sending email…'
-                  : selected.email
-                    ? 'Send by email'
-                    : 'Send by email (no email)'}
-              </button>
-              <button
-                onClick={() => void send('sms')}
-                disabled={!selected.phone || sending !== null}
-                className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sending === 'sms'
-                  ? 'Sending text…'
-                  : selected.phone
-                    ? 'Send by text'
-                    : 'Send by text (no phone)'}
-              </button>
-            </div>
+            <button
+              onClick={() => void send()}
+              disabled={!selected.phone || sending !== null}
+              className="w-full sm:w-auto rounded-md border-[1.5px] border-knit-primary text-knit-primary px-4 py-2 text-sm font-medium hover:bg-knit-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {sending === 'sms'
+                ? 'Sending text…'
+                : selected.phone
+                  ? 'Send by text'
+                  : 'Send by text (no phone)'}
+            </button>
             {outcome ? (
               <div
                 className={`text-sm ${outcome.kind === 'ok' ? 'text-emerald-700' : 'text-error'}`}

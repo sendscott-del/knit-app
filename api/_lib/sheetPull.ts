@@ -3,7 +3,6 @@ import { supabaseAdmin } from './supabaseAdmin.js'
 import { TABS, getExpectedHeaders } from './sheetSync.js'
 import { colLetter } from './sheets.js'
 import {
-  sendInviteEmail,
   sendInviteSms,
   memberInviteUrl,
   appOriginFromEnv,
@@ -311,15 +310,12 @@ async function pullInvites(args: {
 
     const url = memberInviteUrl(match.id, token as string, appOriginFromEnv())
 
-    // Auto-send routing:
-    //   1. Prefer email if there's an address on file (or typed into the sheet)
-    //   2. Fall back to SMS via Tidings' gather-send-invite-sms edge function
-    //   3. If neither works, status notes the link was generated only
-    // The link is always written to the sheet so the missionary has a record.
-    // Every send attempt also writes a row to knit_member_invitations so the
-    // stake / WML invitations page reflects the missionary-initiated sends.
+    // Knit is SMS-only as of v0.34.4 — Tidings doesn't ship contacts with
+    // email addresses, so the email path was always going to fall back to
+    // SMS anyway. The Email column on the sheet template is ignored now;
+    // if a missionary types one it's a no-op. The Invitations page audit
+    // records SMS sends with their outcome either way.
     const stamp = new Date().toISOString().slice(0, 10)
-    const recipientEmail = email || (match.email ?? '')
     const recipientPhone = phone || (match.phone ?? '')
     const firstName =
       match.preferred_name ||
@@ -328,41 +324,7 @@ async function pullInvites(args: {
 
     let status = `Invited ${stamp}`
 
-    if (recipientEmail) {
-      const sendRes = await sendInviteEmail(recipientEmail, firstName, url)
-      await recordInviteAudit({
-        sb,
-        memberId: match.id,
-        wardId,
-        channel: 'email',
-        recipient: recipientEmail,
-        result: sendRes,
-      })
-      if (sendRes.ok) {
-        status = `Emailed ${stamp}`
-      } else {
-        report.invitesErrors.push(`Row ${rowNum}: email send failed — ${sendRes.error}`)
-        if (recipientPhone) {
-          const smsRes = await sendInviteSms(recipientPhone, firstName, url)
-          await recordInviteAudit({
-            sb,
-            memberId: match.id,
-            wardId,
-            channel: 'sms',
-            recipient: recipientPhone,
-            result: smsRes,
-          })
-          if (smsRes.ok) {
-            status = `Texted ${stamp} (email failed)`
-          } else {
-            status = `Link generated ${stamp} (email + SMS failed)`
-            report.invitesErrors.push(`Row ${rowNum}: SMS fallback also failed — ${smsRes.error}`)
-          }
-        } else {
-          status = `Link generated ${stamp} (email failed: ${(sendRes.error ?? '').slice(0, 80)})`
-        }
-      }
-    } else if (recipientPhone) {
+    if (recipientPhone) {
       const smsRes = await sendInviteSms(recipientPhone, firstName, url)
       await recordInviteAudit({
         sb,
@@ -379,7 +341,7 @@ async function pullInvites(args: {
         report.invitesErrors.push(`Row ${rowNum}: SMS send failed — ${smsRes.error}`)
       }
     } else {
-      status = `Link generated ${stamp} (no contact info)`
+      status = `Link generated ${stamp} (no phone on file)`
     }
 
     // Clear Send flag (D), write Status (E), Invite link (F), Sent at (G).

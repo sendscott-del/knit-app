@@ -33,7 +33,6 @@ export default function AdminMembers() {
     memberName: string
     url: string
     phone: string | null
-    email: string | null
   } | null>(null)
   const [generating, setGenerating] = useState<string | null>(null)
   const [wardFilter, setWardFilter] = useState<string>('')
@@ -72,11 +71,9 @@ export default function AdminMembers() {
     return members.filter((m) => {
       const name = displayName(m).toLowerCase()
       const phone = (m.phone ?? '').replace(/[\s\-()+]/g, '').toLowerCase()
-      const email = (m.email ?? '').toLowerCase()
       return (
         name.includes(qs) ||
-        (phoneNeedle && phone.includes(phoneNeedle)) ||
-        email.includes(qs)
+        (phoneNeedle && phone.includes(phoneNeedle))
       )
     })
   }, [members, searchQuery])
@@ -115,7 +112,6 @@ export default function AdminMembers() {
       memberName: displayName(member),
       url,
       phone: member.phone ?? null,
-      email: member.email ?? null,
     })
   }
 
@@ -159,7 +155,7 @@ export default function AdminMembers() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by name, phone, or email"
+          placeholder="Search by name or phone"
           className="form-input"
         />
         {wards.length > 1 ? (
@@ -286,7 +282,6 @@ export default function AdminMembers() {
           memberName={inviteLink.memberName}
           url={inviteLink.url}
           phone={inviteLink.phone}
-          email={inviteLink.email}
           onClose={() => setInviteLink(null)}
         />
       ) : null}
@@ -306,18 +301,16 @@ function InviteLinkModal({
   memberName,
   url,
   phone,
-  email,
   onClose,
 }: {
   memberId: string
   memberName: string
   url: string
   phone: string | null
-  email: string | null
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
-  const [sending, setSending] = useState<'email' | 'sms' | null>(null)
+  const [sending, setSending] = useState(false)
   const [outcome, setOutcome] = useState<
     | { kind: 'ok'; text: string }
     | { kind: 'err'; text: string }
@@ -330,9 +323,9 @@ function InviteLinkModal({
     setTimeout(() => setCopied(false), 1800)
   }
 
-  async function send(channel: 'email' | 'sms') {
+  async function send() {
     setOutcome(null)
-    setSending(channel)
+    setSending(true)
     try {
       const { data: sess } = await supabase.auth.getSession()
       const token = sess.session?.access_token
@@ -342,7 +335,7 @@ function InviteLinkModal({
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ action: 'send', member_id: memberId, channel }),
+        body: JSON.stringify({ action: 'send', member_id: memberId, channel: 'sms' }),
       })
       const body = (await res.json().catch(() => null)) as
         | { ok?: boolean; recipient?: string; error?: string }
@@ -352,16 +345,13 @@ function InviteLinkModal({
       } else {
         setOutcome({
           kind: 'ok',
-          text:
-            channel === 'email'
-              ? `Emailed ${memberName} at ${body.recipient ?? email}`
-              : `Texted ${memberName} at ${body.recipient ?? phone}`,
+          text: `Texted ${memberName} at ${body.recipient ?? phone}`,
         })
       }
     } catch (e) {
       setOutcome({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
     } finally {
-      setSending(null)
+      setSending(false)
     }
   }
 
@@ -384,22 +374,13 @@ function InviteLinkModal({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button
-            onClick={() => void send('email')}
-            disabled={!email || sending !== null}
-            className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {sending === 'email' ? 'Sending email…' : email ? 'Send by email' : 'Send by email (no email)'}
-          </button>
-          <button
-            onClick={() => void send('sms')}
-            disabled={!phone || sending !== null}
-            className="rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {sending === 'sms' ? 'Sending text…' : phone ? 'Send by text' : 'Send by text (no phone)'}
-          </button>
-        </div>
+        <button
+          onClick={() => void send()}
+          disabled={!phone || sending}
+          className="w-full rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {sending ? 'Sending text…' : phone ? 'Send by text' : 'Send by text (no phone)'}
+        </button>
 
         {outcome ? (
           <div
