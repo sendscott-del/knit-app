@@ -192,8 +192,7 @@ function navLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
     { to: '/admin/outings', label: 'Outings' },
     { to: '/admin/suggest', label: 'Suggest' },
     { to: '/admin/sheet', label: 'Sheet' },
-    ...(showStakeAdminTabs ? [{ to: '/admin/users', label: 'Users' }] : []),
-    ...(showStakeAdminTabs ? [{ to: '/admin/roles', label: 'Roles' }] : []),
+    ...(showStakeAdminTabs ? [{ to: '/admin/users', label: 'Users & roles' }] : []),
     { to: '/admin/settings', label: 'Settings' },
     { href: GATHER_CANONICAL_URL, label: 'Gather ↗', external: true as const },
   ]

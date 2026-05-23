@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.39.0',
+    date: '2026-05-22',
+    summary: 'Users + Roles consolidated into one page. /admin/roles redirects.',
+    details: [
+      "/admin/users is now Users & roles — one list keyed by email, showing each person's Knit admin role (if any) AND their Gathered suite roles in a single row. Click Edit to change both at once: Knit admin section (role / ward / super admin toggle) over a Suite roles checkbox grid for the 19 catalog roles. Invite covers both surfaces too — pick a Knit role, suite roles, or both, and we'll create / extend whatever's needed.",
+      "Sync from Tidings moved up to a card on the same page (super admins only). The cron at 07:00 UTC keeps running in the background; the manual button is for instant pulls.",
+      "/admin/roles still works — it now redirects to /admin/users so old bookmarks don't 404. The sidebar entry is gone in favor of \"Users & roles.\"",
+      "Permission gate stays at canManageStake — stake presidency + super admins see the page. The Tidings sync button is gated tighter (knit_is_app_super_admin) since it's a write to the directory.",
+    ],
+  },
+  {
     version: '0.38.1',
     date: '2026-05-22',
     summary: 'Sheet redesign round 2: Start Here pinned first, Add a Friend tab, Suggestions dropdowns, app outing status simplified, one Sync button.',
