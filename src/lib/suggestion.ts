@@ -38,11 +38,25 @@ export type Suggestion = {
   reasons: string[]
 }
 
+/**
+ * One (day_of_week, time_slot) pair that at least one eligible member is
+ * available for, with how many members claim it. Used by the AdminSuggest
+ * page to surface "try Mon evening — 3 members are free then" shortcuts
+ * when the picked slot returned nothing.
+ */
+export type AvailableSlot = {
+  day_of_week: DayOfWeek
+  time_slot: TimeSlot
+  count: number
+}
+
 export type SuggestionResult = {
   top: Suggestion[]
   /** Candidates eliminated by hard filters, with the filter that killed them. */
   filtered: { candidate: SuggestionCandidate; reason: string }[]
   hint: string | null
+  /** Day+slot combos with at least one eligible (opted-in, not-paused) member. */
+  availableSlots: AvailableSlot[]
 }
 
 const DAY_MS = 24 * 3600 * 1000
@@ -184,17 +198,54 @@ export function suggest(input: SuggestionInput): SuggestionResult {
   top.sort((a, b) => b.score - a.score)
   const limited = top.slice(0, 5)
 
+  // Build the alternative-slot list across every still-eligible candidate
+  // (opted-in, not paused, language-acceptable). Used by the UI to suggest
+  // a different day/slot when the current pick returns nothing.
+  const slotCounts = new Map<string, AvailableSlot>()
+  const TIME_SLOTS: TimeSlot[] = ['morning', 'afternoon', 'evening']
+  for (const c of candidates) {
+    if (c.opted_out_at) continue
+    if (c.paused_until && new Date(c.paused_until).getTime() > now) continue
+    const languageMatch = c.locale === friend.locale
+    const languageAcceptable = languageMatch || friend.locale === 'en'
+    if (!languageAcceptable) continue
+    for (const a of c.availability) {
+      if (!TIME_SLOTS.includes(a.time_slot as TimeSlot)) continue
+      const key = `${a.day_of_week}-${a.time_slot}`
+      const prev = slotCounts.get(key)
+      if (prev) {
+        prev.count += 1
+      } else {
+        slotCounts.set(key, {
+          day_of_week: a.day_of_week as DayOfWeek,
+          time_slot: a.time_slot as TimeSlot,
+          count: 1,
+        })
+      }
+    }
+  }
+  const availableSlots = [...slotCounts.values()].sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count
+    if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week
+    return TIME_SLOTS.indexOf(a.time_slot) - TIME_SLOTS.indexOf(b.time_slot)
+  })
+
   let hint: string | null = null
   if (limited.length === 0) {
-    if (friend.locale === 'es') {
+    if (availableSlots.length === 0) {
       hint =
-        'No one in this ward is available at that time with a matching language. Consider asking the WML to recruit Spanish-speaking members, or try a different time slot.'
+        friend.locale === 'es'
+          ? 'No Spanish-speaking members in this ward have set their availability yet. Invite some from /admin/invitations.'
+          : 'No onboarded members in this ward have set their availability yet. Invite some from /admin/invitations.'
+    } else if (friend.locale === 'es') {
+      hint =
+        'No Spanish-speaking members are available at that day/slot. Try one of the slots below — or ask the WML to recruit more Spanish-speaking members.'
     } else {
-      hint = 'No one is available for that day and time slot. Try a different time.'
+      hint = 'No one is available for that day and slot. Try one of the slots below.'
     }
   } else if (limited.length < 3) {
     hint = `Only ${limited.length} match${limited.length === 1 ? '' : 'es'}. Widening the time slot or the need may uncover more options.`
   }
 
-  return { top: limited, filtered, hint }
+  return { top: limited, filtered, hint, availableSlots }
 }

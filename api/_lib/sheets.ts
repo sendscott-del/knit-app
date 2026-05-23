@@ -32,7 +32,7 @@ export function formatGoogleError(e: unknown): string {
  *   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY  (newlines can be escaped as \n)
  */
 
-function getAuth() {
+export function getAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const keyRaw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
   if (!email || !keyRaw) {

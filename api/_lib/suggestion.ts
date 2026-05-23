@@ -42,9 +42,16 @@ export type Suggestion = {
   reasons: string[]
 }
 
+export type AvailableSlot = {
+  day_of_week: DayOfWeek
+  time_slot: TimeSlot
+  count: number
+}
+
 export type SuggestionResult = {
   top: Suggestion[]
   hint: string | null
+  availableSlots: AvailableSlot[]
 }
 
 const DAY_MS = 24 * 3600 * 1000
@@ -163,14 +170,52 @@ export function suggest(input: {
 
   scored.sort((a, b) => b.score - a.score)
   const top = scored.slice(0, 5)
+
+  // Same alternative-slot fanout as the src-side mirror (see src/lib/suggestion.ts).
+  const TIME_SLOTS: TimeSlot[] = ['morning', 'afternoon', 'evening']
+  const slotCounts = new Map<string, AvailableSlot>()
+  for (const c of candidates) {
+    if (c.opted_out_at) continue
+    if (c.paused_until && new Date(c.paused_until).getTime() > now) continue
+    const languageMatch = c.locale === friend.locale
+    const languageAcceptable = languageMatch || friend.locale === 'en'
+    if (!languageAcceptable) continue
+    for (const a of c.availability) {
+      if (!TIME_SLOTS.includes(a.time_slot as TimeSlot)) continue
+      const key = `${a.day_of_week}-${a.time_slot}`
+      const prev = slotCounts.get(key)
+      if (prev) {
+        prev.count += 1
+      } else {
+        slotCounts.set(key, {
+          day_of_week: a.day_of_week as DayOfWeek,
+          time_slot: a.time_slot as TimeSlot,
+          count: 1,
+        })
+      }
+    }
+  }
+  const availableSlots = [...slotCounts.values()].sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count
+    if (a.day_of_week !== b.day_of_week) return a.day_of_week - b.day_of_week
+    return TIME_SLOTS.indexOf(a.time_slot) - TIME_SLOTS.indexOf(b.time_slot)
+  })
+
   let hint: string | null = null
   if (top.length === 0) {
-    hint =
-      friend.locale === 'es'
-        ? 'No one available in Spanish at that time slot.'
-        : 'No one is available for that day and time slot.'
+    if (availableSlots.length === 0) {
+      hint =
+        friend.locale === 'es'
+          ? 'No Spanish-speaking members in this ward have set their availability yet.'
+          : 'No onboarded members in this ward have set their availability yet.'
+    } else {
+      hint =
+        friend.locale === 'es'
+          ? 'No Spanish-speaking members available at that day/slot.'
+          : 'No one available at that day/slot.'
+    }
   } else if (top.length < 3) {
     hint = `Only ${top.length} match${top.length === 1 ? '' : 'es'}.`
   }
-  return { top, hint }
+  return { top, hint, availableSlots }
 }

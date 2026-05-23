@@ -1,9 +1,12 @@
+import { google, type sheets_v4 } from 'googleapis'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import {
   replaceDataRows,
   writeRange,
   colLetter,
   applyProtectedRanges,
+  getAuth,
+  getSheetMeta,
   KNIT_PROTECT_TAG,
   type CreatedSheet,
   type ProtectionRule,
@@ -22,6 +25,10 @@ export const TABS = {
   URGENT: 'Urgent Need',
   RECENT: 'Recent Outings',
   INVITE_MEMBERS: 'Members to Invite',
+  // Hidden tab — backing list for the dropdowns on Members to Invite and
+  // Log an Outing. Populated by the morning push with one row per active
+  // ward member. Missionaries don't see or edit this tab.
+  ROSTER: 'Member Roster (do not edit)',
 } as const
 
 export const TAB_ORDER: string[] = [
@@ -33,6 +40,7 @@ export const TAB_ORDER: string[] = [
   TABS.URGENT,
   TABS.RECENT,
   TABS.INVITE_MEMBERS,
+  TABS.ROSTER,
 ]
 
 const HEADERS: Record<string, string[]> = {
@@ -110,6 +118,9 @@ const HEADERS: Record<string, string[]> = {
     'Invite link',
     'Sent at',
   ],
+  // Hidden roster — one row per active ward member. Used as a data-validation
+  // source for dropdowns elsewhere in the sheet.
+  [TABS.ROSTER]: ['Member ID', 'Full name', 'Phone'],
 }
 
 export async function writeAllHeaders(spreadsheetId: string) {
@@ -478,6 +489,169 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   })
 
   await replaceDataRows(spreadsheetId, TABS.RECENT, 6, recentRows)
+
+  /* ---- Member Roster (hidden dropdown source) ---- */
+  // Re-pull broader member set than Available This Week — we want every
+  // not-opted-out member, even if onboarding isn't complete, so the
+  // Members to Invite dropdown can include people who haven't onboarded
+  // yet. Phone is included as a tiebreaker for the apply RPC, but the
+  // visible dropdown only shows the Name column.
+  const { data: rosterRows } = await sb
+    .from('knit_members')
+    .select(
+      'id, first_name, last_name, preferred_name, phone, opted_out_at',
+    )
+    .eq('ward_id', wardId)
+    .is('opted_out_at', null)
+    .order('last_name', { ascending: true })
+    .order('first_name', { ascending: true })
+    .limit(5000)
+
+  const rosterValues: string[][] = (rosterRows ?? []).map((m) => {
+    const name =
+      m.preferred_name ||
+      [m.first_name, m.last_name].filter(Boolean).join(' ') ||
+      '—'
+    return [m.id, name, m.phone ?? '']
+  })
+  await replaceDataRows(spreadsheetId, TABS.ROSTER, 3, rosterValues)
+
+  // Hide the roster tab and (re)apply data validations so the dropdowns
+  // point at fresh ranges. Both are idempotent.
+  await ensureRosterHiddenAndDropdowns(spreadsheetId)
+}
+
+/**
+ * Makes sure the Member Roster tab is hidden, and re-installs the data
+ * validation rules that drive the dropdowns on Members to Invite, Log an
+ * Outing, and Suggestions. Idempotent — runs every morning push.
+ */
+export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
+  const meta = await getSheetMeta(spreadsheetId)
+  const tabId = (name: string) => meta.tabs.find((t) => t.title === name)?.id
+
+  const rosterId = tabId(TABS.ROSTER)
+  const inviteId = tabId(TABS.INVITE_MEMBERS)
+  const logOutingId = tabId(TABS.LOG_OUTING)
+  const suggestionsId = tabId(TABS.SUGGESTIONS)
+  const friendsId = tabId(TABS.FRIENDS)
+  if (!rosterId || !inviteId || !logOutingId || !suggestionsId || !friendsId) {
+    // ensureTabs will create the missing tab on next run; bail rather than
+    // partially apply.
+    return
+  }
+
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+
+  const requests: sheets_v4.Schema$Request[] = [
+    // Hide the roster tab.
+    {
+      updateSheetProperties: {
+        properties: { sheetId: rosterId, hidden: true },
+        fields: 'hidden',
+      },
+    },
+    // Members to Invite, column A ("Full name") — dropdown of every active
+    // ward member. Warning-only (strict: false) so missionaries can still
+    // type a guest who isn't in the roster yet.
+    {
+      setDataValidation: {
+        range: {
+          sheetId: inviteId,
+          startRowIndex: 1,
+          endRowIndex: 500,
+          startColumnIndex: 0,
+          endColumnIndex: 1,
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_RANGE',
+            values: [
+              { userEnteredValue: `='${TABS.ROSTER}'!B2:B` },
+            ],
+          },
+          strict: false,
+          showCustomUi: true,
+          inputMessage: 'Pick from the ward roster, or type a name if they\'re not in the list.',
+        },
+      },
+    },
+    // Log an Outing, column C ("Friend") — dropdown of currently teaching friends.
+    {
+      setDataValidation: {
+        range: {
+          sheetId: logOutingId,
+          startRowIndex: 1,
+          endRowIndex: 200,
+          startColumnIndex: 2,
+          endColumnIndex: 3,
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_RANGE',
+            values: [
+              { userEnteredValue: `='${TABS.FRIENDS}'!A2:A` },
+            ],
+          },
+          strict: false,
+          showCustomUi: true,
+          inputMessage: 'Pick the friend from the Friends We are Teaching tab.',
+        },
+      },
+    },
+    // Log an Outing, column D ("Member") — dropdown of active members.
+    {
+      setDataValidation: {
+        range: {
+          sheetId: logOutingId,
+          startRowIndex: 1,
+          endRowIndex: 200,
+          startColumnIndex: 3,
+          endColumnIndex: 4,
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_RANGE',
+            values: [
+              { userEnteredValue: `='${TABS.ROSTER}'!B2:B` },
+            ],
+          },
+          strict: false,
+          showCustomUi: true,
+          inputMessage: 'Pick the member from the ward roster.',
+        },
+      },
+    },
+    // Suggestions, column A ("Friend name") — dropdown of currently teaching friends.
+    {
+      setDataValidation: {
+        range: {
+          sheetId: suggestionsId,
+          startRowIndex: 1,
+          endRowIndex: 200,
+          startColumnIndex: 0,
+          endColumnIndex: 1,
+        },
+        rule: {
+          condition: {
+            type: 'ONE_OF_RANGE',
+            values: [
+              { userEnteredValue: `='${TABS.FRIENDS}'!A2:A` },
+            ],
+          },
+          strict: false,
+          showCustomUi: true,
+          inputMessage: 'Pick the friend from the Friends We are Teaching tab.',
+        },
+      },
+    },
+  ]
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  })
 }
 
 export async function provisionSpreadsheet(

@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.0',
+    date: '2026-05-22',
+    summary: 'Three things at once: hourly sheet sync via Supabase pg_cron, dropdowns on the missionary sheet, and a smarter empty-state hint on Suggest.',
+    details: [
+      "Hourly sheet sync. Vercel Hobby caps custom crons at once-per-day, which made the missionary feedback loop too slow. Switched to Supabase pg_cron + pg_net: a new public.knit_cron_call_sheets_pull() function (SECURITY DEFINER, locked down from anon/authenticated) reads the CRON_SECRET from supabase_vault and POSTs to /api/cron/sheets-pull every hour at :07. The Vercel daily sheets-pull cron is retired in favor of the new hourly path. Also fixed a pre-existing pre-existing bug where CRON_SECRET was set to an empty string on Vercel — meaning none of the daily Vercel crons authenticated either. Replaced with a real 64-char hex secret on Vercel Production and mirrored in vault as 'knit_vercel_cron_secret'.",
+      "Sheet dropdowns. New hidden 'Member Roster (do not edit)' tab populated by the morning push with one row per active ward member (ID, full name, phone). Data validation rules now drive dropdowns on Members to Invite (Full name → roster), Log an Outing (Friend → Friends We are Teaching, Member → roster), and Suggestions (Friend name → Friends We are Teaching). Warning-only (strict: false) so missionaries can still type a name not in the list when needed, but typos won't break the apply-side match. Existing sheets pick up the dropdowns + hidden roster tab on the next morning push or 'Sync from sheet now' click.",
+      "Suggest empty-state hint. When the picked day/slot returns no candidates, the result card now lists the day/slot combos where at least one eligible member IS available, as clickable shortcut chips. (\"Mon evening · 3,\" \"Wed evening · 2\" etc.) — one tap rewires the form to that slot. If the ward has no onboarded members at all, the hint redirects to /admin/invitations.",
+    ],
+  },
+  {
     version: '0.36.4',
     date: '2026-05-22',
     summary: '"Sync from sheet now" no longer errors on sheets that pre-date the Members to Invite tab.',

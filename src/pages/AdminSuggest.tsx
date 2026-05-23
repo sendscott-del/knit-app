@@ -273,17 +273,49 @@ export default function AdminSuggest() {
         </div>
       </form>
 
-      {result ? <Results result={result} /> : null}
+      {result ? (
+        <Results
+          result={result}
+          onPickSlot={(day, slot) => {
+            setDayOfWeek(day)
+            setTimeSlot(slot)
+          }}
+        />
+      ) : null}
     </div>
   )
 }
 
-function Results({ result }: { result: SuggestionResult }) {
+function Results({
+  result,
+  onPickSlot,
+}: {
+  result: SuggestionResult
+  onPickSlot: (day: DayOfWeek, slot: TimeSlot) => void
+}) {
+  const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
   if (result.top.length === 0) {
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:p-6 space-y-2">
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:p-6 space-y-3">
         <h2 className="font-medium text-amber-900">No matches</h2>
         {result.hint ? <p className="text-sm text-amber-900">{result.hint}</p> : null}
+        {result.availableSlots.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm text-amber-900">Try one of these:</p>
+            <div className="flex flex-wrap gap-2">
+              {result.availableSlots.slice(0, 12).map((s) => (
+                <button
+                  key={`${s.day_of_week}-${s.time_slot}`}
+                  onClick={() => onPickSlot(s.day_of_week as DayOfWeek, s.time_slot as TimeSlot)}
+                  className="rounded-full border-[1.5px] border-amber-300 bg-white text-amber-900 hover:bg-amber-100 px-3 py-1 text-xs font-medium"
+                >
+                  {DAY_SHORT[s.day_of_week]} {s.time_slot}
+                  <span className="ml-1 text-amber-700/70">· {s.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {result.filtered.length > 0 ? (
           <details className="text-sm text-amber-800">
             <summary className="cursor-pointer">Why was everyone filtered?</summary>
