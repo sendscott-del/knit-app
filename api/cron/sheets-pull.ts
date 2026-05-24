@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCron } from '../_lib/cronAuth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { pullSheet } from '../_lib/sheetPull.js'
+import { retryOn429 } from '../_lib/sheets.js'
 
 /**
  * Every N minutes (Vercel Pro schedule): scan every bound sheet's Suggestions
@@ -22,10 +23,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   for (const b of bindings ?? []) {
     if (!b.sheet_id) continue
     try {
-      const report = await pullSheet({
-        wardId: b.ward_id,
-        spreadsheetId: b.sheet_id,
-      })
+      const report = await retryOn429(() =>
+        pullSheet({
+          wardId: b.ward_id,
+          spreadsheetId: b.sheet_id!,
+        }),
+      )
       await sb
         .from('knit_google_sheet_bindings')
         .update({ last_pull_at: new Date().toISOString() })

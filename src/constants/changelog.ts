@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.41.1',
+    date: '2026-05-23',
+    summary: 'Sheets sync: stop tripping the Google Sheets write quota.',
+    details: [
+      "writeAllHeaders now issues one spreadsheets.values.batchUpdate instead of looping ~9 sequential values.update calls per ward. provisionSpreadsheet, bindSpreadsheet, and the sheets-morning-push cron no longer double-call writeAllHeaders / writeStartHere / protectSpreadsheet — populateDataTabs already does them. Both Sheets crons now wrap the per-ward call in retryOn429() with exponential backoff + jitter, so transient 'Write requests per minute per user' bursts self-heal instead of marking the binding status=error.",
+    ],
+  },
+  {
     version: '0.41.0',
     date: '2026-05-23',
     summary: "Gather moved to its own standalone host at gathered-admin-neon.vercel.app.",

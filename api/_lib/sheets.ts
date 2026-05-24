@@ -1,6 +1,48 @@
 import { google, type sheets_v4 } from 'googleapis'
 
 /**
+ * Returns true if the given googleapis error is a rate-limit / quota response
+ * that's safe to retry (HTTP 429 or 403 with rateLimitExceeded / userRateLimitExceeded).
+ */
+export function isRateLimitError(e: unknown): boolean {
+  if (!e) return false
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const err = e as any
+  const status = err.code ?? err.response?.status
+  if (status === 429) return true
+  const errors = err.errors ?? err.response?.data?.error?.errors ?? []
+  const reason = errors?.[0]?.reason
+  return (
+    reason === 'rateLimitExceeded' ||
+    reason === 'userRateLimitExceeded' ||
+    reason === 'quotaExceeded'
+  )
+}
+
+/**
+ * Retry an async Sheets/Drive call on rate-limit errors with exponential
+ * backoff + jitter. Defaults: 5 tries, base 1.1s, cap 30s. Non-rate-limit
+ * errors throw immediately.
+ */
+export async function retryOn429<T>(
+  fn: () => Promise<T>,
+  { maxAttempts = 5, baseMs = 1100, capMs = 30_000 } = {},
+): Promise<T> {
+  let attempt = 0
+  for (;;) {
+    try {
+      return await fn()
+    } catch (e) {
+      attempt += 1
+      if (attempt >= maxAttempts || !isRateLimitError(e)) throw e
+      const backoff = Math.min(capMs, baseMs * 2 ** (attempt - 1))
+      const jittered = backoff * (0.5 + Math.random())
+      await new Promise((r) => setTimeout(r, jittered))
+    }
+  }
+}
+
+/**
  * Convert a googleapis / GaxiosError into a readable string.
  * Pulls the HTTP status, message, and first "reason" (e.g. accessNotConfigured).
  */

@@ -161,14 +161,22 @@ const HEADERS: Record<string, string[]> = {
 }
 
 export async function writeAllHeaders(spreadsheetId: string) {
-  for (const [tab, headers] of Object.entries(HEADERS)) {
+  // One batchUpdate instead of N sequential values.update calls. Each header
+  // row counts as a write request in Sheets' quota; before this every sync
+  // burned ~9 of the 60 writes/min/SA budget on headers alone.
+  const auth = getAuth()
+  const sheets = google.sheets({ version: 'v4', auth })
+  const data = Object.entries(HEADERS).map(([tab, headers]) => {
     const row = headerRow(tab)
-    await writeRange(
-      spreadsheetId,
-      `${tab}!A${row}:${colLetter(headers.length)}${row}`,
-      [headers],
-    )
-  }
+    return {
+      range: `${tab}!A${row}:${colLetter(headers.length)}${row}`,
+      values: [headers],
+    }
+  })
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: { valueInputOption: 'USER_ENTERED', data },
+  })
 }
 
 /** Public read-only access to the canonical headers for a tab. */
@@ -1099,27 +1107,23 @@ export async function applyEntryAutoFormatting(spreadsheetId: string) {
 
 export async function provisionSpreadsheet(
   sheet: CreatedSheet,
-  wardName: string,
+  _wardName: string,
   wardId: string,
 ) {
-  await writeAllHeaders(sheet.spreadsheetId)
-  await writeStartHere(sheet.spreadsheetId, wardName)
+  // populateDataTabs already runs writeAllHeaders, writeStartHere, and
+  // protectSpreadsheet. Calling them again here doubled the per-ward write
+  // count and burned the 60/min service-account quota.
   await populateDataTabs({ spreadsheetId: sheet.spreadsheetId, wardId })
-  // Apply protections last — once data is in place, missionaries can't break it.
-  await protectSpreadsheet(sheet.spreadsheetId)
 }
 
 /** Run the full provisioning flow against an existing sheet (user-created,
  *  shared with the service account as Editor). Idempotent — safe to re-run. */
 export async function bindSpreadsheet(
   spreadsheetId: string,
-  wardName: string,
+  _wardName: string,
   wardId: string,
 ) {
-  await writeAllHeaders(spreadsheetId)
-  await writeStartHere(spreadsheetId, wardName)
   await populateDataTabs({ spreadsheetId, wardId })
-  await protectSpreadsheet(spreadsheetId)
 }
 
 /* ---- formatting helpers ---- */

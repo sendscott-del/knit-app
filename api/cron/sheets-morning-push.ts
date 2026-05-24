@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCron } from '../_lib/cronAuth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
-import { populateDataTabs, protectSpreadsheet } from '../_lib/sheetSync.js'
-import { formatGoogleError } from '../_lib/sheets.js'
+import { populateDataTabs } from '../_lib/sheetSync.js'
+import { formatGoogleError, retryOn429 } from '../_lib/sheets.js'
 
 /**
  * Daily: refresh Available This Week, Friends We are Teaching, Recent Outings
@@ -21,10 +21,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   for (const b of bindings ?? []) {
     if (!b.sheet_id) continue
     try {
-      await populateDataTabs({ spreadsheetId: b.sheet_id, wardId: b.ward_id })
-      // Idempotent — existing bindings auto-upgrade to the protection rules
-      // and any drift (manually-removed protection) heals on the next cron tick.
-      await protectSpreadsheet(b.sheet_id)
+      // populateDataTabs already re-applies protections; calling
+      // protectSpreadsheet again here doubled the protection writes.
+      // retryOn429 absorbs the transient quota bursts that used to mark
+      // bindings status=error on the first ward of a busy run.
+      await retryOn429(() =>
+        populateDataTabs({ spreadsheetId: b.sheet_id!, wardId: b.ward_id }),
+      )
       await sb
         .from('knit_google_sheet_bindings')
         .update({
