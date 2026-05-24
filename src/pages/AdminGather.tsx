@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 
-// The Gather page is now hosted in Glean — one canonical place to manage
-// user access across all five apps. This route stays as a redirect so old
-// bookmarks and the previous admin-nav entry still land somewhere useful.
+// Gather now has its own standalone deployment — one canonical place to
+// manage user access across all five apps. This route stays as a redirect so
+// old bookmarks and the previous admin-nav entry still land somewhere useful.
 // The nav link in AdminLayout now points to the canonical URL directly,
 // so a click from inside Knit skips this hop.
-const CANONICAL_URL = 'https://glean-blue.vercel.app/admin/gather'
+const CANONICAL_URL = 'https://gathered-admin-neon.vercel.app/gather'
 
 export default function AdminGather() {
   useEffect(() => {

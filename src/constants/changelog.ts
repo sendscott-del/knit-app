@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.41.0',
+    date: '2026-05-23',
+    summary: "Gather moved to its own standalone host at gathered-admin-neon.vercel.app.",
+    details: [
+      "The 'Gather ↗' admin nav link and the /admin/gather redirect now both point at https://gathered-admin-neon.vercel.app/gather instead of the previous Glean-hosted copy. Same shared tables underneath; just one canonical UI now across every Gathered app. Knit-admin toggling is now a row in the new page's Edit panel (writes to knit_admin_users), so granting Knit admin no longer requires a Knit-only screen.",
+    ],
+  },
+  {
     version: '0.40.3',
     date: '2026-05-22',
     summary: 'Read-only tabs: reapply protections on every sync + close the "domain users" edit path.',

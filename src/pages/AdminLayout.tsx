@@ -181,7 +181,7 @@ function SuiteTopBar({
 // Gather is hosted in Glean now — one canonical place to manage user access
 // across all five apps. The Knit /admin/gather route still exists as a
 // redirect for stragglers, but the nav links straight out to skip the hop.
-const GATHER_CANONICAL_URL = 'https://glean-blue.vercel.app/admin/gather'
+const GATHER_CANONICAL_URL = 'https://gathered-admin-neon.vercel.app/gather'
 
 function navLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
   return [
