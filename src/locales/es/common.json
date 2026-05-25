@@ -13,5 +13,16 @@
   "next": "TODO: Next",
   "yes": "TODO: Yes",
   "no": "TODO: No",
-  "all_set": "TODO: All set"
+  "all_set": "TODO: All set",
+  "nav": {
+    "home": "TODO: Home",
+    "members": "TODO: Members",
+    "friends": "TODO: Friends",
+    "suggest": "TODO: Suggest",
+    "more": "TODO: More"
+  },
+  "more": {
+    "workspace": "TODO: Workspace",
+    "help": "TODO: Help"
+  }
 }

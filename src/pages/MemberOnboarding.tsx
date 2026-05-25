@@ -82,91 +82,114 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
     await onDone()
   }
 
+  const total = 6
+  const showBack = step > 1 && step < 6
+  // Step 1 has its own dual-CTA inside ScreenWelcome — no sticky footer needed.
+  const showFooter = step !== 1
+
   return (
-    <main className="min-h-screen bg-gray-50 flex items-start sm:items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex items-center gap-2">
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <span
-              key={n}
-              className={`h-1.5 flex-1 rounded-full ${
-                n <= step ? 'bg-knit-primary' : 'bg-gray-200'
-              }`}
-            />
-          ))}
-        </div>
+    <div className="min-h-screen bg-white flex flex-col">
+      {/* Top-of-viewport progress bar (replaces the 6-pip row) */}
+      <div className="h-1 bg-gray-100">
+        <div
+          className="h-full bg-knit-primary transition-all"
+          style={{ width: `${(step / total) * 100}%` }}
+        />
+      </div>
 
-        {step === 1 ? (
-          <ScreenWelcome firstName={firstName} onYes={() => setStep(3)} onTellMore={() => setStep(2)} />
-        ) : null}
-
-        {step === 2 ? <ScreenWhatWeAsk onContinue={() => setStep(3)} /> : null}
-
-        {step === 3 ? (
-          <ScreenDays
-            slots={slots}
-            onChange={setSlots}
-            wardId={wardId}
-          />
-        ) : null}
-
-        {step === 4 ? (
-          <ScreenInterests wardId={wardId} value={interestIds} onChange={setInterestIds} />
-        ) : null}
-
-        {step === 5 ? <ScreenStyles value={styleKeys} onChange={setStyleKeys} /> : null}
-
-        {step === 6 ? (
-          <ScreenConfirm
-            firstName={firstName}
-            slots={slots}
-            interestIds={interestIds}
-            styleKeys={styleKeys}
-          />
-        ) : null}
-
-        {error ? <p className="text-sm text-error">{error}</p> : null}
-
-        <div className="flex items-center justify-between">
-          {step > 1 && step < 6 ? (
+      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 flex justify-center">
+        <div
+          className="w-full max-w-md space-y-5"
+          style={{
+            paddingBottom: showFooter
+              ? 'calc(80px + env(safe-area-inset-bottom))'
+              : 'env(safe-area-inset-bottom)',
+          }}
+        >
+          {showBack ? (
             <button
               onClick={() => setStep((s) => Math.max(1, s - 1) as Step)}
               className="text-sm text-gray-600 hover:text-gray-900"
               disabled={saving}
             >
-              Back
+              ← Back
             </button>
-          ) : (
-            <span />
-          )}
+          ) : null}
 
-          {step === 1 ? null : step === 6 ? (
-            <button
-              onClick={() => void finish()}
-              disabled={saving}
-              className="btn-primary min-h-[48px] px-6 py-3"
-            >
-              {saving ? 'Saving…' : 'All set'}
-            </button>
-          ) : step === 2 ? (
-            <button
-              onClick={() => setStep(3)}
-              className="btn-primary min-h-[48px] px-6 py-3"
-            >
-              Got it, continue
-            </button>
-          ) : (
-            <button
-              onClick={() => void next()}
-              disabled={saving}
-              className="btn-primary min-h-[48px] px-6 py-3"
-            >
-              {saving ? 'Saving…' : 'Next'}
-            </button>
-          )}
+          {step === 1 ? (
+            <ScreenWelcome
+              firstName={firstName}
+              onYes={() => setStep(3)}
+              onTellMore={() => setStep(2)}
+            />
+          ) : null}
+
+          {step === 2 ? <ScreenWhatWeAsk onContinue={() => setStep(3)} /> : null}
+
+          {step === 3 ? (
+            <ScreenDays slots={slots} onChange={setSlots} wardId={wardId} />
+          ) : null}
+
+          {step === 4 ? (
+            <ScreenInterests
+              wardId={wardId}
+              value={interestIds}
+              onChange={setInterestIds}
+            />
+          ) : null}
+
+          {step === 5 ? (
+            <ScreenStyles value={styleKeys} onChange={setStyleKeys} />
+          ) : null}
+
+          {step === 6 ? (
+            <ScreenConfirm
+              firstName={firstName}
+              slots={slots}
+              interestIds={interestIds}
+              styleKeys={styleKeys}
+            />
+          ) : null}
+
+          {error ? <p className="text-sm text-error">{error}</p> : null}
         </div>
-      </div>
-    </main>
+      </main>
+
+      {showFooter ? (
+        <footer
+          className="sticky bottom-0 bg-white border-t border-gray-200 px-4 py-3"
+          style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom))' }}
+        >
+          <div className="max-w-md mx-auto">
+            {step === 6 ? (
+              <button
+                onClick={() => void finish()}
+                disabled={saving}
+                className="k-btn w-full"
+              >
+                {saving ? 'Saving…' : 'All set'}
+              </button>
+            ) : step === 2 ? (
+              <button
+                onClick={() => setStep(3)}
+                disabled={saving}
+                className="k-btn w-full"
+              >
+                Got it, continue
+              </button>
+            ) : (
+              <button
+                onClick={() => void next()}
+                disabled={saving}
+                className="k-btn w-full"
+              >
+                {saving ? 'Saving…' : 'Next'}
+              </button>
+            )}
+          </div>
+        </footer>
+      ) : null}
+    </div>
   )
 }
 
