@@ -7,6 +7,25 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.42.2',
+    date: '2026-05-25',
+    summary: 'Phase 6 audit cleanup — sign-out tap target + onboarding CTA i18n.',
+    details: [
+      "MemberDashboard sign-out button now meets the 44px tap-target floor (Phase 6 acceptance: 'all buttons visible on /me ≥ 44px'). Was a 32px text-only `text-sm font-medium` link; now uses an inline-flex container with `min-h-11 px-3 rounded-md` + hover/active fills. Visual treatment unchanged at rest.",
+      "MemberOnboarding CTA labels now route through i18n (`next`, `all_set`, `saving`, `got_it_continue` keys). Spec pitfall §7 specifically called out hardcoded 'Next' / 'All set' / 'Saving…' / 'Got it, continue' as a translation regression — fixed. Added the two new keys to en/common.json and stubbed TODO entries in es/common.json.",
+    ],
+  },
+  {
+    version: '0.42.1',
+    date: '2026-05-24',
+    summary: 'Phase 6 follow-up — desktop Suggest list rows tightened, FAB modal wired to i18n.',
+    details: [
+      "AdminSuggest results: each ranked candidate is now a compact single-row card (~48px tall) instead of a multi-line bullet list. Rank #1 gets a filled rose number badge; #2+ get a light-rose badge. Reasons collapse to one truncated line so the list scans like a leaderboard. Matches the Section 4 desktop mockup from the Phase 6 handoff.",
+      "Score is now a soft-pill in the suite-pill recipe: success-green for the top match (bg-success/10 text-success), neutral gray for the rest. Rounded to a whole number for at-a-glance reading; the full decimal score stays in the tooltip.",
+      "SuggestionFAB modal title, prompt, placeholder, send/cancel buttons, and the post-submit toast now route through i18n (suggest_fab.* keys in en/common.json; Spanish stubbed as TODO). Closes the i18n cleanup called out in spec step 5.",
+    ],
+  },
+  {
     version: '0.42.0',
     date: '2026-05-24',
     summary: 'Phase 6 — mobile + web optimization: bottom tab bar, More sheet, FAB demoted, safe-area + 44px tap targets everywhere.',

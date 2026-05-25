@@ -190,7 +190,13 @@ function Dashboard({
             <KnitMark size={28} />
             <span className="text-lg font-semibold text-gray-900 tracking-tight">Knit</span>
           </div>
-          <button onClick={onSignOut} className="text-sm font-medium text-gray-600 hover:text-gray-900">
+          {/* Sign-out is a 44px tap target per Phase 6 acceptance ("all
+              buttons visible on /me ≥ 44px"). Compact outline variant keeps
+              the header chrome unchanged visually. */}
+          <button
+            onClick={onSignOut}
+            className="inline-flex items-center justify-center min-h-11 px-3 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 active:bg-gray-100"
+          >
             Sign out
           </button>
         </div>

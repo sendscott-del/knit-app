@@ -14,6 +14,8 @@
   "yes": "TODO: Yes",
   "no": "TODO: No",
   "all_set": "TODO: All set",
+  "saving": "TODO: Saving…",
+  "got_it_continue": "TODO: Got it, continue",
   "nav": {
     "home": "TODO: Home",
     "members": "TODO: Members",
@@ -24,5 +26,13 @@
   "more": {
     "workspace": "TODO: Workspace",
     "help": "TODO: Help"
+  },
+  "suggest_fab": {
+    "title": "TODO: Suggest an enhancement",
+    "prompt": "TODO: What would make Knit better?",
+    "placeholder": "TODO: Describe the idea or the friction…",
+    "send": "TODO: Send",
+    "sending": "TODO: Sending…",
+    "thanks": "TODO: Thanks — sent."
   }
 }
