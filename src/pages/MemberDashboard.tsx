@@ -180,8 +180,11 @@ function Dashboard({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
+    <div
+      className="min-h-screen bg-gray-50"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <KnitMark size={28} />
@@ -279,14 +282,14 @@ function Dashboard({
               <button
                 onClick={() => void pauseForDays(30)}
                 disabled={pausing}
-                className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
+                className="k-btn k-btn-outline"
               >
                 Pause 30 days
               </button>
               <button
                 onClick={() => void pauseForDays(90)}
                 disabled={pausing}
-                className="rounded-md border-[1.5px] border-gray-200 px-3 py-2 text-sm hover:bg-gray-100 disabled:opacity-50"
+                className="k-btn k-btn-outline"
               >
                 Pause 90 days
               </button>
@@ -359,13 +362,7 @@ function EditableAvailability({
   return (
     <Section
       title="Your availability"
-      action={
-        editing ? null : (
-          <button onClick={onStartEdit} className="text-sm text-gray-700 underline">
-            Edit
-          </button>
-        )
-      }
+      action={editing ? null : <EditChip onClick={onStartEdit} />}
     >
       {editing ? (
         <div className="space-y-3">
@@ -378,14 +375,14 @@ function EditableAvailability({
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="btn-primary text-sm py-2 px-4"
+              className="k-btn flex-1"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
-              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className="k-btn k-btn-outline"
             >
               Cancel
             </button>
@@ -445,13 +442,7 @@ function EditableInterests({
   return (
     <Section
       title="What you love"
-      action={
-        editing ? null : (
-          <button onClick={onStartEdit} className="text-sm text-gray-700 underline">
-            Edit
-          </button>
-        )
-      }
+      action={editing ? null : <EditChip onClick={onStartEdit} />}
     >
       {editing ? (
         <div className="space-y-3">
@@ -461,14 +452,14 @@ function EditableInterests({
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="btn-primary text-sm py-2 px-4"
+              className="k-btn flex-1"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
-              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className="k-btn k-btn-outline"
             >
               Cancel
             </button>
@@ -535,13 +526,7 @@ function EditableStyles({
   return (
     <Section
       title="How you like to help"
-      action={
-        editing ? null : (
-          <button onClick={onStartEdit} className="text-sm text-gray-700 underline">
-            Edit
-          </button>
-        )
-      }
+      action={editing ? null : <EditChip onClick={onStartEdit} />}
     >
       {editing ? (
         <div className="space-y-3">
@@ -551,14 +536,14 @@ function EditableStyles({
             <button
               onClick={() => void save()}
               disabled={saving}
-              className="btn-primary text-sm py-2 px-4"
+              className="k-btn flex-1"
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
-              className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              className="k-btn k-btn-outline"
             >
               Cancel
             </button>
@@ -581,6 +566,17 @@ function firstNameOf(m: MemberRow): string {
   if (m.first_name) return m.first_name
   if (m.preferred_name) return m.preferred_name.split(/\s+/)[0] ?? ''
   return ''
+}
+
+function EditChip({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center justify-center min-h-11 px-4 rounded-full bg-knit-primary-fade text-knit-primary text-sm font-bold active:opacity-80"
+    >
+      Edit
+    </button>
+  )
 }
 
 function Section({

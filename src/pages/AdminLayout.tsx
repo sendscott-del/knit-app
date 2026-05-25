@@ -12,26 +12,23 @@ import KnitMark from '@/components/KnitMark'
 import AppSwitcher from '@/components/AppSwitcher'
 import KnitLangToggle from '@/components/KnitLangToggle'
 import SuggestionFAB from '@/components/SuggestionFAB'
+import MobileTabBar from '@/components/MobileTabBar'
+import MoreSheet from '@/components/MoreSheet'
 import { useTranslation } from 'react-i18next'
 
 /**
- * Suite-wide layout for Knit's admin area. Mirrors the Glean shell:
- *   - Gathered chrome at the top (cross-app switcher)
- *   - 3px brand stripe in the per-app color
- *   - Persistent scripture + EN/ES sub-row
- *   - Left sidebar with a single brand header, primary nav, and bottom
- *     links for the user guide, release notes, and sign-out
- *   - Mobile fallback: hamburger drawer instead of a bottom tab bar so
- *     the existing top-of-page actions on each admin screen keep working
- *
- * Demo was promoted out of the primary nav per the suite-wide rule that
- * demo mode lives behind Settings. The route still exists for direct
- * navigation; only the visible tab was removed.
+ * Suite-wide layout for Knit's admin area. Mirrors the Glean shell on
+ * desktop (sidebar nav, scripture rail, big content column). On phones
+ * we drop the hamburger drawer in favor of a 5-item bottom tab bar
+ * plus a "More" bottom sheet — see MobileTabBar + MoreSheet. The
+ * floating suggestion FAB is desktop-only now; on mobile the same
+ * action lives inside the More sheet.
  */
 export default function AdminLayout() {
   const { session, loading: authLoading, signOut } = useAuth()
   const admin = useAdmin()
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [suggestOpen, setSuggestOpen] = useState(false)
 
   if (authLoading) return <FullPage>Loading…</FullPage>
   if (!session) return <Navigate to="/admin/login" replace />
@@ -89,7 +86,6 @@ export default function AdminLayout() {
         role={profile.role}
         email={profile.email}
         isSuper={!!profile.is_super_admin}
-        onMenu={() => setDrawerOpen(true)}
         onSignOut={() => void signOut()}
       />
       <div className="md:flex">
@@ -97,20 +93,28 @@ export default function AdminLayout() {
           showStakeAdminTabs={showStakeAdminTabs}
           showInvitations={showInvitations}
         />
-        {drawerOpen && (
-          <MobileDrawer
-            showStakeAdminTabs={showStakeAdminTabs}
-            showInvitations={showInvitations}
-            onClose={() => setDrawerOpen(false)}
-          />
-        )}
-        <main className="flex-1 min-w-0 min-h-screen md:bg-white md:border-l md:border-gray-200">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <main className="flex-1 min-w-0 min-h-screen md:bg-white md:border-l md:border-gray-200 safe-pb-tabbar">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-8">
             <Outlet context={{ profile }} />
           </div>
         </main>
       </div>
-      <SuggestionFAB />
+
+      {/* Mobile-only chrome */}
+      <MobileTabBar onMoreClick={() => setMoreOpen(true)} />
+      <MoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        onSignOut={() => void signOut()}
+        onSuggestEnhancement={() => setSuggestOpen(true)}
+        showStakeAdminTabs={showStakeAdminTabs}
+        showInvitations={showInvitations}
+      />
+
+      <SuggestionFAB
+        controlledOpen={suggestOpen}
+        onControlledClose={() => setSuggestOpen(false)}
+      />
     </div>
   )
 }
@@ -120,39 +124,35 @@ function SuiteTopBar({
   role,
   email,
   isSuper,
-  onMenu,
   onSignOut,
 }: {
   scopeLabel: string
   role: AdminRole
   email: string
   isSuper: boolean
-  onMenu: () => void
   onSignOut: () => void
 }) {
   const { t } = useTranslation('common')
   // i18n key is best-effort — older locale bundles may not have these yet.
   const scripture = t('app.scripture', {
     defaultValue:
-      '“Their hearts [were] knit together in unity and in love.”',
+      '"Their hearts [were] knit together in unity and in love."',
   })
   const scriptureRef = t('app.scriptureRef', { defaultValue: 'Mosiah 18:21' })
   return (
-    <div className="w-full bg-white border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-1.5 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={onMenu}
-          className="md:hidden -ml-1 p-1 text-gray-500 hover:text-gray-700"
-          aria-label="Open navigation"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 6h18M3 12h18M3 18h18" />
-          </svg>
-        </button>
-        <div className="flex-1 min-w-0 text-[11px] text-gray-500 truncate text-center md:text-left">
-          <span className="italic">{scripture}</span>{' '}
-          <span className="text-gray-400 not-italic">{scriptureRef}</span>
+    <div className="sticky top-0 z-30 w-full bg-white border-b border-gray-100">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center gap-3">
+        {/* Mobile: just the scope label. Scripture moves into More sheet
+            via the Help group's User guide / release notes; the bar
+            stays at a single 44px row. */}
+        <div className="md:hidden flex-1 min-w-0 text-[12px] font-semibold text-gray-700 truncate">
+          {scopeLabel}
+        </div>
+
+        {/* Desktop: scripture + scope + role + email */}
+        <div className="hidden md:flex flex-1 min-w-0 text-[11px] text-gray-500 truncate text-left">
+          <span className="italic">{scripture}</span>
+          <span className="text-gray-400 not-italic ml-1">{scriptureRef}</span>
         </div>
         <KnitLangToggle />
         <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
@@ -169,7 +169,7 @@ function SuiteTopBar({
         </div>
         <button
           onClick={onSignOut}
-          className="text-xs font-medium text-gray-500 hover:text-gray-800"
+          className="hidden md:inline text-xs font-medium text-gray-500 hover:text-gray-800"
         >
           Sign out
         </button>
@@ -272,98 +272,6 @@ function Sidebar({
         </NavLink>
       </div>
     </aside>
-  )
-}
-
-function MobileDrawer({
-  showStakeAdminTabs,
-  showInvitations,
-  onClose,
-}: {
-  showStakeAdminTabs: boolean
-  showInvitations: boolean
-  onClose: () => void
-}) {
-  const links = navLinks(showStakeAdminTabs, showInvitations)
-  return (
-    <>
-      <div
-        className="md:hidden fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <aside
-        className="md:hidden fixed inset-y-0 left-0 z-50 w-64 text-white flex flex-col"
-        style={{ background: '#1B3A6B' }}
-        role="dialog"
-        aria-label="Navigation"
-      >
-        <div className="px-5 pt-6 pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <KnitMark size={28} />
-            <div className="text-xl font-bold tracking-tight leading-none">Knit</div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 text-white/70 hover:text-white"
-            aria-label="Close navigation"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
-          {links.map((item) =>
-            'external' in item ? (
-              <a
-                key={item.href}
-                href={item.href}
-                target="_blank"
-                rel="noreferrer"
-                onClick={onClose}
-                className="block px-3 py-2.5 rounded-md text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-              >
-                {item.label}
-              </a>
-            ) : (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `block px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-white/15 text-white'
-                      : 'text-white/70 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            )
-          )}
-        </nav>
-        <div className="px-2 pb-5 mt-2 space-y-0.5 border-t border-white/10 pt-3">
-          <NavLink
-            to="/admin/guide"
-            onClick={onClose}
-            className="block px-3 py-2 rounded-md text-xs font-medium text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            User guide
-          </NavLink>
-          <NavLink
-            to="/admin/release-notes"
-            onClick={onClose}
-            className="block px-3 py-2 rounded-md text-xs font-medium text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            Release notes
-          </NavLink>
-        </div>
-      </aside>
-    </>
   )
 }
 

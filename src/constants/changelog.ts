@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.42.0',
+    date: '2026-05-24',
+    summary: 'Phase 6 — mobile + web optimization: bottom tab bar, More sheet, FAB demoted, safe-area + 44px tap targets everywhere.',
+    details: [
+      "Admin chrome on phones is now a 5-item bottom tab bar (Home · Members · Friends · Suggest · More) with safe-area padding for the iOS home indicator. The hamburger-only drawer is gone; the drawer's contents moved into a bottom sheet that opens from the More tab. Top bar is sticky on mobile and compressed to a single 44px row showing the scope label (scripture/role/email stay on desktop).",
+      "The floating Suggest-an-Enhancement FAB is desktop-only now (shrunk to 40px, opacity 80, still bottom-right corner). On phones, 'Suggest an enhancement' is a row in the More sheet — same modal opens via a new controlledOpen prop on SuggestionFAB. No more eating the trailing edge of list rows on phones.",
+      "Member /me dashboard: sticky header, the three Edit links are now 44px rose chips (was tiny underlined text), Save/Cancel use the new .k-btn / .k-btn-outline recipe, Pause 30/90 buttons are 44px, page bottom respects env(safe-area-inset-bottom).",
+      "Member onboarding: progress bar is a 4px slot at the top of the viewport (was 6 pips), main scrolls, primary CTA (Next / Got it, continue / All set) is pinned to the bottom above the safe area as a full-width k-btn — never scrolls off, always reachable by thumb.",
+      "Global iOS fixes in index.css: inputs/selects/textareas force 16px on screens <768px (kills Safari focus auto-zoom); new .safe-bottom and .safe-pb-tabbar utilities; new .k-btn / .k-btn-outline 44px button recipe.",
+      "i18n: nav.{home,members,friends,suggest,more} + more.{workspace,help} added to en/common.json; Spanish stubbed as TODO per project convention. Five tab labels translate via t().",
+    ],
+  },
+  {
     version: '0.41.1',
     date: '2026-05-23',
     summary: 'Sheets sync: stop tripping the Google Sheets write quota.',

@@ -65,3 +65,63 @@ body {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold;
   }
 }
+
+/* ============================================================
+   Mobile + web optimization — Phase 6
+   ============================================================ */
+
+/* iOS Safari auto-zooms any input < 16px on focus. Lock to 16px
+   only on phones; desktop keeps its smaller form sizing. */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* iOS home-indicator awareness for fixed/sticky surfaces. */
+.safe-bottom {
+  padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+}
+
+/* Main-content bottom padding when the mobile tab bar is visible.
+   ~64px tab + safe inset on phones; zero on md+ (desktop has no
+   tab bar). */
+.safe-pb-tabbar {
+  padding-bottom: calc(64px + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .safe-pb-tabbar {
+    padding-bottom: 0;
+  }
+}
+
+/* Universal 44px button used by member-facing surfaces where
+   we need a guaranteed tap target (non-tech-savvy audience). */
+.k-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--color-knit-primary);
+  color: white;
+  border: 0;
+  transition: opacity 0.15s;
+}
+.k-btn:active {
+  opacity: 0.85;
+}
+.k-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.k-btn-outline {
+  background: white;
+  color: var(--color-gray-700);
+  border: 1.5px solid var(--color-gray-200);
+}
