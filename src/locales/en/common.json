@@ -24,5 +24,13 @@
   "more": {
     "workspace": "Workspace",
     "help": "Help"
+  },
+  "suggest_fab": {
+    "title": "Suggest an enhancement",
+    "prompt": "What would make Knit better?",
+    "placeholder": "Describe the idea or the friction…",
+    "send": "Send",
+    "sending": "Sending…",
+    "thanks": "Thanks — sent."
   }
 }

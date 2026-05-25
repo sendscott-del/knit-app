@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.42.1',
+    date: '2026-05-24',
+    summary: 'Phase 6 follow-up — desktop Suggest list rows tightened, FAB modal wired to i18n.',
+    details: [
+      "AdminSuggest results: each ranked candidate is now a compact single-row card (~48px tall) instead of a multi-line bullet list. Rank #1 gets a filled rose number badge; #2+ get a light-rose badge. Reasons collapse to one truncated line so the list scans like a leaderboard. Matches the Section 4 desktop mockup from the Phase 6 handoff.",
+      "Score is now a soft-pill in the suite-pill recipe: success-green for the top match (bg-success/10 text-success), neutral gray for the rest. Rounded to a whole number for at-a-glance reading; the full decimal score stays in the tooltip.",
+      "SuggestionFAB modal title, prompt, placeholder, send/cancel buttons, and the post-submit toast now route through i18n (suggest_fab.* keys in en/common.json; Spanish stubbed as TODO). Closes the i18n cleanup called out in spec step 5.",
+    ],
+  },
+  {
     version: '0.42.0',
     date: '2026-05-24',
     summary: 'Phase 6 — mobile + web optimization: bottom tab bar, More sheet, FAB demoted, safe-area + 44px tap targets everywhere.',

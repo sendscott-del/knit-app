@@ -24,5 +24,13 @@
   "more": {
     "workspace": "TODO: Workspace",
     "help": "TODO: Help"
+  },
+  "suggest_fab": {
+    "title": "TODO: Suggest an enhancement",
+    "prompt": "TODO: What would make Knit better?",
+    "placeholder": "TODO: Describe the idea or the friction…",
+    "send": "TODO: Send",
+    "sending": "TODO: Sending…",
+    "thanks": "TODO: Thanks — sent."
   }
 }
