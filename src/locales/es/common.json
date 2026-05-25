@@ -14,6 +14,8 @@
   "yes": "TODO: Yes",
   "no": "TODO: No",
   "all_set": "TODO: All set",
+  "saving": "TODO: Saving…",
+  "got_it_continue": "TODO: Got it, continue",
   "nav": {
     "home": "TODO: Home",
     "members": "TODO: Members",

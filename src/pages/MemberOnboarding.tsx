@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
 import InterestChipPicker from '@/components/InterestChipPicker'
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Props) {
+  const { t } = useTranslation('common')
   const [step, setStep] = useState<Step>(1)
   const [slots, setSlots] = useState<Slot[]>([])
   const [interestIds, setInterestIds] = useState<string[]>([])
@@ -167,7 +169,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
                 disabled={saving}
                 className="k-btn w-full"
               >
-                {saving ? 'Saving…' : 'All set'}
+                {saving ? t('saving') : t('all_set')}
               </button>
             ) : step === 2 ? (
               <button
@@ -175,7 +177,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
                 disabled={saving}
                 className="k-btn w-full"
               >
-                Got it, continue
+                {t('got_it_continue')}
               </button>
             ) : (
               <button
@@ -183,7 +185,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
                 disabled={saving}
                 className="k-btn w-full"
               >
-                {saving ? 'Saving…' : 'Next'}
+                {saving ? t('saving') : t('next')}
               </button>
             )}
           </div>
