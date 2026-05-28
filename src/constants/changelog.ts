@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.43.0',
+    date: '2026-05-28',
+    summary: 'Sheet access can be managed any time + Knit admins get auto-shared.',
+    details: [
+      "The Sheet tab now has a 'Who has access' section under the bound-sheet card. Lists every Gmail currently on the sheet as a chip with a × to revoke; a textarea below lets ward leadership add new missionary or admin emails any time — not just at sheet-creation. Backed by two new actions on /api/admin/sheet: share_emails (idempotent — skips emails already shared; tolerates Drive's 400 'duplicate permission' response) and unshare_email (looks up the Drive permission ID and removes it). Shared_emails on knit_google_sheet_bindings stays in sync.",
+      "New 'Share with all current Knit admins' button on the same card — one click, idempotent. Adds every admin who can view this ward (super admins, stake_presidency, high_councilor in the stake, plus the ward's ward_mission_leader / relief_society_presidency / elders_quorum_presidency) who isn't already on the sheet. Backed by share_with_admins action. Fixes the case where someone (e.g. Ravi as high councilor over missionary work) gets Knit admin via the Gathered cross-app grant but still has to ask Google for sheet access.",
+      "Auto-share on Knit-side invite: api/admin/users invite() now shares the relevant Google Sheet(s) with the new admin immediately after upsert. Ward-scoped roles get the one ward's sheet; stake-scoped roles get every bound ward in the stake. Best-effort — failures come back in a sheetShare report alongside the ok response, they don't fail the invite. (The Gathered cross-app grant path still needs the 'Share with all current Knit admins' button on the Sheet page — that's why it exists.)",
+    ],
+  },
+  {
     version: '0.42.2',
     date: '2026-05-25',
     summary: 'Phase 6 audit cleanup — sign-out tap target + onboarding CTA i18n.',

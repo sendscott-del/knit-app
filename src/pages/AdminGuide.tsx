@@ -95,6 +95,32 @@ export default function AdminGuide() {
         </p>
       </Section>
 
+      <Section title="Sheet access">
+        <p>
+          Each ward&rsquo;s Google Sheet has its own access list. Open the Sheet
+          tab, pick the ward, and you&rsquo;ll see a &ldquo;Who has access&rdquo;
+          panel under the bound sheet:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 mt-2">
+          <li>
+            <strong>Add missionary emails</strong> any time a new companionship
+            arrives — paste their Gmails and click <em>Share sheet</em>. They get
+            a notification email from Google with the link.
+          </li>
+          <li>
+            <strong>Remove an email</strong> when a missionary transfers — click
+            the × on their chip.
+          </li>
+          <li>
+            <strong>Share with all current Knit admins</strong> — one click,
+            idempotent. Adds every stake-leadership and ward-leadership admin
+            who can view this ward but isn&rsquo;t already on the sheet. Run
+            this after a new admin is granted via Gathered so they don&rsquo;t
+            have to ask Google for access separately.
+          </li>
+        </ul>
+      </Section>
+
       <Section title="Suggest an enhancement">
         <p>
           Look for the small <strong>rose lightbulb</strong> in the bottom-right
