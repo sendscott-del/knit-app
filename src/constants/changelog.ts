@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.43.1',
+    date: '2026-05-28',
+    summary: 'Sheet access for new admins is automatic — no button needed.',
+    details: [
+      "Two-layer reconcile that doesn't require Scott to remember to click anything. (1) AdminLayout now fires /api/admin/sheet ensure_my_access once per session as soon as a Knit admin profile loads — shares every bound sheet they can view (super admins + stake_presidency + high_councilor get every ward in the stake; ward roles get their one ward). Guarded by sessionStorage so route changes don't repeat the call. (2) The existing sheets-morning-push cron now also runs reconcileBindingAccess on each binding after the data push — backstop for the case where a new admin doesn't sign in for a while.",
+      "Both layers share new helpers in api/_lib/sheetAccess.ts: reconcileAdminAccess(admin) for the sign-in path and reconcileBindingAccess(binding) for the cron sweep. Both idempotent, both tolerant of Drive's 400/409 'already shared' response, both silently skip stakes without a connected Google account.",
+      "Net effect for the high councilor over missionary work (and anyone else granted Knit admin via Gathered's cross-app RPC): they get sheet access on first sign-in to Knit, automatically. Manual 'Share with all current Knit admins' button still exists for impatient cases.",
+    ],
+  },
+  {
     version: '0.43.0',
     date: '2026-05-28',
     summary: 'Sheet access can be managed any time + Knit admins get auto-shared.',

@@ -97,26 +97,30 @@ export default function AdminGuide() {
 
       <Section title="Sheet access">
         <p>
-          Each ward&rsquo;s Google Sheet has its own access list. Open the Sheet
-          tab, pick the ward, and you&rsquo;ll see a &ldquo;Who has access&rdquo;
-          panel under the bound sheet:
+          <strong>Admins are added automatically.</strong> When someone is
+          granted Knit access (via the Gathered page or an in-Knit invite),
+          they get Drive editor access on every ward sheet they can view —
+          first time they sign in. The morning sync also reconciles every
+          binding as a backstop.
+        </p>
+        <p className="mt-2">
+          <strong>Missionaries</strong> still need to be added by hand because
+          their Gmails change with every transfer. Open the Sheet tab, pick
+          the ward, and use the &ldquo;Who has access&rdquo; panel:
         </p>
         <ul className="list-disc pl-5 space-y-1 mt-2">
           <li>
-            <strong>Add missionary emails</strong> any time a new companionship
-            arrives — paste their Gmails and click <em>Share sheet</em>. They get
-            a notification email from Google with the link.
+            <strong>Add</strong> — paste the new missionary Gmails and click
+            <em> Share sheet</em>. They get a Google notification with the link.
           </li>
           <li>
-            <strong>Remove an email</strong> when a missionary transfers — click
-            the × on their chip.
+            <strong>Remove</strong> — click the × on a chip when a missionary
+            transfers out.
           </li>
           <li>
-            <strong>Share with all current Knit admins</strong> — one click,
-            idempotent. Adds every stake-leadership and ward-leadership admin
-            who can view this ward but isn&rsquo;t already on the sheet. Run
-            this after a new admin is granted via Gathered so they don&rsquo;t
-            have to ask Google for access separately.
+            <strong>Share with all current Knit admins</strong> — manual
+            equivalent of the auto-reconcile. Safe to click anytime; it just
+            adds anyone who&rsquo;s missing.
           </li>
         </ul>
       </Section>

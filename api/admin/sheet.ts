@@ -22,6 +22,7 @@ import {
 } from '../_lib/sheetSync.js'
 import { pullSheet } from '../_lib/sheetPull.js'
 import { userClientFrom } from '../_lib/googleOAuth.js'
+import { reconcileAdminAccess } from '../_lib/sheetAccess.js'
 
 /**
  * Consolidated sheet admin endpoint. Replaces the former
@@ -58,6 +59,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return unshareEmail(req, res)
     case 'share_with_admins':
       return shareWithAdmins(req, res)
+    case 'ensure_my_access':
+      return ensureMyAccess(req, res)
     default:
       return res.status(400).json({ error: 'Unknown action' })
   }
@@ -435,6 +438,27 @@ async function unshareEmail(req: VercelRequest, res: VercelResponse) {
       .json({ shared_emails: remaining, removed: match?.id ? normalized : null })
   } catch (e) {
     return res.status(500).json({ error: formatGoogleError(e) })
+  }
+}
+
+/**
+ * Auto-grant: ensure the calling admin has Drive perms on every sheet they
+ * can view. Called from AdminLayout on sign-in so a Gathered cross-app grant
+ * doesn't leave the admin needing a separate "Request access" round-trip to
+ * Google. Always returns 200 — failures land in the response body, never as
+ * a thrown error, because this is best-effort.
+ */
+async function ensureMyAccess(req: VercelRequest, res: VercelResponse) {
+  const auth = await requireAdmin(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  try {
+    const sb = supabaseAdmin()
+    const report = await reconcileAdminAccess(sb, auth.userId)
+    return res.status(200).json(report)
+  } catch (e) {
+    return res
+      .status(200)
+      .json({ added_wards: [], errors: [e instanceof Error ? e.message : String(e)] })
   }
 }
 
