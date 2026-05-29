@@ -7,6 +7,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.43.2',
+    date: '2026-05-28',
+    summary: 'Hotfix: /admin blank screen from a hooks-order bug introduced in 0.43.1.',
+    details: [
+      "AdminLayout was calling useSheetAccessOnce after several early returns (loading / error / no_admin_row / not-ready). React requires hooks to be called in the same order on every render — the first render returned early and skipped the hook, the second render reached it, and React threw 'Rendered more hooks than during the previous render', blanking /admin. Moved the call above the early returns and taught the hook to no-op when adminId is null (i.e. while admin.status is still loading). No behavior change once a real id arrives.",
+    ],
+  },
+  {
     version: '0.43.1',
     date: '2026-05-28',
     summary: 'Sheet access for new admins is automatic — no button needed.',

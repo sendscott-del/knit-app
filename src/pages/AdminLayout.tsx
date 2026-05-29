@@ -31,6 +31,15 @@ export default function AdminLayout() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
 
+  // Best-effort: as soon as we have a confirmed admin profile, ask the server
+  // to share every bound ward sheet this admin can view with their Gmail.
+  // Fire-and-forget — failures don't surface here; the morning-push cron is
+  // the backstop. Once-per-session is enforced via sessionStorage so we don't
+  // hammer Drive on every page nav. MUST live above the early returns so the
+  // hook order stays stable across renders.
+  const readyAdminId = admin.status === 'ready' ? admin.profile.id : null
+  useSheetAccessOnce(readyAdminId)
+
   if (authLoading) return <FullPage>Loading…</FullPage>
   if (!session) return <Navigate to="/admin/login" replace />
 
@@ -68,13 +77,6 @@ export default function AdminLayout() {
   if (admin.status !== 'ready') return null
 
   const { profile } = admin
-
-  // Best-effort: as soon as we have a confirmed admin profile, ask the server
-  // to share every bound ward sheet this admin can view with their Gmail.
-  // Fire-and-forget — failures don't surface here; the morning-push cron is
-  // the backstop. Once-per-session is enforced via sessionStorage so we don't
-  // hammer Drive on every page nav.
-  useSheetAccessOnce(profile.id)
   const wardScoped =
     profile.role === 'ward_mission_leader' ||
     profile.role === 'relief_society_presidency' ||
@@ -294,10 +296,14 @@ function FullPage({ children }: { children: React.ReactNode }) {
 /**
  * Fire `/api/admin/sheet?action=ensure_my_access` once per admin per session.
  * Guarded by sessionStorage so route changes don't repeat the call. Silent on
- * failure — the morning-push cron also reconciles.
+ * failure — the morning-push cron also reconciles. Must be called
+ * unconditionally (above AdminLayout's early returns) to keep the hook order
+ * stable; passes `null` while the admin profile is still loading and the
+ * effect no-ops until a real id arrives.
  */
-function useSheetAccessOnce(adminId: string) {
+function useSheetAccessOnce(adminId: string | null) {
   useEffect(() => {
+    if (!adminId) return
     const key = `knit:sheet-access-checked:${adminId}`
     if (sessionStorage.getItem(key)) return
     sessionStorage.setItem(key, '1')
