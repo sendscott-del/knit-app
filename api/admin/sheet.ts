@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { google } from 'googleapis'
 import {
   requireAdmin,
   adminCanActOnWard,
@@ -21,6 +22,7 @@ import {
 } from '../_lib/sheetSync.js'
 import { pullSheet } from '../_lib/sheetPull.js'
 import { userClientFrom } from '../_lib/googleOAuth.js'
+import { reconcileAdminAccess } from '../_lib/sheetAccess.js'
 
 /**
  * Consolidated sheet admin endpoint. Replaces the former
@@ -51,6 +53,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return refreshSheet(req, res)
     case 'sync_now':
       return syncNow(req, res)
+    case 'share_emails':
+      return shareEmails(req, res)
+    case 'unshare_email':
+      return unshareEmail(req, res)
+    case 'share_with_admins':
+      return shareWithAdmins(req, res)
+    case 'ensure_my_access':
+      return ensureMyAccess(req, res)
     default:
       return res.status(400).json({ error: 'Unknown action' })
   }
@@ -257,6 +267,314 @@ async function createSheet(req: VercelRequest, res: VercelResponse) {
       { onConflict: 'ward_id' },
     )
     return res.status(500).json({ error: message })
+  }
+}
+
+/**
+ * Adds new editor permissions on the bound sheet for the given ward. Skips
+ * any emails already in `shared_emails`, persists the merged list on the
+ * binding, and is idempotent against Google's "already shared" 400 errors.
+ */
+async function shareEmails(req: VercelRequest, res: VercelResponse) {
+  const auth = await requireAdmin(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { wardId, emails } = (req.body ?? {}) as {
+    wardId?: string
+    emails?: string[]
+  }
+  const guard = await requireWardWrite(auth, wardId, res)
+  if (!guard) return
+
+  const normalized = (emails ?? [])
+    .map((e) => String(e ?? '').trim().toLowerCase())
+    .filter((e) => e.length > 0 && e.includes('@'))
+  if (normalized.length === 0) {
+    return res.status(400).json({ error: 'No valid emails provided' })
+  }
+
+  const sb = supabaseAdmin()
+  const { data: binding } = await sb
+    .from('knit_google_sheet_bindings')
+    .select('id, sheet_id, shared_emails, ward_id')
+    .eq('ward_id', guard.wardId)
+    .maybeSingle()
+  if (!binding?.sheet_id) {
+    return res.status(404).json({ error: 'No sheet bound for this ward' })
+  }
+
+  const { data: ward } = await sb
+    .from('knit_wards')
+    .select('stake_id')
+    .eq('id', guard.wardId)
+    .single()
+  const stakeId = (ward as { stake_id: string } | null)?.stake_id
+  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
+
+  const { data: oauth } = await sb
+    .from('knit_google_oauth')
+    .select('refresh_token')
+    .eq('stake_id', stakeId)
+    .maybeSingle()
+  if (!oauth) {
+    return res.status(412).json({
+      error:
+        'No Google account connected for this stake. Connect one before adding access.',
+      code: 'OAUTH_REQUIRED',
+    })
+  }
+
+  const existing = new Set(
+    (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
+  )
+  const toAdd = normalized.filter((e) => !existing.has(e))
+
+  try {
+    if (toAdd.length > 0) {
+      const userClient = userClientFrom(oauth.refresh_token)
+      const drive = google.drive({ version: 'v3', auth: userClient })
+      for (const e of toAdd) {
+        try {
+          await drive.permissions.create({
+            fileId: binding.sheet_id,
+            requestBody: { role: 'writer', type: 'user', emailAddress: e },
+            sendNotificationEmail: true,
+          })
+        } catch (err) {
+          // Drive returns 400 with reason 'duplicate' or similar when the
+          // email already has a permission — that's fine, treat as success.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const status = (err as any)?.code ?? (err as any)?.response?.status
+          if (status !== 400 && status !== 409) throw err
+        }
+      }
+    }
+    const merged = Array.from(new Set([...(binding.shared_emails ?? []), ...toAdd]))
+    await sb
+      .from('knit_google_sheet_bindings')
+      .update({ shared_emails: merged })
+      .eq('id', binding.id)
+    return res.status(200).json({
+      shared_emails: merged,
+      added: toAdd,
+      already_shared: normalized.filter((e) => existing.has(e)),
+    })
+  } catch (e) {
+    return res.status(500).json({ error: formatGoogleError(e) })
+  }
+}
+
+/**
+ * Revokes a single email's Drive permission on the bound sheet and drops it
+ * from `shared_emails`. Safe to call for emails that aren't currently shared.
+ */
+async function unshareEmail(req: VercelRequest, res: VercelResponse) {
+  const auth = await requireAdmin(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { wardId, email } = (req.body ?? {}) as {
+    wardId?: string
+    email?: string
+  }
+  const guard = await requireWardWrite(auth, wardId, res)
+  if (!guard) return
+  const normalized = String(email ?? '').trim().toLowerCase()
+  if (!normalized.includes('@')) {
+    return res.status(400).json({ error: 'Invalid email' })
+  }
+
+  const sb = supabaseAdmin()
+  const { data: binding } = await sb
+    .from('knit_google_sheet_bindings')
+    .select('id, sheet_id, shared_emails, ward_id')
+    .eq('ward_id', guard.wardId)
+    .maybeSingle()
+  if (!binding?.sheet_id) {
+    return res.status(404).json({ error: 'No sheet bound for this ward' })
+  }
+
+  const { data: ward } = await sb
+    .from('knit_wards')
+    .select('stake_id')
+    .eq('id', guard.wardId)
+    .single()
+  const stakeId = (ward as { stake_id: string } | null)?.stake_id
+  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
+
+  const { data: oauth } = await sb
+    .from('knit_google_oauth')
+    .select('refresh_token')
+    .eq('stake_id', stakeId)
+    .maybeSingle()
+  if (!oauth) {
+    return res.status(412).json({ error: 'No Google account connected for this stake.' })
+  }
+
+  try {
+    const userClient = userClientFrom(oauth.refresh_token)
+    const drive = google.drive({ version: 'v3', auth: userClient })
+    // Look up the permission ID for this email so we can delete it.
+    const perms = await drive.permissions.list({
+      fileId: binding.sheet_id,
+      fields: 'permissions(id, emailAddress, role, type)',
+    })
+    const match = (perms.data.permissions ?? []).find(
+      (p) =>
+        (p.emailAddress ?? '').toLowerCase() === normalized && p.type === 'user',
+    )
+    if (match?.id) {
+      await drive.permissions.delete({
+        fileId: binding.sheet_id,
+        permissionId: match.id,
+      })
+    }
+    const remaining = (binding.shared_emails ?? []).filter(
+      (e: string) => e.toLowerCase() !== normalized,
+    )
+    await sb
+      .from('knit_google_sheet_bindings')
+      .update({ shared_emails: remaining })
+      .eq('id', binding.id)
+    return res
+      .status(200)
+      .json({ shared_emails: remaining, removed: match?.id ? normalized : null })
+  } catch (e) {
+    return res.status(500).json({ error: formatGoogleError(e) })
+  }
+}
+
+/**
+ * Auto-grant: ensure the calling admin has Drive perms on every sheet they
+ * can view. Called from AdminLayout on sign-in so a Gathered cross-app grant
+ * doesn't leave the admin needing a separate "Request access" round-trip to
+ * Google. Always returns 200 — failures land in the response body, never as
+ * a thrown error, because this is best-effort.
+ */
+async function ensureMyAccess(req: VercelRequest, res: VercelResponse) {
+  const auth = await requireAdmin(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  try {
+    const sb = supabaseAdmin()
+    const report = await reconcileAdminAccess(sb, auth.userId)
+    return res.status(200).json(report)
+  } catch (e) {
+    return res
+      .status(200)
+      .json({ added_wards: [], errors: [e instanceof Error ? e.message : String(e)] })
+  }
+}
+
+/**
+ * Shares the bound sheet with every Knit admin who can view this ward:
+ *   - super admins (can view everything)
+ *   - stake-scoped admins (stake_presidency, high_councilor) in the same stake
+ *   - ward-scoped admins assigned to this ward
+ * Idempotent. Useful after a new admin is granted via Gathered's cross-app
+ * RPC (which creates the knit_admin_users row but doesn't touch Drive perms).
+ */
+async function shareWithAdmins(req: VercelRequest, res: VercelResponse) {
+  const auth = await requireAdmin(req)
+  if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  const { wardId } = (req.body ?? {}) as { wardId?: string }
+  const guard = await requireWardWrite(auth, wardId, res)
+  if (!guard) return
+
+  const sb = supabaseAdmin()
+  const { data: binding } = await sb
+    .from('knit_google_sheet_bindings')
+    .select('id, sheet_id, shared_emails')
+    .eq('ward_id', guard.wardId)
+    .maybeSingle()
+  if (!binding?.sheet_id) {
+    return res.status(404).json({ error: 'No sheet bound for this ward' })
+  }
+
+  const { data: ward } = await sb
+    .from('knit_wards')
+    .select('stake_id')
+    .eq('id', guard.wardId)
+    .single()
+  const stakeId = (ward as { stake_id: string } | null)?.stake_id
+  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
+
+  // All Knit admins who can view this ward.
+  const { data: adminsRaw } = await sb
+    .from('knit_admin_users')
+    .select('email, role, ward_id, stake_id, is_super_admin')
+  const admins = (adminsRaw ?? []) as Array<{
+    email: string
+    role: string
+    ward_id: string | null
+    stake_id: string | null
+    is_super_admin: boolean
+  }>
+  const STAKE_VIEW_ROLES = new Set(['stake_presidency', 'high_councilor'])
+  const eligibleEmails = admins
+    .filter((a) => {
+      if (!a.email) return false
+      if (a.is_super_admin) return true
+      if (STAKE_VIEW_ROLES.has(a.role)) return a.stake_id === stakeId
+      return a.ward_id === guard.wardId
+    })
+    .map((a) => a.email.toLowerCase())
+
+  if (eligibleEmails.length === 0) {
+    return res.status(200).json({
+      shared_emails: binding.shared_emails ?? [],
+      added: [],
+      already_shared: [],
+    })
+  }
+
+  const { data: oauth } = await sb
+    .from('knit_google_oauth')
+    .select('refresh_token')
+    .eq('stake_id', stakeId)
+    .maybeSingle()
+  if (!oauth) {
+    return res.status(412).json({
+      error: 'No Google account connected for this stake.',
+      code: 'OAUTH_REQUIRED',
+    })
+  }
+
+  const existing = new Set(
+    (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
+  )
+  const toAdd = Array.from(new Set(eligibleEmails)).filter(
+    (e) => !existing.has(e),
+  )
+
+  try {
+    if (toAdd.length > 0) {
+      const userClient = userClientFrom(oauth.refresh_token)
+      const drive = google.drive({ version: 'v3', auth: userClient })
+      for (const e of toAdd) {
+        try {
+          await drive.permissions.create({
+            fileId: binding.sheet_id,
+            requestBody: { role: 'writer', type: 'user', emailAddress: e },
+            sendNotificationEmail: true,
+          })
+        } catch (err) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const status = (err as any)?.code ?? (err as any)?.response?.status
+          if (status !== 400 && status !== 409) throw err
+        }
+      }
+    }
+    const merged = Array.from(
+      new Set([...(binding.shared_emails ?? []), ...toAdd]),
+    )
+    await sb
+      .from('knit_google_sheet_bindings')
+      .update({ shared_emails: merged })
+      .eq('id', binding.id)
+    return res.status(200).json({
+      shared_emails: merged,
+      added: toAdd,
+      already_shared: eligibleEmails.filter((e) => existing.has(e)),
+    })
+  } catch (e) {
+    return res.status(500).json({ error: formatGoogleError(e) })
   }
 }
 

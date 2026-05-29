@@ -1,7 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { google } from 'googleapis'
 import { requireAdmin } from '../_lib/auth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import type { AdminRole } from '../_lib/types.js'
+import { userClientFrom } from '../_lib/googleOAuth.js'
 
 const VALID_ROLES: AdminRole[] = [
   'stake_presidency',
@@ -122,6 +124,7 @@ async function invite(
     userId = invited.user.id
   }
 
+  const wardId = WARD_SCOPED.includes(body.role) ? body.ward_id ?? null : null
   const { error: upsertErr } = await sb.from('knit_admin_users').upsert(
     {
       id: userId,
@@ -129,7 +132,7 @@ async function invite(
       name: body.name?.trim() || null,
       role: body.role,
       stake_id: caller.stake_id,
-      ward_id: WARD_SCOPED.includes(body.role) ? body.ward_id ?? null : null,
+      ward_id: wardId,
       is_super_admin:
         caller.is_super_admin && body.is_super_admin === true ? true : false,
     },
@@ -137,7 +140,127 @@ async function invite(
   )
   if (upsertErr) return res.status(500).json({ error: upsertErr.message })
 
-  return res.status(200).json({ ok: true, userId })
+  // Best-effort: also share the relevant Google Sheet(s) with this admin so
+  // they can open them without a separate Google "Request access" round-trip.
+  // Ward-scoped roles get the one sheet for their ward; stake roles get every
+  // bound ward in the stake. Failures are non-fatal — we still return ok and
+  // surface them in the response for visibility. (caller.stake_id is
+  // non-null here — the handler returned early above if it was missing.)
+  const sheetShare = await shareSheetsWithAdmin({
+    sb,
+    email,
+    stakeId: caller.stake_id as string,
+    wardId,
+  })
+
+  return res.status(200).json({ ok: true, userId, sheetShare })
+}
+
+type SheetShareReport = {
+  attempted: number
+  shared: string[]
+  alreadyShared: string[]
+  skipped: string[]
+  errors: string[]
+}
+
+async function shareSheetsWithAdmin({
+  sb,
+  email,
+  stakeId,
+  wardId,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any
+  email: string
+  stakeId: string
+  wardId: string | null
+}): Promise<SheetShareReport> {
+  const report: SheetShareReport = {
+    attempted: 0,
+    shared: [],
+    alreadyShared: [],
+    skipped: [],
+    errors: [],
+  }
+
+  const { data: oauth } = await sb
+    .from('knit_google_oauth')
+    .select('refresh_token')
+    .eq('stake_id', stakeId)
+    .maybeSingle()
+  if (!oauth) {
+    report.skipped.push('No Google account connected for stake')
+    return report
+  }
+
+  // Pick the bindings to share with. Ward-scoped admin = that ward's sheet
+  // only. Stake-scoped (no ward_id) = every bound ward in the stake.
+  let bindingsQuery = sb
+    .from('knit_google_sheet_bindings')
+    .select('id, sheet_id, shared_emails, ward_id, knit_wards!inner(stake_id, name)')
+    .not('sheet_id', 'is', null)
+  if (wardId) {
+    bindingsQuery = bindingsQuery.eq('ward_id', wardId)
+  } else {
+    bindingsQuery = bindingsQuery.eq('knit_wards.stake_id', stakeId)
+  }
+  const { data: bindings } = await bindingsQuery
+  if (!bindings || bindings.length === 0) {
+    return report
+  }
+
+  const userClient = userClientFrom(oauth.refresh_token)
+  const drive = google.drive({ version: 'v3', auth: userClient })
+  const normalized = email.toLowerCase()
+
+  for (const b of bindings as Array<{
+    id: string
+    sheet_id: string
+    shared_emails: string[] | null
+    ward_id: string
+    knit_wards: { name: string } | { name: string }[]
+  }>) {
+    report.attempted += 1
+    const wardName = Array.isArray(b.knit_wards)
+      ? b.knit_wards[0]?.name
+      : b.knit_wards?.name
+    const existing = (b.shared_emails ?? []).map((e) => e.toLowerCase())
+    if (existing.includes(normalized)) {
+      report.alreadyShared.push(wardName ?? b.ward_id)
+      continue
+    }
+    try {
+      await drive.permissions.create({
+        fileId: b.sheet_id,
+        requestBody: { role: 'writer', type: 'user', emailAddress: email },
+        sendNotificationEmail: true,
+      })
+      const merged = Array.from(new Set([...(b.shared_emails ?? []), email]))
+      await sb
+        .from('knit_google_sheet_bindings')
+        .update({ shared_emails: merged })
+        .eq('id', b.id)
+      report.shared.push(wardName ?? b.ward_id)
+    } catch (err) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const status = (err as any)?.code ?? (err as any)?.response?.status
+      if (status === 400 || status === 409) {
+        // Already a perm on Drive even though our cache didn't know.
+        const merged = Array.from(new Set([...(b.shared_emails ?? []), email]))
+        await sb
+          .from('knit_google_sheet_bindings')
+          .update({ shared_emails: merged })
+          .eq('id', b.id)
+        report.alreadyShared.push(wardName ?? b.ward_id)
+      } else {
+        report.errors.push(
+          `${wardName ?? b.ward_id}: ${err instanceof Error ? err.message : String(err)}`,
+        )
+      }
+    }
+  }
+  return report
 }
 
 async function remove(

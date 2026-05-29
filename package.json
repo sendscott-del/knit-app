@@ -1,7 +1,7 @@
 {
   "name": "knit-app",
   "private": true,
-  "version": "0.42.2",
+  "version": "0.43.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -309,7 +309,51 @@ export default function AdminSheet() {
         <BoundCard
           binding={binding}
           onSync={() => void syncBoth()}
+          onShare={async (emails) => {
+            const r = await authorizedFetch('/api/admin/sheet', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'share_emails', wardId, emails }),
+            })
+            const body = await r.json()
+            if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+            const added = (body.added ?? []) as string[]
+            const already = (body.already_shared ?? []) as string[]
+            const parts: string[] = []
+            if (added.length > 0)
+              parts.push(`Shared with ${added.join(', ')}`)
+            if (already.length > 0)
+              parts.push(`Already had access: ${already.join(', ')}`)
+            setNotice(parts.join(' · ') || 'No changes.')
+            await loadBinding()
+          }}
+          onRevoke={async (email) => {
+            if (!confirm(`Remove ${email} from this sheet?`)) return
+            const r = await authorizedFetch('/api/admin/sheet', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'unshare_email', wardId, email }),
+            })
+            const body = await r.json()
+            if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+            setNotice(`Removed ${email}.`)
+            await loadBinding()
+          }}
+          onShareAdmins={async () => {
+            const r = await authorizedFetch('/api/admin/sheet', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'share_with_admins', wardId }),
+            })
+            const body = await r.json()
+            if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
+            const added = (body.added ?? []) as string[]
+            if (added.length === 0) {
+              setNotice('All current Knit admins already have access.')
+            } else {
+              setNotice(`Shared with ${added.length} Knit admin${added.length === 1 ? '' : 's'}: ${added.join(', ')}`)
+            }
+            await loadBinding()
+          }}
           busy={busy || !editor}
+          editor={editor}
         />
       ) : (
         <CreateSheetCard
@@ -392,12 +436,70 @@ function GoogleConnectionCard({
 function BoundCard({
   binding,
   onSync,
+  onShare,
+  onRevoke,
+  onShareAdmins,
   busy,
+  editor,
 }: {
   binding: BindingRow
   onSync: () => void
+  onShare: (emails: string[]) => Promise<void>
+  onRevoke: (email: string) => Promise<void>
+  onShareAdmins: () => Promise<void>
   busy: boolean
+  editor: boolean
 }) {
+  const [addEmails, setAddEmails] = useState('')
+  const [sharing, setSharing] = useState(false)
+  const [shareErr, setShareErr] = useState<string | null>(null)
+
+  async function submitShare(e: FormEvent) {
+    e.preventDefault()
+    const emails = addEmails
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.includes('@'))
+    if (emails.length === 0) {
+      setShareErr('Add at least one email address.')
+      return
+    }
+    setSharing(true)
+    setShareErr(null)
+    try {
+      await onShare(emails)
+      setAddEmails('')
+    } catch (err) {
+      setShareErr(err instanceof Error ? err.message : 'Share failed')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  async function submitRevoke(email: string) {
+    setSharing(true)
+    setShareErr(null)
+    try {
+      await onRevoke(email)
+    } catch (err) {
+      setShareErr(err instanceof Error ? err.message : 'Remove failed')
+    } finally {
+      setSharing(false)
+    }
+  }
+
+  async function submitShareAdmins() {
+    setSharing(true)
+    setShareErr(null)
+    try {
+      await onShareAdmins()
+    } catch (err) {
+      setShareErr(err instanceof Error ? err.message : 'Share-with-admins failed')
+    } finally {
+      setSharing(false)
+    }
+  }
+
   return (
     <div className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-3">
@@ -418,11 +520,6 @@ function BoundCard({
       </div>
 
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <Meta label="Shared with">
-          {binding.shared_emails.length === 0
-            ? '—'
-            : binding.shared_emails.join(', ')}
-        </Meta>
         <Meta label="Last push">
           {binding.last_push_at
             ? new Date(binding.last_push_at).toLocaleString()
@@ -455,6 +552,88 @@ function BoundCard({
         the latest member roster, friends list, and recent outings back. Also
         runs hourly in the background.
       </p>
+
+      <div className="border-t border-gray-100 pt-4 space-y-3">
+        <div>
+          <h3 className="font-medium text-gray-900 text-sm">Who has access</h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Anyone here can open the sheet in Google. Add missionaries when a
+            new companionship arrives; remove them when they transfer.
+          </p>
+        </div>
+        {binding.shared_emails.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            Nobody added yet — just you (the connected Google account) can open
+            the sheet.
+          </p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {binding.shared_emails.map((email) => (
+              <li
+                key={email}
+                className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-800"
+              >
+                <span className="font-mono">{email}</span>
+                {editor ? (
+                  <button
+                    type="button"
+                    onClick={() => void submitRevoke(email)}
+                    disabled={sharing || busy}
+                    className="text-gray-500 hover:text-rose-600 disabled:opacity-40"
+                    aria-label={`Remove ${email}`}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+        {editor ? (
+          <>
+            <form onSubmit={submitShare} className="space-y-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-medium text-gray-700">
+                  Add missionary or admin Gmail addresses
+                </span>
+                <textarea
+                  value={addEmails}
+                  onChange={(e) => setAddEmails(e.target.value)}
+                  rows={2}
+                  placeholder="elder.smith@gmail.com, sister.jones@gmail.com"
+                  className="form-input font-mono text-sm"
+                  disabled={sharing || busy}
+                />
+              </label>
+              {shareErr ? (
+                <p className="text-xs text-error">{shareErr}</p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={sharing || busy || addEmails.trim().length === 0}
+                className="btn-primary text-sm py-1.5 px-3"
+              >
+                {sharing ? 'Sharing…' : 'Share sheet'}
+              </button>
+            </form>
+            <div className="border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => void submitShareAdmins()}
+                disabled={sharing || busy}
+                className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Share with all current Knit admins
+              </button>
+              <p className="text-xs text-gray-500 mt-1.5">
+                Adds every stake-leadership and ward-leadership admin (super
+                admins, stake presidency, high councilors, and this ward&rsquo;s
+                WML / RSP / EQP) who isn&rsquo;t already on the sheet.
+              </p>
+            </div>
+          </>
+        ) : null}
+      </div>
     </div>
   )
 }

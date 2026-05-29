@@ -95,6 +95,36 @@ export default function AdminGuide() {
         </p>
       </Section>
 
+      <Section title="Sheet access">
+        <p>
+          <strong>Admins are added automatically.</strong> When someone is
+          granted Knit access (via the Gathered page or an in-Knit invite),
+          they get Drive editor access on every ward sheet they can view —
+          first time they sign in. The morning sync also reconciles every
+          binding as a backstop.
+        </p>
+        <p className="mt-2">
+          <strong>Missionaries</strong> still need to be added by hand because
+          their Gmails change with every transfer. Open the Sheet tab, pick
+          the ward, and use the &ldquo;Who has access&rdquo; panel:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 mt-2">
+          <li>
+            <strong>Add</strong> — paste the new missionary Gmails and click
+            <em> Share sheet</em>. They get a Google notification with the link.
+          </li>
+          <li>
+            <strong>Remove</strong> — click the × on a chip when a missionary
+            transfers out.
+          </li>
+          <li>
+            <strong>Share with all current Knit admins</strong> — manual
+            equivalent of the auto-reconcile. Safe to click anytime; it just
+            adds anyone who&rsquo;s missing.
+          </li>
+        </ul>
+      </Section>
+
       <Section title="Suggest an enhancement">
         <p>
           Look for the small <strong>rose lightbulb</strong> in the bottom-right

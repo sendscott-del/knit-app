@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
+import { supabase } from '@/lib/supabase'
 import {
   ROLE_LABELS,
   canManageStake,
@@ -67,6 +68,13 @@ export default function AdminLayout() {
   if (admin.status !== 'ready') return null
 
   const { profile } = admin
+
+  // Best-effort: as soon as we have a confirmed admin profile, ask the server
+  // to share every bound ward sheet this admin can view with their Gmail.
+  // Fire-and-forget — failures don't surface here; the morning-push cron is
+  // the backstop. Once-per-session is enforced via sessionStorage so we don't
+  // hammer Drive on every page nav.
+  useSheetAccessOnce(profile.id)
   const wardScoped =
     profile.role === 'ward_mission_leader' ||
     profile.role === 'relief_society_presidency' ||
@@ -281,4 +289,34 @@ function FullPage({ children }: { children: React.ReactNode }) {
       {children}
     </main>
   )
+}
+
+/**
+ * Fire `/api/admin/sheet?action=ensure_my_access` once per admin per session.
+ * Guarded by sessionStorage so route changes don't repeat the call. Silent on
+ * failure — the morning-push cron also reconciles.
+ */
+function useSheetAccessOnce(adminId: string) {
+  useEffect(() => {
+    const key = `knit:sheet-access-checked:${adminId}`
+    if (sessionStorage.getItem(key)) return
+    sessionStorage.setItem(key, '1')
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession()
+        const token = data.session?.access_token
+        if (!token) return
+        await fetch('/api/admin/sheet', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'ensure_my_access' }),
+        })
+      } catch {
+        // best-effort; cron is the backstop
+      }
+    })()
+  }, [adminId])
 }
