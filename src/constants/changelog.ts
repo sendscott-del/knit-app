@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.0',
+    date: '2026-05-30',
+    summary: 'Stop leaking Knit signups into Magnify/Squarecana approval queues, and surface the Knit tile in Gathered automatically when an admin invites a new user.',
+    details: [
+      "Knit's Signup.tsx now passes `data: { app: 'knit' }` to supabase.auth.signUp(). The shared handle_new_user trigger was rewritten in parallel to only write to the per-app user table that matches that tag. Result: a Knit signup no longer creates a pending Magnify profile or a pending Squarecana sq_users row — the stake-leader-approval message new Knit users were seeing came from Magnify's pending-profile gate firing on a row Magnify never needed.",
+      "AdminUsers invite (api/admin/users.ts) now upserts a `user_apps` row for the new admin (best-effort, non-fatal). That's what drives Knit's tile in the Gathered suite shell — previously the invite granted suite roles + a knit_admin_users row but never registered the app, so the new admin had to be added via the Gathered admin page in a separate step.",
+      'Operational note: untagged signups (any app whose signup page does not yet pass the app metadata tag) now insert no per-app row. Magnify, Squarecana, and Sparkle Pro each need their signup page updated to pass `{ app: \'<name>\' }` for the trigger to populate their user table on signup.',
+    ],
+  },
+  {
     version: '0.43.2',
     date: '2026-05-28',
     summary: 'Hotfix: /admin blank screen from a hooks-order bug introduced in 0.43.1.',
