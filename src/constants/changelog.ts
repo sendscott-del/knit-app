@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.2',
+    date: '2026-05-31',
+    summary: 'Missionary Suggestions / Log an Outing pulls every 5 minutes instead of hourly.',
+    details: [
+      "knit-hourly-sheets-pull (pg_cron at :07 every hour) replaced with knit-sheets-pull-5min (`*/5 * * * *`). Worst-case wait from a missionary clicking Generate to the ranked-members rows landing on the sheet drops from ~60 minutes to ~5 minutes; average drops from ~30 minutes to ~2.5 minutes.",
+      "Cost: 12x the daily pulls (288 vs 24), but each run iterates the ~9 healthy bindings and is cheap — mostly empty Sheet reads. Drive read quotas have plenty of headroom and the existing retryOn429 wrapper in sheets-pull absorbs transient bursts. We can dial back to a daytime window if quota pressure shows up in cron logs.",
+      "Applied as supabase/migrations/20260531150000_knit_sheets_pull_5min.sql. Migration unschedules the old job and creates the new one in one step — pg_cron job rows are themselves the schedule, so this is the only place to change it.",
+    ],
+  },
+  {
     version: '0.44.1',
     date: '2026-05-31',
     summary: 'Super admins can do everything other users can do — including Sheet write actions.',
