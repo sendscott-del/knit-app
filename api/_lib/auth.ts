@@ -34,7 +34,42 @@ export async function requireAdmin(
     .eq('id', user.id)
     .maybeSingle()
   if (!admin) return null
-  return { userId: user.id, email: user.email ?? '', admin: admin as AdminRow }
+
+  // Overlay effective super-admin status. The knit_admin_users.is_super_admin
+  // column only captures the explicit Knit-side toggle; the broader "app
+  // super admin" concept (Stake President, Stake Clerk, or HC over
+  // Missionary Work via gather_user_roles) also grants full read/write.
+  // Without this overlay, adminCanWrite / adminCanActOnWard would 403 those
+  // users even though knit_is_app_super_admin() returns true for them and
+  // the client UI (canEdit) treats them as editors.
+  const adminRow = admin as AdminRow
+  const effectiveSuper =
+    adminRow.is_super_admin || (await loadIsAppSuperAdmin(user.email ?? ''))
+  return {
+    userId: user.id,
+    email: user.email ?? '',
+    admin: { ...adminRow, is_super_admin: effectiveSuper },
+  }
+}
+
+/**
+ * Returns true when the email holds any of the three Knit-super-admin
+ * Gathered roles (stake_president, stake_clerk, hc_missionary_work) with
+ * a non-revoked grant. Mirrors `public.knit_is_app_super_admin()` but
+ * executes against the service-role client so we don't need an
+ * authenticated session.
+ */
+async function loadIsAppSuperAdmin(email: string): Promise<boolean> {
+  if (!email) return false
+  const sb = supabaseAdmin()
+  const { data } = await sb
+    .from('gather_user_roles')
+    .select('role_key')
+    .ilike('email', email)
+    .is('revoked_at', null)
+    .in('role_key', ['stake_president', 'stake_clerk', 'hc_missionary_work'])
+    .limit(1)
+  return !!(data && data.length > 0)
 }
 
 /**
