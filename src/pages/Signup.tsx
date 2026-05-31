@@ -34,7 +34,10 @@ export default function Signup() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/admin/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/admin/callback`,
+        data: { app: 'knit' },
+      },
     })
     if (error) setStatus({ kind: 'error', message: error.message })
     else setStatus({ kind: 'sent' })

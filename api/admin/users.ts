@@ -140,6 +140,22 @@ async function invite(
   )
   if (upsertErr) return res.status(500).json({ error: upsertErr.message })
 
+  // Best-effort: register Knit in Gathered's user_apps so the suite shell
+  // surfaces the Knit tile. Non-fatal — Knit access itself is gated by
+  // knit_admin_users (upserted above); user_apps drives the tile visibility.
+  const { error: appAccessErr } = await sb.from('user_apps').upsert(
+    {
+      user_id: userId,
+      app_name: 'knit',
+      role: body.role,
+      granted_by: caller.id,
+    },
+    { onConflict: 'user_id,app_name' },
+  )
+  if (appAccessErr) {
+    console.warn(`Knit user_apps grant failed for ${email}: ${appAccessErr.message}`)
+  }
+
   // Best-effort: also share the relevant Google Sheet(s) with this admin so
   // they can open them without a separate Google "Request access" round-trip.
   // Ward-scoped roles get the one sheet for their ward; stake roles get every
