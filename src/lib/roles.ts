@@ -30,9 +30,20 @@ export function isStakeScoped(role: AdminRole): boolean {
   return STAKE_VIEW_ROLES.includes(role)
 }
 
-/** True if this admin can write data in their assigned scope. */
-export function canEdit(profile: Pick<AdminProfile, 'role' | 'is_super_admin'>): boolean {
-  if (profile.is_super_admin) return true
+/**
+ * True if this admin can write data in their assigned scope.
+ *
+ * Honors both the `knit_admin_users.is_super_admin` column AND the derived
+ * `is_app_super_admin` flag (true when the user has a Knit-super-admin
+ * Gathered role: stake_president, stake_clerk, hc_missionary_work). A
+ * super admin should be able to do everything any other user can do —
+ * the column-only check missed users who earned super-admin status via
+ * the Gathered roles catalog instead of the explicit column toggle.
+ */
+export function canEdit(
+  profile: Pick<AdminProfile, 'role' | 'is_super_admin' | 'is_app_super_admin'>,
+): boolean {
+  if (profile.is_super_admin || profile.is_app_super_admin) return true
   return WARD_EDIT_ROLES.includes(profile.role)
 }
 

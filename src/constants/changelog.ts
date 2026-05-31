@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.1',
+    date: '2026-05-31',
+    summary: 'Super admins can do everything other users can do — including Sheet write actions.',
+    details: [
+      "Bug: Ravi (HC over missionary work) was getting 'Your role has view-only access' on the Sheet page even though he qualifies as a Knit super admin via the Gathered roles catalog (hc_missionary_work). The client `canEdit` gate only honored knit_admin_users.is_super_admin, ignoring the broader is_app_super_admin flag that useAdmin already loads. Same gap server-side: adminCanWrite / adminCanActOnWard checked admin.is_super_admin and would have 403'd him even if the UI had let him try.",
+      "Client: roles.ts canEdit now returns true when either is_super_admin OR is_app_super_admin is set. All call sites (AdminSheet, AdminFriends, AdminMembers, AdminOutings, AdminDashboard, AdminSettings) already pass `profile` which carries both fields — no other changes needed.",
+      "Server: api/_lib/auth.ts requireAdmin now also queries gather_user_roles for any of stake_president / stake_clerk / hc_missionary_work (non-revoked) and overlays admin.is_super_admin = true if found. That makes adminCanWrite / adminCanActOnWard / adminCanViewWard treat app-super-admins as super, matching what knit_is_app_super_admin() already says in SQL. One extra service-role query per authenticated request — small price for keeping the existing helpers untouched.",
+    ],
+  },
+  {
     version: '0.44.0',
     date: '2026-05-30',
     summary: 'Stop leaking Knit signups into Magnify/Squarecana approval queues, and surface the Knit tile in Gathered automatically when an admin invites a new user.',
