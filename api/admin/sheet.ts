@@ -23,6 +23,19 @@ import {
 import { pullSheet } from '../_lib/sheetPull.js'
 import { userClientFrom } from '../_lib/googleOAuth.js'
 import { reconcileAdminAccess } from '../_lib/sheetAccess.js'
+import { getAuth as getServiceAccountAuth } from '../_lib/sheets.js'
+
+/**
+ * Drive v3 client authed as the Knit service account. The SA has full
+ * `drive` scope and is added as Editor on every sheet at creation, so it
+ * can run permissions.* calls without the silent per-personal-Gmail share
+ * rate limits that were eating v0.43.x shares. Share / unshare / verify /
+ * resync paths all use this; sheet creation + push still use the user
+ * OAuth because those operate inside the user's Drive.
+ */
+function driveAsServiceAccount() {
+  return google.drive({ version: 'v3', auth: getServiceAccountAuth() })
+}
 
 /**
  * Consolidated sheet admin endpoint. Replaces the former
@@ -306,27 +319,6 @@ async function shareEmails(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
 
-  const { data: ward } = await sb
-    .from('knit_wards')
-    .select('stake_id')
-    .eq('id', guard.wardId)
-    .single()
-  const stakeId = (ward as { stake_id: string } | null)?.stake_id
-  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
-
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    return res.status(412).json({
-      error:
-        'No Google account connected for this stake. Connect one before adding access.',
-      code: 'OAUTH_REQUIRED',
-    })
-  }
-
   const existing = new Set(
     (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
   )
@@ -336,8 +328,7 @@ async function shareEmails(req: VercelRequest, res: VercelResponse) {
   const shareErrors: Array<{ email: string; error: string }> = []
   try {
     if (toAdd.length > 0) {
-      const userClient = userClientFrom(oauth.refresh_token)
-      const drive = google.drive({ version: 'v3', auth: userClient })
+      const drive = driveAsServiceAccount()
       // Drive is source of truth — list current perms so we don't double-add
       // (and so we don't promote a real failure into a fake success by
       // assuming 400 means duplicate).
@@ -408,26 +399,8 @@ async function unshareEmail(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
 
-  const { data: ward } = await sb
-    .from('knit_wards')
-    .select('stake_id')
-    .eq('id', guard.wardId)
-    .single()
-  const stakeId = (ward as { stake_id: string } | null)?.stake_id
-  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
-
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    return res.status(412).json({ error: 'No Google account connected for this stake.' })
-  }
-
   try {
-    const userClient = userClientFrom(oauth.refresh_token)
-    const drive = google.drive({ version: 'v3', auth: userClient })
+    const drive = driveAsServiceAccount()
     // Look up the permission ID for this email so we can delete it.
     const perms = await drive.permissions.list({
       fileId: binding.sheet_id,
@@ -541,18 +514,6 @@ async function shareWithAdmins(req: VercelRequest, res: VercelResponse) {
     })
   }
 
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    return res.status(412).json({
-      error: 'No Google account connected for this stake.',
-      code: 'OAUTH_REQUIRED',
-    })
-  }
-
   const existing = new Set(
     (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
   )
@@ -564,8 +525,7 @@ async function shareWithAdmins(req: VercelRequest, res: VercelResponse) {
   const shareErrors: Array<{ email: string; error: string }> = []
   try {
     if (toAdd.length > 0) {
-      const userClient = userClientFrom(oauth.refresh_token)
-      const drive = google.drive({ version: 'v3', auth: userClient })
+      const drive = driveAsServiceAccount()
       const livePerms = await listDriveUserEmails(drive, binding.sheet_id)
       for (const e of toAdd) {
         if (livePerms.has(e)) {
@@ -660,29 +620,8 @@ async function verifyAccess(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
 
-  const { data: ward } = await sb
-    .from('knit_wards')
-    .select('stake_id')
-    .eq('id', wardId)
-    .single()
-  const stakeId = (ward as { stake_id: string } | null)?.stake_id
-  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
-
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    return res.status(412).json({
-      error: 'No Google account connected for this stake.',
-      code: 'OAUTH_REQUIRED',
-    })
-  }
-
   try {
-    const userClient = userClientFrom(oauth.refresh_token)
-    const drive = google.drive({ version: 'v3', auth: userClient })
+    const drive = driveAsServiceAccount()
     const live = await listDriveUserEmails(drive, binding.sheet_id)
     const cached = new Set(
       ((binding.shared_emails as string[] | null) ?? []).map((e) =>
@@ -733,28 +672,9 @@ async function forceResyncAccess(req: VercelRequest, res: VercelResponse) {
   if (!binding?.sheet_id) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
-  const { data: ward } = await sb
-    .from('knit_wards')
-    .select('stake_id')
-    .eq('id', guard.wardId)
-    .single()
-  const stakeId = (ward as { stake_id: string } | null)?.stake_id
-  if (!stakeId) return res.status(404).json({ error: 'Ward stake not found' })
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    return res.status(412).json({
-      error: 'No Google account connected for this stake.',
-      code: 'OAUTH_REQUIRED',
-    })
-  }
 
   try {
-    const userClient = userClientFrom(oauth.refresh_token)
-    const drive = google.drive({ version: 'v3', auth: userClient })
+    const drive = driveAsServiceAccount()
     const live = await listDriveUserEmails(drive, binding.sheet_id)
     let driveAction: 'already_present' | 'created' | 'failed' = 'failed'
     let driveError: string | null = null

@@ -3,7 +3,7 @@ import { google } from 'googleapis'
 import { requireAdmin } from '../_lib/auth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import type { AdminRole } from '../_lib/types.js'
-import { userClientFrom } from '../_lib/googleOAuth.js'
+import { getAuth as getServiceAccountAuth } from '../_lib/sheets.js'
 
 const VALID_ROLES: AdminRole[] = [
   'stake_presidency',
@@ -200,16 +200,6 @@ async function shareSheetsWithAdmin({
     errors: [],
   }
 
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    report.skipped.push('No Google account connected for stake')
-    return report
-  }
-
   // Pick the bindings to share with. Ward-scoped admin = that ward's sheet
   // only. Stake-scoped (no ward_id) = every bound ward in the stake.
   let bindingsQuery = sb
@@ -226,8 +216,8 @@ async function shareSheetsWithAdmin({
     return report
   }
 
-  const userClient = userClientFrom(oauth.refresh_token)
-  const drive = google.drive({ version: 'v3', auth: userClient })
+  // Service account — see api/_lib/sheetAccess.ts comment for why.
+  const drive = google.drive({ version: 'v3', auth: getServiceAccountAuth() })
   const normalized = email.toLowerCase()
 
   for (const b of bindings as Array<{
@@ -246,6 +236,33 @@ async function shareSheetsWithAdmin({
       report.alreadyShared.push(wardName ?? b.ward_id)
       continue
     }
+    // Verify against Drive first — shared_emails has lied in the past.
+    let livePerms: Set<string> = new Set()
+    try {
+      const r = await drive.permissions.list({
+        fileId: b.sheet_id,
+        fields: 'permissions(emailAddress, type)',
+      })
+      for (const p of (r.data.permissions ?? []) as Array<{
+        emailAddress?: string | null
+        type?: string | null
+      }>) {
+        if (p.type === 'user' && p.emailAddress) {
+          livePerms.add(p.emailAddress.toLowerCase())
+        }
+      }
+    } catch {
+      // fall through; treat as no perms
+    }
+    if (livePerms.has(normalized)) {
+      const merged = Array.from(new Set([...(b.shared_emails ?? []), email]))
+      await sb
+        .from('knit_google_sheet_bindings')
+        .update({ shared_emails: merged })
+        .eq('id', b.id)
+      report.alreadyShared.push(wardName ?? b.ward_id)
+      continue
+    }
     try {
       await drive.permissions.create({
         fileId: b.sheet_id,
@@ -259,21 +276,10 @@ async function shareSheetsWithAdmin({
         .eq('id', b.id)
       report.shared.push(wardName ?? b.ward_id)
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const status = (err as any)?.code ?? (err as any)?.response?.status
-      if (status === 400 || status === 409) {
-        // Already a perm on Drive even though our cache didn't know.
-        const merged = Array.from(new Set([...(b.shared_emails ?? []), email]))
-        await sb
-          .from('knit_google_sheet_bindings')
-          .update({ shared_emails: merged })
-          .eq('id', b.id)
-        report.alreadyShared.push(wardName ?? b.ward_id)
-      } else {
-        report.errors.push(
-          `${wardName ?? b.ward_id}: ${err instanceof Error ? err.message : String(err)}`,
-        )
-      }
+      // Real error — surface it instead of pretending success.
+      report.errors.push(
+        `${wardName ?? b.ward_id}: ${err instanceof Error ? err.message : String(err)}`,
+      )
     }
   }
   return report
