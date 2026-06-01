@@ -318,12 +318,19 @@ export default function AdminSheet() {
             if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
             const added = (body.added ?? []) as string[]
             const already = (body.already_shared ?? []) as string[]
+            const errs = (body.errors ?? []) as Array<{ email: string; error: string }>
             const parts: string[] = []
             if (added.length > 0)
               parts.push(`Shared with ${added.join(', ')}`)
             if (already.length > 0)
               parts.push(`Already had access: ${already.join(', ')}`)
-            setNotice(parts.join(' · ') || 'No changes.')
+            if (errs.length > 0) {
+              const detail = errs.slice(0, 3).map((e) => `${e.email}: ${e.error}`).join(' · ')
+              setErr(`${errs.length} failed — ${detail}${errs.length > 3 ? '…' : ''}`)
+              setNotice(parts.length > 0 ? parts.join(' · ') : null)
+            } else {
+              setNotice(parts.join(' · ') || 'No changes.')
+            }
             await loadBinding()
           }}
           onRevoke={async (email) => {
@@ -345,11 +352,24 @@ export default function AdminSheet() {
             const body = await r.json()
             if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
             const added = (body.added ?? []) as string[]
-            if (added.length === 0) {
-              setNotice('All current Knit admins already have access.')
-            } else {
-              setNotice(`Shared with ${added.length} Knit admin${added.length === 1 ? '' : 's'}: ${added.join(', ')}`)
+            const errs = (body.errors ?? []) as Array<{ email: string; error: string }>
+            const parts: string[] = []
+            if (added.length > 0) {
+              parts.push(`Shared with ${added.length} Knit admin${added.length === 1 ? '' : 's'}: ${added.join(', ')}`)
             }
+            if (errs.length > 0) {
+              const detail = errs.slice(0, 3).map((e) => `${e.email}: ${e.error}`).join(' · ')
+              parts.push(`${errs.length} failed — ${detail}${errs.length > 3 ? '…' : ''}`)
+              // Promote to error banner so it's not buried in the notice tone.
+              setErr(parts.join(' · '))
+              setNotice(null)
+              await loadBinding()
+              return
+            }
+            if (parts.length === 0) {
+              parts.push('All current Knit admins already have access.')
+            }
+            setNotice(parts.join(' · '))
             await loadBinding()
           }}
           busy={busy || !editor}

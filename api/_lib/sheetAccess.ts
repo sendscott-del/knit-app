@@ -96,36 +96,27 @@ export async function reconcileBindingAccess(
     })
     .map((a) => a.email.toLowerCase())
 
-  const existing = new Set(
-    (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
-  )
-  const toAdd = Array.from(new Set(eligibleEmails)).filter(
-    (e) => !existing.has(e),
-  )
-
   const report: BindingReconcileReport = {
     ward_id: wardId,
     added: [],
-    already_shared: eligibleEmails.filter((e) => existing.has(e)),
+    already_shared: [],
     errors: [],
   }
-  if (toAdd.length === 0) return report
 
   try {
-    // Service account, not user OAuth — the SA has full `drive` scope, is
-    // Editor on every sheet at creation, and isn't subject to the silent
-    // per-personal-Gmail share rate limits that caused v0.43.x shares to
-    // disappear into the void. permissions.list still works as ground
-    // truth, and create/delete now run against an account Drive doesn't
-    // throttle.
+    // Service account — see comment above. Dedupe against Drive truth, NOT
+    // shared_emails: the cache was polluted by v0.43.x's "treat 400 as
+    // already shared" bug, so an email could be in shared_emails while
+    // Drive never accepted the share. Anyone in shared_emails who isn't
+    // actually on Drive must be re-shared.
     const drive = driveAsServiceAccount()
     const livePerms = await listDriveEmails(drive, binding.sheet_id)
-    for (const email of toAdd) {
-      if (livePerms.has(email)) {
-        // DB didn't know, Drive does — just sync the cache, no API call.
-        report.added.push(email)
-        continue
-      }
+    const toAttempt = Array.from(new Set(eligibleEmails)).filter(
+      (e) => !livePerms.has(e),
+    )
+    report.already_shared = eligibleEmails.filter((e) => livePerms.has(e))
+
+    for (const email of toAttempt) {
       try {
         await drive.permissions.create({
           fileId: binding.sheet_id,
@@ -140,15 +131,17 @@ export async function reconcileBindingAccess(
         )
       }
     }
-    if (report.added.length > 0) {
-      const merged = Array.from(
-        new Set([...(binding.shared_emails ?? []), ...report.added]),
-      )
-      await sb
-        .from('knit_google_sheet_bindings')
-        .update({ shared_emails: merged })
-        .eq('id', binding.id)
-    }
+
+    // Sync shared_emails to live Drive truth (after our adds): authoritative
+    // source becomes Drive, not the cache. Anyone in shared_emails who isn't
+    // on Drive gets dropped; anyone on Drive gets reflected.
+    const finalLive = new Set(livePerms)
+    for (const e of report.added) finalLive.add(e)
+    const merged = Array.from(finalLive).sort()
+    await sb
+      .from('knit_google_sheet_bindings')
+      .update({ shared_emails: merged })
+      .eq('id', binding.id)
   } catch (err) {
     report.errors.push(err instanceof Error ? err.message : String(err))
   }

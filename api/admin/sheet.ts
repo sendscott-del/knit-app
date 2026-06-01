@@ -319,43 +319,35 @@ async function shareEmails(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
 
-  const existing = new Set(
-    (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
-  )
-  const toAdd = normalized.filter((e) => !existing.has(e))
-
   const confirmedShared: string[] = []
   const shareErrors: Array<{ email: string; error: string }> = []
   try {
-    if (toAdd.length > 0) {
-      const drive = driveAsServiceAccount()
-      // Drive is source of truth — list current perms so we don't double-add
-      // (and so we don't promote a real failure into a fake success by
-      // assuming 400 means duplicate).
-      const livePerms = await listDriveUserEmails(drive, binding.sheet_id)
-      for (const e of toAdd) {
-        if (livePerms.has(e)) {
-          confirmedShared.push(e)
-          continue
-        }
-        try {
-          await drive.permissions.create({
-            fileId: binding.sheet_id,
-            requestBody: { role: 'writer', type: 'user', emailAddress: e },
-            sendNotificationEmail: true,
-          })
-          confirmedShared.push(e)
-        } catch (err) {
-          shareErrors.push({
-            email: e,
-            error: err instanceof Error ? err.message : String(err),
-          })
-        }
+    const drive = driveAsServiceAccount()
+    // Always dedupe against Drive truth — shared_emails has lied in the
+    // past. Anyone the caller asked for who isn't already on Drive gets
+    // a fresh share attempt.
+    const livePerms = await listDriveUserEmails(drive, binding.sheet_id)
+    const toAttempt = normalized.filter((e) => !livePerms.has(e))
+    const alreadyShared = normalized.filter((e) => livePerms.has(e))
+
+    for (const e of toAttempt) {
+      try {
+        await drive.permissions.create({
+          fileId: binding.sheet_id,
+          requestBody: { role: 'writer', type: 'user', emailAddress: e },
+          sendNotificationEmail: true,
+        })
+        confirmedShared.push(e)
+      } catch (err) {
+        shareErrors.push({
+          email: e,
+          error: err instanceof Error ? err.message : String(err),
+        })
       }
     }
-    const merged = Array.from(
-      new Set([...(binding.shared_emails ?? []), ...confirmedShared]),
-    )
+    const finalLive = new Set(livePerms)
+    for (const e of confirmedShared) finalLive.add(e)
+    const merged = Array.from(finalLive).sort()
     await sb
       .from('knit_google_sheet_bindings')
       .update({ shared_emails: merged })
@@ -363,7 +355,7 @@ async function shareEmails(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       shared_emails: merged,
       added: confirmedShared,
-      already_shared: normalized.filter((e) => existing.has(e)),
+      already_shared: alreadyShared,
       errors: shareErrors,
     })
   } catch (e) {
@@ -514,42 +506,41 @@ async function shareWithAdmins(req: VercelRequest, res: VercelResponse) {
     })
   }
 
-  const existing = new Set(
-    (binding.shared_emails ?? []).map((e: string) => e.toLowerCase()),
-  )
-  const toAdd = Array.from(new Set(eligibleEmails)).filter(
-    (e) => !existing.has(e),
-  )
-
   const confirmedShared: string[] = []
   const shareErrors: Array<{ email: string; error: string }> = []
   try {
-    if (toAdd.length > 0) {
-      const drive = driveAsServiceAccount()
-      const livePerms = await listDriveUserEmails(drive, binding.sheet_id)
-      for (const e of toAdd) {
-        if (livePerms.has(e)) {
-          confirmedShared.push(e)
-          continue
-        }
-        try {
-          await drive.permissions.create({
-            fileId: binding.sheet_id,
-            requestBody: { role: 'writer', type: 'user', emailAddress: e },
-            sendNotificationEmail: true,
-          })
-          confirmedShared.push(e)
-        } catch (err) {
-          shareErrors.push({
-            email: e,
-            error: err instanceof Error ? err.message : String(err),
-          })
-        }
+    const drive = driveAsServiceAccount()
+    // Dedupe against Drive truth, NOT shared_emails. Cache was polluted by
+    // v0.43.x phantom shares — entries can exist in shared_emails while
+    // Drive never accepted the share. Always re-attempt anyone Drive
+    // doesn't actually know about.
+    const livePerms = await listDriveUserEmails(drive, binding.sheet_id)
+    const toAttempt = Array.from(new Set(eligibleEmails)).filter(
+      (e) => !livePerms.has(e),
+    )
+    const alreadyShared = eligibleEmails.filter((e) => livePerms.has(e))
+
+    for (const e of toAttempt) {
+      try {
+        await drive.permissions.create({
+          fileId: binding.sheet_id,
+          requestBody: { role: 'writer', type: 'user', emailAddress: e },
+          sendNotificationEmail: true,
+        })
+        confirmedShared.push(e)
+      } catch (err) {
+        shareErrors.push({
+          email: e,
+          error: err instanceof Error ? err.message : String(err),
+        })
       }
     }
-    const merged = Array.from(
-      new Set([...(binding.shared_emails ?? []), ...confirmedShared]),
-    )
+
+    // Sync shared_emails to live Drive truth (after our adds). Drops any
+    // phantom entries that never had a real Drive permission.
+    const finalLive = new Set(livePerms)
+    for (const e of confirmedShared) finalLive.add(e)
+    const merged = Array.from(finalLive).sort()
     await sb
       .from('knit_google_sheet_bindings')
       .update({ shared_emails: merged })
@@ -557,7 +548,7 @@ async function shareWithAdmins(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       shared_emails: merged,
       added: confirmedShared,
-      already_shared: eligibleEmails.filter((e) => existing.has(e)),
+      already_shared: alreadyShared,
       errors: shareErrors,
     })
   } catch (e) {
