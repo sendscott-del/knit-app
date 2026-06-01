@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.3',
+    date: '2026-05-31',
+    summary: 'Stop trusting shared_emails when Drive disagrees — verify with permissions.list.',
+    details: [
+      "Root bug: reconcileBindingAccess + reconcileAdminAccess + shareEmails + shareWithAdmins all treated HTTP 400/409 from drive.permissions.create as 'duplicate permission, already shared'. That was wrong — Drive doesn't return 400 for duplicates (it returns 200 with the existing permission). 400 from Drive is a real error: invalid user, sharing restriction, rate limit, etc. So when one of those fired during Ravi's auto-share, the email got added to shared_emails but no Drive permission was ever created. The DB lied; Ravi still couldn't open the sheet.",
+      "Fix: every share path now lists actual Drive permissions first (drive.permissions.list) and treats THAT as ground truth. If Drive already has the email, sync the cache and move on. If not, attempt permissions.create — and on failure, surface the real error in the response instead of silently pretending success. shared_emails only gets updated for emails we confirmed are present on Drive.",
+      "Two new diagnostic actions on /api/admin/sheet: verify_access (read-only — returns cached_emails vs live_emails diff so you can see exactly where they disagree) and force_resync_access (recovery — ignores shared_emails, lists Drive, attempts the share if missing, returns the verbatim Drive error if it fails). Use these to recover any admin whose DB row claims access they don't actually have.",
+    ],
+  },
+  {
     version: '0.44.2',
     date: '2026-05-31',
     summary: 'Missionary Suggestions / Log an Outing pulls every 5 minutes instead of hourly.',
