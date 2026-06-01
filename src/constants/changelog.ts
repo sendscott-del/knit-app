@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.4',
+    date: '2026-05-31',
+    summary: 'Sheet shares now actually work — switched from personal-Gmail OAuth to service account.',
+    details: [
+      "Real root cause of Ravi (and Jeff Tingey) not getting access: every share call ran against Scott's personal-Gmail OAuth refresh token, and Drive silently throttled personal-account shares once a daily-quota threshold was crossed. The v0.43.x code then misclassified the rejection as 'already shared' and recorded the email in shared_emails. The DB ended up claiming three people were shared on every active ward sheet when Drive only knew about Scott and the service account.",
+      "Fix: every share / unshare / verify / resync path now drives Drive via the Knit service account (knit-sheets@…iam.gserviceaccount.com), which has full `drive` scope and is already added as Editor on every bound sheet at creation. SAs aren't subject to the personal-Gmail share rate limit, so shares actually land. Sheet creation and data-tab push still use Scott's OAuth because those operate inside his Drive.",
+      "Patched: reconcileBindingAccess, reconcileAdminAccess (api/_lib/sheetAccess.ts) + shareEmails, shareWithAdmins, unshareEmail, verifyAccess, forceResyncAccess (api/admin/sheet.ts) + shareSheetsWithAdmin (api/admin/users.ts on the new-admin invite path). The lingering 400/409-as-duplicate fallback in users.ts also removed.",
+      "Recovery: the sheets-morning-push cron already calls reconcileBindingAccess for every binding after pushing data. The first run on the deployed v0.44.4 will list Drive perms, see that Ravi/Jeff aren't actually there, and create the missing perms via the SA — they should have access by tomorrow morning at the latest. To recover faster, sign in to /admin and the on-load reconcile fires immediately; or run the cron from /api/cron/sheets-morning-push.",
+    ],
+  },
+  {
     version: '0.44.3',
     date: '2026-05-31',
     summary: 'Stop trusting shared_emails when Drive disagrees — verify with permissions.list.',

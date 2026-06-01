@@ -1,8 +1,22 @@
 import { google } from 'googleapis'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { userClientFrom } from './googleOAuth.js'
+import { getAuth as getServiceAccountAuth } from './sheets.js'
 
 const STAKE_VIEW_ROLES = new Set(['stake_presidency', 'high_councilor'])
+
+/**
+ * Returns a Drive v3 client authed as the Knit service account. The SA is
+ * added as Editor on every sheet at creation time (see api/admin/sheet.ts
+ * createSheet → shareFileAsUser) and has the full `drive` scope, so it can
+ * manage permissions on any bound sheet. Using the SA instead of the user's
+ * OAuth refresh token sidesteps the per-personal-Gmail share rate limits
+ * that were silently rejecting our v0.43.x shares — Drive returned a 4xx,
+ * the old code treated it as 'already shared,' and shared_emails went out
+ * of sync with reality.
+ */
+function driveAsServiceAccount() {
+  return google.drive({ version: 'v3', auth: getServiceAccountAuth() })
+}
 
 export type BindingReconcileReport = {
   ward_id: string
@@ -63,21 +77,6 @@ export async function reconcileBindingAccess(
     }
   }
 
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', stakeId)
-    .maybeSingle()
-  if (!oauth) {
-    return {
-      ward_id: wardId,
-      added: [],
-      already_shared: [],
-      errors: [],
-      skipped: 'no oauth for stake',
-    }
-  }
-
   const { data: adminsRaw } = await sb
     .from('knit_admin_users')
     .select('email, role, ward_id, stake_id, is_super_admin')
@@ -113,13 +112,13 @@ export async function reconcileBindingAccess(
   if (toAdd.length === 0) return report
 
   try {
-    const userClient = userClientFrom(oauth.refresh_token)
-    const drive = google.drive({ version: 'v3', auth: userClient })
-    // Ground truth: list what Drive actually has so we don't trust a
-    // potentially-stale shared_emails cache. The historical bug was treating
-    // any 400/409 from permissions.create as "already shared" — which silently
-    // promoted a real failure (invalid user, sharing restriction, rate limit)
-    // into a phantom share. shared_emails got the email; Drive did not.
+    // Service account, not user OAuth — the SA has full `drive` scope, is
+    // Editor on every sheet at creation, and isn't subject to the silent
+    // per-personal-Gmail share rate limits that caused v0.43.x shares to
+    // disappear into the void. permissions.list still works as ground
+    // truth, and create/delete now run against an account Drive doesn't
+    // throttle.
+    const drive = driveAsServiceAccount()
     const livePerms = await listDriveEmails(drive, binding.sheet_id)
     for (const email of toAdd) {
       if (livePerms.has(email)) {
@@ -224,15 +223,8 @@ export async function reconcileAdminAccess(
   const { data: bindings } = await bindingsQuery
   if (!bindings || bindings.length === 0) return out
 
-  const { data: oauth } = await sb
-    .from('knit_google_oauth')
-    .select('refresh_token')
-    .eq('stake_id', admin.stake_id)
-    .maybeSingle()
-  if (!oauth) return out
-
-  const userClient = userClientFrom(oauth.refresh_token)
-  const drive = google.drive({ version: 'v3', auth: userClient })
+  // SA, not user OAuth — see the comment in reconcileBindingAccess.
+  const drive = driveAsServiceAccount()
 
   for (const b of bindings as Array<{
     id: string
