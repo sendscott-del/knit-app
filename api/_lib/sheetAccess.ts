@@ -115,7 +115,18 @@ export async function reconcileBindingAccess(
   try {
     const userClient = userClientFrom(oauth.refresh_token)
     const drive = google.drive({ version: 'v3', auth: userClient })
+    // Ground truth: list what Drive actually has so we don't trust a
+    // potentially-stale shared_emails cache. The historical bug was treating
+    // any 400/409 from permissions.create as "already shared" — which silently
+    // promoted a real failure (invalid user, sharing restriction, rate limit)
+    // into a phantom share. shared_emails got the email; Drive did not.
+    const livePerms = await listDriveEmails(drive, binding.sheet_id)
     for (const email of toAdd) {
+      if (livePerms.has(email)) {
+        // DB didn't know, Drive does — just sync the cache, no API call.
+        report.added.push(email)
+        continue
+      }
       try {
         await drive.permissions.create({
           fileId: binding.sheet_id,
@@ -124,16 +135,10 @@ export async function reconcileBindingAccess(
         })
         report.added.push(email)
       } catch (err) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const status = (err as any)?.code ?? (err as any)?.response?.status
-        if (status === 400 || status === 409) {
-          // Drive already has a perm for this email; cache was stale.
-          report.added.push(email)
-        } else {
-          report.errors.push(
-            `${email}: ${err instanceof Error ? err.message : String(err)}`,
-          )
-        }
+        // Real error. Do NOT pretend the share succeeded — surface it.
+        report.errors.push(
+          `${email}: ${err instanceof Error ? err.message : String(err)}`,
+        )
       }
     }
     if (report.added.length > 0) {
@@ -149,6 +154,33 @@ export async function reconcileBindingAccess(
     report.errors.push(err instanceof Error ? err.message : String(err))
   }
   return report
+}
+
+/**
+ * Returns the set of lower-cased user emails currently on a file's Drive
+ * permission list. Used as ground truth when we can't trust shared_emails.
+ */
+async function listDriveEmails(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  drive: any,
+  fileId: string,
+): Promise<Set<string>> {
+  const out = new Set<string>()
+  try {
+    const res = await drive.permissions.list({
+      fileId,
+      fields: 'permissions(emailAddress, type)',
+    })
+    for (const p of res.data.permissions ?? []) {
+      if (p.type === 'user' && p.emailAddress) {
+        out.add(String(p.emailAddress).toLowerCase())
+      }
+    }
+  } catch {
+    // If we can't list, return empty — callers will attempt to create and
+    // surface any error there instead of silently pretending.
+  }
+  return out
 }
 
 /**
@@ -208,8 +240,22 @@ export async function reconcileAdminAccess(
     shared_emails: string[] | null
     ward_id: string
   }>) {
-    const existing = (b.shared_emails ?? []).map((e) => e.toLowerCase())
-    if (existing.includes(email)) continue
+    // Ground truth comes from Drive, not shared_emails — historical bug
+    // meant the cache could claim a share that Drive rejected. If Drive
+    // already has the user, just sync the cache. If not, try to create the
+    // perm and surface any real error.
+    const livePerms = await listDriveEmails(drive, b.sheet_id)
+    if (livePerms.has(email)) {
+      const merged = Array.from(
+        new Set([...(b.shared_emails ?? []), admin.email]),
+      )
+      await sb
+        .from('knit_google_sheet_bindings')
+        .update({ shared_emails: merged })
+        .eq('id', b.id)
+      out.added_wards.push(b.ward_id)
+      continue
+    }
     try {
       await drive.permissions.create({
         fileId: b.sheet_id,
@@ -225,22 +271,10 @@ export async function reconcileAdminAccess(
         .eq('id', b.id)
       out.added_wards.push(b.ward_id)
     } catch (err) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const status = (err as any)?.code ?? (err as any)?.response?.status
-      if (status === 400 || status === 409) {
-        const merged = Array.from(
-          new Set([...(b.shared_emails ?? []), admin.email]),
-        )
-        await sb
-          .from('knit_google_sheet_bindings')
-          .update({ shared_emails: merged })
-          .eq('id', b.id)
-        out.added_wards.push(b.ward_id)
-      } else {
-        out.errors.push(
-          `${b.ward_id}: ${err instanceof Error ? err.message : String(err)}`,
-        )
-      }
+      // Do NOT pretend success — leaves a paper trail for diagnosis.
+      out.errors.push(
+        `${b.ward_id}: ${err instanceof Error ? err.message : String(err)}`,
+      )
     }
   }
   return out
