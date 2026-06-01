@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.6',
+    date: '2026-05-31',
+    summary: 'Tag Knit-invited admins so they stop leaking into Magnify as pending profiles.',
+    details: [
+      "api/admin/users.ts invite() now passes { data: { app: 'knit' } } to supabase.auth.admin.inviteUserByEmail. The new auth user's raw_user_meta_data carries the tag, so the shared handle_new_user trigger routes them correctly — no row in Magnify's profiles, no row in Squarecana's sq_users.",
+      "Closes the gap left by v0.44.0, which tagged self-serve signups via Signup.tsx but not invites. Symptom we saw: Chris Clarke (HP1 WML, invited from /admin/users) ended up in Magnify's profiles as a pending stake_clerk and got stuck on Magnify's Awaiting Approval screen. Re-invites done after this version ships will skip that detour entirely.",
+    ],
+  },
+  {
     version: '0.44.5',
     date: '2026-05-31',
     summary: 'Dedupe shares against Drive truth, not the cache. Surface failed shares in the UI.',
