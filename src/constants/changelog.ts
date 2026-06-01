@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.5',
+    date: '2026-05-31',
+    summary: 'Dedupe shares against Drive truth, not the cache. Surface failed shares in the UI.',
+    details: [
+      "Follow-up to v0.44.4. The SA-share path was right, but every reconcile/share entry point still deduped against shared_emails before consulting Drive. Since v0.43.x had polluted the cache with phantom shares (emails in shared_emails that Drive never accepted), the dedupe filtered Ravi and Jeff out before we ever looked at Drive — so the SA never got to re-share them. Symptom: clicking 'Share with all current Knit admins' returned 'all admins already have access' and Drive permissions didn't change.",
+      "Fix: shareWithAdmins, shareEmails, and reconcileBindingAccess all now list Drive permissions first and dedupe against THAT. Anyone eligible who isn't actually on Drive gets a fresh share attempt regardless of what shared_emails claims. After the attempts, shared_emails gets rewritten to mirror live Drive — phantom entries get dropped automatically.",
+      "AdminSheet UI now surfaces the response's `errors` array. Both 'Share with all current Knit admins' and the textarea share form now flip to the error banner when Drive rejects a share, with the first three verbatim error messages inlined so we can finally see what Drive is saying.",
+    ],
+  },
+  {
     version: '0.44.4',
     date: '2026-05-31',
     summary: 'Sheet shares now actually work — switched from personal-Gmail OAuth to service account.',
