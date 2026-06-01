@@ -116,8 +116,15 @@ async function invite(
   if (existingId) {
     userId = existingId as string
   } else {
+    // Tag the new auth user with app='knit' so the shared handle_new_user
+    // trigger doesn't fall through and Magnify/Squarecana never create a
+    // phantom pending profile for an admin Scott invited into Knit. (See
+    // v0.44.0 changelog — that fix only covered the Signup.tsx self-serve
+    // path; this is the missing equivalent for the invite path.)
     const { data: invited, error: inviteErr } =
-      await sb.auth.admin.inviteUserByEmail(email)
+      await sb.auth.admin.inviteUserByEmail(email, {
+        data: { app: 'knit' },
+      })
     if (inviteErr || !invited?.user) {
       return res.status(500).json({ error: inviteErr?.message ?? 'Invite failed' })
     }
