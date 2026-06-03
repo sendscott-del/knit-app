@@ -1,7 +1,7 @@
 import { Link, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { AdminProfile } from '@/lib/useAdmin'
-import { ROLE_LABELS, isWardScoped, canManageStake, canEdit } from '@/lib/roles'
+import { roleLabel, isWardScoped, canManageStake, canEdit } from '@/lib/roles'
 
 type Ctx = { profile: AdminProfile }
 
@@ -20,7 +20,7 @@ export default function AdminDashboard() {
           {greeting(profile.name ?? profile.email, t)}
         </h1>
         <p className="text-base text-gray-600 mt-1">
-          {ROLE_LABELS[profile.role]} · {scopeName}
+          {roleLabel(profile.role, t)} · {scopeName}
           {profile.is_super_admin ? t('dashboard.super_admin_suffix') : ''}
         </p>
         {!editor ? (

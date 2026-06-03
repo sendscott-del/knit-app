@@ -668,7 +668,7 @@ function NewMemberForm({
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-medium text-gray-700">{t('members.availability')}</span>
-          <span className="text-xs text-gray-500">{slotsToString(availability) || t('members.tap_to_select_times')}</span>
+          <span className="text-xs text-gray-500">{slotsToString(availability, t) || t('members.tap_to_select_times')}</span>
         </div>
         <AvailabilityGrid value={availability} onChange={setAvailability} />
       </div>
@@ -1141,7 +1141,7 @@ function AvailabilitySection({
       {editing ? (
         <div className="space-y-3">
           <AvailabilityGrid value={draft} onChange={setDraft} />
-          <p className="text-xs text-gray-500">{slotsToString(draft) || t('members.detail.no_times')}</p>
+          <p className="text-xs text-gray-500">{slotsToString(draft, t) || t('members.detail.no_times')}</p>
           <div className="flex gap-2">
             <button
               onClick={() => onSave(draft)}
@@ -1160,7 +1160,7 @@ function AvailabilitySection({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-700">{slotsToString(slots) || t('members.detail.no_times_yet')}</p>
+        <p className="text-sm text-gray-700">{slotsToString(slots, t) || t('members.detail.no_times_yet')}</p>
       )}
     </SectionShell>
   )

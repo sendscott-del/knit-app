@@ -14,6 +14,7 @@ import {
   type SuggestionResult,
 } from '@/lib/suggestion'
 import type { Database } from '@/lib/database.types'
+import { localizedTagName, localizedStyleLabel } from '@/lib/localizedLabel'
 
 type FriendRow = Database['public']['Tables']['knit_friends']['Row']
 type StyleRow = Database['public']['Tables']['knit_participation_styles']['Row']
@@ -32,7 +33,7 @@ type RecentRequest = {
 
 export default function AdminSuggest() {
   const { profile } = useOutletContext<Ctx>()
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
 
   const [wardId, setWardId] = useState<string>(
@@ -149,7 +150,7 @@ export default function AdminSuggest() {
 
   const styleLabelByKey = useMemo(() => {
     const m = new Map<string, string>()
-    for (const s of styles) m.set(s.key, s.label_en)
+    for (const s of styles) m.set(s.key, localizedStyleLabel(s, i18n.language))
     return m
   }, [styles])
 
@@ -211,10 +212,10 @@ export default function AdminSuggest() {
     if (wantedTagIds.length > 0) {
       const { data: tags } = await supabase
         .from('knit_interest_tags')
-        .select('id, name_en')
+        .select('id, name_en, name_es')
         .in('id', wantedTagIds)
       for (const tag of (tags as InterestTagRow[] | null) ?? []) {
-        interestNameById.set(tag.id, tag.name_en)
+        interestNameById.set(tag.id, localizedTagName(tag, i18n.language))
       }
     }
 
@@ -337,7 +338,7 @@ export default function AdminSuggest() {
             <option value="">{t('suggest.any')}</option>
             {styles.map((s) => (
               <option key={s.key} value={s.key}>
-                {s.label_en}
+                {localizedStyleLabel(s, i18n.language)}
               </option>
             ))}
           </select>

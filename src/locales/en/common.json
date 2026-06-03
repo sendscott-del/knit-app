@@ -804,5 +804,45 @@
     "ways_count_one": "{{count}} way to help",
     "ways_count_other": "{{count}} ways to help",
     "footer_note": "We'll text you again in about 90 days to update your availability. You can always change it sooner by tapping your link."
+  },
+  "roles": {
+    "stake_presidency": "Stake Presidency",
+    "high_councilor": "High Councilor",
+    "ward_mission_leader": "Ward Mission Leader",
+    "relief_society_presidency": "Relief Society Presidency",
+    "elders_quorum_presidency": "Elders Quorum Presidency"
+  },
+  "slots": {
+    "day_short": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "all_day": "all day",
+    "mornings": "mornings",
+    "afternoons": "afternoons",
+    "evenings": "evenings",
+    "day_join": ", ",
+    "slot_join": " & ",
+    "phrase_join": "; "
+  },
+  "errors": {
+    "unknown": "Something went wrong.",
+    "unknown_prefix": "Something went wrong",
+    "unique_violation": "A record with these details already exists.",
+    "fk_violation": "Can't complete that — a related record is missing or in use.",
+    "not_null": "Please fill in all required fields.",
+    "check_violation": "That value doesn't meet the constraints for this field.",
+    "permission_denied": "You don't have permission to do that.",
+    "not_found": "Couldn't find what you were looking for.",
+    "rate_limited": "Too many attempts. Please wait a moment and try again.",
+    "invalid_credentials": "That email and password don't match an account.",
+    "email_not_confirmed": "Please confirm your email address first — check your inbox for the confirmation link.",
+    "unauthenticated": "Your session expired. Please sign in again.",
+    "network": "Network problem. Check your connection and try again."
   }
 }

@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
 import { supabase } from '@/lib/supabase'
 import {
-  ROLE_LABELS,
+  roleLabel,
   canManageStake,
   canSendInvitations,
   type AdminRole,
@@ -168,7 +168,7 @@ function SuiteTopBar({
         <div className="hidden md:flex items-center gap-2 text-xs text-gray-500">
           <span className="font-medium text-gray-800">{scopeLabel}</span>
           <span className="opacity-50">·</span>
-          <span>{ROLE_LABELS[role]}</span>
+          <span>{roleLabel(role, t)}</span>
           {isSuper ? (
             <span className="rounded-full bg-knit-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
               {t('layout.super')}

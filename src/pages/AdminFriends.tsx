@@ -269,7 +269,7 @@ function NewFriendForm({
     }
     setSaving(true)
     setErr(null)
-    const availStr = slotsToString(availability)
+    const availStr = slotsToString(availability, t)
     const { error } = await supabase.from('knit_friends').insert({
       ward_id: wardId,
       first_name: firstName.trim(),
@@ -380,7 +380,7 @@ function NewFriendForm({
         <div className="flex items-baseline justify-between">
           <span className="text-sm font-medium text-gray-700">{t('friends.typical_availability')}</span>
           <span className="text-xs text-gray-500">
-            {slotsToString(availability) || t('friends.tap_when_free')}
+            {slotsToString(availability, t) || t('friends.tap_when_free')}
           </span>
         </div>
         <AvailabilityGrid value={availability} onChange={setAvailability} />

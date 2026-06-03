@@ -1,14 +1,32 @@
+import type { TFunction } from 'i18next'
 import type { Database } from './database.types'
 import type { AdminProfile } from './useAdmin'
 
 export type AdminRole = Database['public']['Enums']['knit_admin_role']
 
+/**
+ * English fallback labels for AdminRole values. Use `roleLabel(role, t)`
+ * in components so the EN/ES toggle works; this map is the source of truth
+ * for the EN string and is also used when no `t` is available (e.g.
+ * server-side log messages).
+ */
 export const ROLE_LABELS: Record<AdminRole, string> = {
   stake_presidency: 'Stake Presidency',
   high_councilor: 'High Councilor',
   ward_mission_leader: 'Ward Mission Leader',
   relief_society_presidency: 'Relief Society Presidency',
   elders_quorum_presidency: 'Elders Quorum Presidency',
+}
+
+/**
+ * Localized label for an AdminRole. Components should call this with the
+ * useTranslation 't' so role chips and breadcrumbs follow the language
+ * toggle. Falls back to the English label in ROLE_LABELS if the key isn't
+ * translated yet.
+ */
+export function roleLabel(role: AdminRole, t: TFunction): string {
+  const translated = t(`roles.${role}`, { defaultValue: ROLE_LABELS[role] })
+  return translated || ROLE_LABELS[role]
 }
 
 export const WARD_EDIT_ROLES: readonly AdminRole[] = [

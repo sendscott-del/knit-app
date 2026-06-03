@@ -3,7 +3,7 @@ import { Link, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
-import { canManageStake, ROLE_LABELS } from '@/lib/roles'
+import { canManageStake, roleLabel } from '@/lib/roles'
 import type { Database } from '@/lib/database.types'
 
 type WardRow = Database['public']['Tables']['knit_wards']['Row']
@@ -247,7 +247,7 @@ export default function AdminSettings() {
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <Meta label={t('settings.name')}>{profile.name ?? t('dash')}</Meta>
           <Meta label={t('settings.email')}>{profile.email}</Meta>
-          <Meta label={t('settings.role')}>{ROLE_LABELS[profile.role]}</Meta>
+          <Meta label={t('settings.role')}>{roleLabel(profile.role, t)}</Meta>
           <Meta label={t('settings.scope')}>
             {profile.ward?.name ?? profile.stake?.name ?? t('dash')}
           </Meta>

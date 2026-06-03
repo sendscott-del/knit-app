@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
+import { localizedTagName } from '@/lib/localizedLabel'
 
 type InterestTag = Database['public']['Tables']['knit_interest_tags']['Row']
 type Category = Database['public']['Enums']['knit_tag_category']
@@ -17,7 +18,7 @@ export default function InterestChipPicker({
   value: string[]
   onChange: (next: string[]) => void
 }) {
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const [tags, setTags] = useState<InterestTag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -95,7 +96,7 @@ export default function InterestChipPicker({
                         : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
                     }`}
                   >
-                    {tag.name_en}
+                    {localizedTagName(tag, i18n.language)}
                   </button>
                 )
               })}

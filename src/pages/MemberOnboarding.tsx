@@ -266,7 +266,7 @@ function ScreenDays({
       <AvailabilityGrid value={slots} onChange={onChange} />
       {slots.length > 0 ? (
         <p className="text-sm text-gray-600">
-          <strong>{slotsToString(slots)}</strong>
+          <strong>{slotsToString(slots, t)}</strong>
         </p>
       ) : null}
     </div>
@@ -331,7 +331,7 @@ function ScreenConfirm({
       <p className="text-base text-gray-600">{t('onboarding_inline.confirm_intro')}</p>
       <ul className="space-y-3 text-base text-gray-800">
         <li>
-          <strong>{t('onboarding_inline.label_free')}</strong> {slotsToString(slots) || t('onboarding_inline.none_yet')}
+          <strong>{t('onboarding_inline.label_free')}</strong> {slotsToString(slots, t) || t('onboarding_inline.none_yet')}
         </li>
         <li>
           <strong>{t('onboarding_inline.label_love')}</strong>{' '}
