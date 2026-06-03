@@ -56,12 +56,21 @@ export default function AdminSettings() {
     }
 
     const wardIds = (wardRows ?? []).map((w) => w.id)
-    const [{ data: bindings }, { data: memberCounts }, { data: friendCounts }] =
-      await Promise.all([
-        supabase.from('knit_google_sheet_bindings').select('*').in('ward_id', wardIds),
-        supabase.from('knit_members').select('ward_id').in('ward_id', wardIds),
-        supabase.from('knit_friends').select('ward_id').in('ward_id', wardIds),
-      ])
+    const [
+      { data: bindings, error: bindingsErr },
+      { data: memberCounts, error: memberErr },
+      { data: friendCounts, error: friendErr },
+    ] = await Promise.all([
+      supabase.from('knit_google_sheet_bindings').select('*').in('ward_id', wardIds),
+      supabase.from('knit_members').select('ward_id').in('ward_id', wardIds),
+      supabase.from('knit_friends').select('ward_id').in('ward_id', wardIds),
+    ])
+    const dataErr = bindingsErr ?? memberErr ?? friendErr
+    if (dataErr) {
+      setError(dataErr.message)
+      setLoading(false)
+      return
+    }
 
     const bindingByWard = new Map(
       ((bindings ?? []) as BindingRow[]).map((b) => [b.ward_id, b]),

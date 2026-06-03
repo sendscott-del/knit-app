@@ -540,7 +540,17 @@
     "oauth_err_no_email": "No se pudo determinar tu correo de Google. Inténtalo de nuevo.",
     "oauth_err_no_admin": "Te conectaste como {{email}}, pero ese correo no coincide con ningún administrador de Knit. Inicia sesión en Knit con ese mismo correo primero (o usa una cuenta de Google cuyo correo coincida con el de tu administrador de Knit).",
     "oauth_err_no_admin_default": "esa cuenta de Google",
-    "oauth_err_default": "Conexión fallida: {{code}}"
+    "oauth_err_default": "Conexión fallida: {{code}}",
+    "status_load_failed": "No se pudo cargar el estado de conexión con Google. Recarga la página para intentarlo de nuevo.",
+    "binding_load_failed": "No se pudo cargar el estado de la hoja.",
+    "connect_failed": "No se pudo iniciar la conexión con Google.",
+    "disconnect_failed": "La desconexión falló.",
+    "create_failed": "No se pudo crear la hoja.",
+    "sync_failed": "La sincronización falló.",
+    "share_failed": "El compartir falló.",
+    "remove_failed": "La eliminación falló.",
+    "share_admins_failed": "Compartir con administradores falló.",
+    "add_at_least_one_email": "Agrega al menos una dirección de correo."
   },
   "users": {
     "page_title": "Usuarios",

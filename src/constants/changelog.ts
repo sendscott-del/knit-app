@@ -7,6 +7,24 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.2',
+    date: '2026-06-03',
+    summary: 'Comprehensive audit fixes: data integrity, silent failures, UX bugs.',
+    details: [
+      "sheets-pull cron: now includes `status='error'` bindings so missionary writes (Add a Friend, Log Outing, Remove?) don't silently drop when the morning push marked a binding error. A successful pull also resets status back to healthy and clears last_error — previously a transient push failure could permanently suppress the pull.",
+      "sheets-pull cron: errors are now written to binding.last_error + status='error' so admins can see pull failures in /admin/sheet instead of having to read cron response bodies.",
+      "availability-refresh cron: replaced per-member N+1 dedupe query (up to 2000 Postgres round-trips) with a single batched IN query. Eliminates the cron-timeout risk on large wards. Also checks the audit-write return value so a failed log write surfaces instead of silently allowing duplicate SMS on the next run.",
+      "auth: loadIsAppSuperAdmin now logs DB errors to stderr instead of silently returning false, which would have demoted a Stake President to view-only on a transient Postgres hiccup.",
+      "sheetAccess: reconcile calls now use sendNotificationEmail: false — cron-driven reconciles no longer blast every admin with a Google Drive email on each daily sweep. Only the explicit 'Share with all current Knit admins' button and new-admin invites send notifications.",
+      "sheets.ts shareFileAsUser: per-email try/catch so a single invalid address (non-existent Google account, bad format) no longer aborts the whole share batch at sheet creation time.",
+      "AdminSheet: loadStatus now has a catch block so a failed status call surfaces an error banner instead of showing a stale/incorrect connected state. Also: 10 hardcoded English error strings replaced with t() keys (both EN and ES added), shared_emails null guard prevents a crash if the DB column returns null.",
+      "AdminMembers MemberDetailModal: replaced the raw async load() call with a cancellation-flag pattern. Rapidly opening different members no longer lets an earlier slow fetch overwrite the currently-displayed member's data.",
+      "AdminSettings: all three parallel queries (bindings, memberCounts, friendCounts) now surface errors — previously only the wards query was checked, so an RLS or permission error on those three silently showed wards with zero counts and no sheet binding.",
+      "AdminUsers: all five parallel queries now surface errors — previously only knit_admin_users was checked; a failure on gather_user_roles or gather_app_users showed a partially populated list with no warning.",
+      "AdminInvitations: recipient null guard prevents 'We texted X at null' toast when both body.recipient and selected.phone are null.",
+    ],
+  },
+  {
     version: '0.46.1',
     date: '2026-06-02',
     summary: 'Close the four i18n gaps from v0.46.0 — DB labels, availability summaries, role labels, error messages.',

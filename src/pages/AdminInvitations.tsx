@@ -173,7 +173,7 @@ export default function AdminInvitations() {
           kind: 'ok',
           text: t('invitations.texted_at', {
             name: memberDisplayName(selected, t('dash')),
-            recipient: body.recipient ?? selected.phone,
+            recipient: body.recipient ?? selected.phone ?? t('dash'),
           }),
         })
         await loadHistory()

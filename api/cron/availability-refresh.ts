@@ -6,12 +6,16 @@ import { memberInviteUrl, appOriginFromEnv } from '../_lib/inviteSend.js'
 /**
  * Daily: text each active member whose last availability refresh was 90+
  * days ago (or who has never been refreshed yet) and ask them to confirm
- * or update their availability. Replaces the original spec's weekly nudge —
- * Scott's call is a 90-day cadence is more respectful of members' time.
+ * or update their availability.
  *
- * "Active" means: onboarding completed, not paused, not opted out, has a
- * phone number on file. We cap each run at MAX_PER_RUN sends so a flood
- * of due members (e.g. on rollout day) doesn't drain Twilio in one hit.
+ * Previously the dedupe check for "has this member been refreshed recently?"
+ * ran a separate Supabase query PER MEMBER inside the loop — up to 2000
+ * round-trips before the MAX_PER_RUN cap. Replaced with a single batched
+ * IN query up front, then filter in memory. Much faster and eliminates the
+ * cron-timeout risk on large wards.
+ *
+ * Also fixed: audit-write failures are now surfaced so a failed write
+ * doesn't silently cause duplicate SMS on the next run.
  */
 const MAX_PER_RUN = 200
 const REFRESH_INTERVAL_DAYS = 90
@@ -25,8 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ).toISOString()
   const todayIso = new Date().toISOString().slice(0, 10)
 
-  // Candidate set: active members with a phone, ordered by oldest sync first
-  // so backlog gets worked through deterministically.
+  // Candidate set: active members with a phone, ordered by oldest first.
   const { data: candidates, error: candErr } = await sb
     .from('knit_members')
     .select(
@@ -39,6 +42,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .limit(2000)
   if (candErr) {
     return res.status(500).json({ error: candErr.message })
+  }
+
+  const candidateIds = (candidates ?? []).map((m) => m.id)
+
+  // Single batch query: which of these members already received a refresh
+  // in the last 90 days? This replaces the per-member IN-loop query that
+  // produced up to 2000 Postgres round-trips.
+  const alreadyRefreshed = new Set<string>()
+  if (candidateIds.length > 0) {
+    const { data: recentLogs } = await sb
+      .from('knit_notifications_log')
+      .select('member_id')
+      .in('member_id', candidateIds)
+      .eq('type', 'availability_refresh')
+      .gte('sent_at', cutoffIso)
+    for (const row of recentLogs ?? []) {
+      alreadyRefreshed.add(row.member_id)
+    }
   }
 
   let processed = 0
@@ -56,27 +77,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       continue
     }
 
-    // Has a refresh been sent to this member in the last 90 days?
-    const { data: recent, error: recentErr } = await sb
-      .from('knit_notifications_log')
-      .select('id')
-      .eq('member_id', m.id)
-      .eq('type', 'availability_refresh')
-      .gte('sent_at', cutoffIso)
-      .limit(1)
-      .maybeSingle()
-    if (recentErr) {
-      errors.push(`${m.id}: lookup failed — ${recentErr.message}`)
-      continue
-    }
-    if (recent) {
+    // Skip if already refreshed in the last 90 days (batched check above).
+    if (alreadyRefreshed.has(m.id)) {
       skipped += 1
       continue
     }
 
-    // Mint a fresh magic link. This rotates any prior token, but that's
-    // intended — the member's session cookie expires after 30 days, so
-    // they'd need a fresh link to log back in anyway after 90 days.
     const { data: tokenValue, error: tokenErr } = await sb.rpc(
       'knit_generate_member_magic_link',
       { p_member_id: m.id },
@@ -89,13 +95,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const url = memberInviteUrl(m.id, tokenValue as string, appOriginFromEnv())
     const firstName = m.preferred_name || m.first_name || 'there'
 
-    // Refresh-specific SMS copy. Distinct from the initial invite so the
-    // member knows this is a check-in, not a brand new request.
     const body = `Hi ${firstName} — it's been a while since you set your Knit availability. Tap to keep it the same or update it: ${url}`
     const sendRes = await sendSms(m.phone as string, body)
 
-    // Audit log: always record, success or failure.
-    await sb.from('knit_notifications_log').insert({
+    // Audit log — write and check error. If the write fails the next run will
+    // re-send (no dedupe). Surface the failure so it's visible in the response
+    // rather than silently producing duplicate SMS.
+    const { error: auditErr } = await sb.from('knit_notifications_log').insert({
       member_id: m.id,
       type: 'availability_refresh',
       tidings_message_id: sendRes.providerMessageId ?? null,
@@ -106,12 +112,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         recipient: m.phone,
       },
     })
+    if (auditErr) {
+      errors.push(`${m.id}: audit write failed — ${auditErr.message} (SMS ${sendRes.ok ? 'sent' : 'failed'})`)
+    }
 
     if (sendRes.ok) {
       sent += 1
     } else {
       failed += 1
-      errors.push(`${m.id}: ${sendRes.error}`)
+      if (!auditErr) errors.push(`${m.id}: ${sendRes.error}`)
     }
     processed += 1
   }
@@ -127,12 +136,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   })
 }
 
-/**
- * Direct call to the Tidings cross-project SMS edge function. The cron uses
- * a refresh-flavored message body (not the onboarding-flavored one in
- * sendInviteSms), so we inline the transport rather than build a per-template
- * wrapper. Mirrors the shape in api/_lib/inviteSend.ts so swapping is easy.
- */
 async function sendSms(toPhone: string, body: string) {
   const smsUrl = process.env.TIDINGS_SMS_URL
   const secret = process.env.TIDINGS_INTERNAL_FN_SECRET

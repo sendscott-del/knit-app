@@ -107,8 +107,11 @@ export default function AdminUsers() {
       supabase.from('gather_app_users').select('user_id, email').order('email'),
       supabase.rpc('knit_is_app_super_admin'),
     ])
-    if (knitRes.error) {
-      setError(knitRes.error.message)
+    // Surface any query failure — previously only knitRes was checked; silent
+    // failures on the suite/app-users/super queries showed partial data.
+    const anyErr = knitRes.error ?? wardsRes.error ?? suiteRes.error ?? appUsersRes.error ?? superRes.error
+    if (anyErr) {
+      setError(anyErr.message)
       setLoading(false)
       return
     }

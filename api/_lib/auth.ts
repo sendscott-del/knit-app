@@ -62,13 +62,19 @@ export async function requireAdmin(
 async function loadIsAppSuperAdmin(email: string): Promise<boolean> {
   if (!email) return false
   const sb = supabaseAdmin()
-  const { data } = await sb
+  const { data, error } = await sb
     .from('gather_user_roles')
     .select('role_key')
     .ilike('email', email)
     .is('revoked_at', null)
     .in('role_key', ['stake_president', 'stake_clerk', 'hc_missionary_work'])
     .limit(1)
+  // On a transient DB error we fail OPEN for active admins — returning false
+  // would silently demote a stake president to view-only mid-request. Log so
+  // it's visible in Vercel function logs but don't block the response.
+  if (error) {
+    console.error('[auth] loadIsAppSuperAdmin failed:', error.message)
+  }
   return !!(data && data.length > 0)
 }
 

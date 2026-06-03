@@ -540,7 +540,17 @@
     "oauth_err_no_email": "Could not determine your Google email. Try again.",
     "oauth_err_no_admin": "You connected as {{email}}, but that email doesn't match any Knit admin. Sign in to Knit with that same email first (or use a Google account whose email matches your Knit admin email).",
     "oauth_err_no_admin_default": "that Google account",
-    "oauth_err_default": "Connect failed: {{code}}"
+    "oauth_err_default": "Connect failed: {{code}}",
+    "status_load_failed": "Could not load Google connection status. Refresh to try again.",
+    "binding_load_failed": "Could not load sheet status.",
+    "connect_failed": "Failed to start Google connect.",
+    "disconnect_failed": "Disconnect failed.",
+    "create_failed": "Failed to create sheet.",
+    "sync_failed": "Sync failed.",
+    "share_failed": "Share failed.",
+    "remove_failed": "Remove failed.",
+    "share_admins_failed": "Share with admins failed.",
+    "add_at_least_one_email": "Add at least one email address."
   },
   "users": {
     "page_title": "Users",
