@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.45.1',
+    date: '2026-06-02',
+    summary: 'Hotfix: friend-removal pull was skipping because it checked the wrong row for header drift.',
+    details: [
+      "Symptom Scott reported: 'checkbox unchecks after sync, but the friend stays.' Root cause: verifyAndRestoreHeaders compared expected headers against row 1, but the FRIENDS tab puts headers in row 2 (banner sits in row 1, like every other tab in READ_ONLY_BANNER_TABS). Every pull saw 'READ ONLY — DO NOT EDIT...' in row 1, decided headers were drifted, repaired them by writing the column names over the banner, AND skipped pullFriendRemovals entirely. So the soft-delete never ran. The morning push then wrote empty strings into Remove?/Reason on every row — clearing the missionary's check and making it look like the sync had processed.",
+      "Fix: verifyAndRestoreHeaders now uses headerRow(tab) instead of the hardcoded 1. Banner-prefixed tabs (FRIENDS) get their headers read/written at row 2; everything else still uses row 1. Next pull will compare the real header row, not see drift, and pullFriendRemovals will execute against the missionary's check.",
+      "The next morning push will also rewrite the banner row that previous v0.45.0 pulls had clobbered with column names — writeReadOnlyBanners is idempotent on row 1.",
+    ],
+  },
+  {
     version: '0.45.0',
     date: '2026-05-31',
     summary: 'Missionaries can remove friends directly from the Google Sheet.',

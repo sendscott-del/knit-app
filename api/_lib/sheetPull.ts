@@ -6,6 +6,7 @@ import {
   getExpectedHeaders,
   populateMemberRoster,
   dataStartRow,
+  headerRow,
 } from './sheetSync.js'
 import { colLetter, ensureTabs } from './sheets.js'
 import {
@@ -73,7 +74,13 @@ async function verifyAndRestoreHeaders(
   const expected = getExpectedHeaders(tab)
   if (!expected) return { ok: true, repaired: false }
 
-  const range = `${tab}!A1:${colLetter(expected.length)}1`
+  // Headers live on different rows depending on whether the tab has the
+  // READ ONLY banner (row 1) — without this, banner-prefixed tabs (notably
+  // FRIENDS) get "drift detected" on every pull because we're comparing the
+  // banner text against the expected column names. That bug skipped the
+  // friend-removal pass entirely and clobbered the banner on repair.
+  const row = headerRow(tab)
+  const range = `${tab}!A${row}:${colLetter(expected.length)}${row}`
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range,
