@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 
 export default function AdminCallback() {
   const { session, loading } = useAuth()
+  const { t } = useTranslation('common')
 
   useEffect(() => {
     // Supabase JS auto-consumes the hash (#access_token=...) on load.
@@ -16,7 +18,7 @@ export default function AdminCallback() {
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500">
-        Signing you in…
+        {t('callback.signing_in')}
       </main>
     )
   }

@@ -22,19 +22,18 @@ export default function Landing() {
       <div className="max-w-xl mx-auto px-6 -mt-12 pb-12 w-full">
         <div className="suite-card p-8 text-center space-y-6">
           <p className="text-base text-gray-700 leading-relaxed">
-            A fellowship-matching app that helps ward members form lasting friendships
-            with the people the missionaries are teaching.
+            {t('landing.blurb')}
           </p>
           <div className="pt-2 flex flex-col sm:flex-row gap-2 sm:justify-center">
             <Link to="/join" className="btn-primary w-full sm:w-auto">
-              Get my survey link
+              {t('landing.get_survey_link')}
             </Link>
             <Link to="/admin/login" className="btn-outline w-full sm:w-auto">
-              Leader sign in
+              {t('landing.leader_sign_in')}
             </Link>
           </div>
           <p className="text-xs text-gray-500 pt-1">
-            Members: tap "Get my survey link" if you're not sure what to do with this page.
+            {t('landing.members_hint')}
           </p>
         </div>
         <p className="text-xs text-gray-400 text-center pt-6">v{CURRENT_VERSION}</p>

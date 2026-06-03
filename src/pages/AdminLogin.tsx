@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import KnitMark from '@/components/KnitMark'
@@ -15,12 +16,13 @@ type Status =
 export default function AdminLogin() {
   const { session, loading } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation('common')
   const [mode, setMode] = useState<Mode>('link')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
 
-  if (loading) return <CenteredNote>Loading…</CenteredNote>
+  if (loading) return <CenteredNote>{t('loading')}</CenteredNote>
   if (session) return <Navigate to="/admin" replace />
 
   const onSubmit = async (e: FormEvent) => {
@@ -48,9 +50,9 @@ export default function AdminLogin() {
         <div className="max-w-md mx-auto px-6 pt-14 pb-24 text-center">
           <Link to="/" className="inline-flex flex-col items-center gap-3">
             <KnitMark size={44} />
-            <span className="text-2xl font-semibold tracking-tight">Knit</span>
+            <span className="text-2xl font-semibold tracking-tight">{t('app_name')}</span>
           </Link>
-          <p className="text-base text-brand-primary-fade mt-4">Leader sign in</p>
+          <p className="text-base text-brand-primary-fade mt-4">{t('login.leader_sign_in')}</p>
         </div>
       </div>
 
@@ -62,29 +64,33 @@ export default function AdminLogin() {
               onClick={() => { setMode('link'); setStatus({ kind: 'idle' }) }}
               className={`px-3 py-1 rounded ${mode === 'link' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
             >
-              Email link
+              {t('login.email_link')}
             </button>
             <button
               type="button"
               onClick={() => { setMode('password'); setStatus({ kind: 'idle' }) }}
               className={`px-3 py-1 rounded ${mode === 'password' ? 'bg-white shadow text-gray-900' : 'text-gray-500'}`}
             >
-              Password
+              {t('login.password')}
             </button>
           </div>
 
           {status.kind === 'sent' ? (
             <div className="rounded-md border border-success/30 bg-success/5 p-5 space-y-2">
-              <h2 className="text-lg font-semibold text-gray-900">Check your email</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('login.check_email_title')}</h2>
               <p className="text-base text-gray-700">
-                We sent a sign-in link to <strong>{email}</strong>. Tap it from the
-                same browser you opened this page in.
+                <Trans
+                  i18nKey="login.check_email_body"
+                  ns="common"
+                  values={{ email }}
+                  components={{ strong: <strong /> }}
+                />
               </p>
             </div>
           ) : (
             <form onSubmit={onSubmit} className="space-y-4">
               <label className="block space-y-2">
-                <span className="text-sm font-semibold text-gray-700">Email</span>
+                <span className="text-sm font-semibold text-gray-700">{t('signup.email')}</span>
                 <input
                   type="email"
                   required
@@ -92,12 +98,12 @@ export default function AdminLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="form-input"
-                  placeholder="you@example.com"
+                  placeholder={t('signup.email_placeholder')}
                 />
               </label>
               {mode === 'password' && (
                 <label className="block space-y-2">
-                  <span className="text-sm font-semibold text-gray-700">Password</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('login.password')}</span>
                   <input
                     type="password"
                     required
@@ -111,15 +117,15 @@ export default function AdminLogin() {
               )}
               <button type="submit" disabled={status.kind === 'sending'} className="btn-primary w-full">
                 {status.kind === 'sending'
-                  ? 'Working…'
+                  ? t('login.working')
                   : mode === 'link'
-                    ? 'Email me a sign-in link'
-                    : 'Sign in'}
+                    ? t('login.email_me_link')
+                    : t('login.sign_in')}
               </button>
               {mode === 'password' && (
                 <p className="text-center text-sm">
                   <Link to="/forgot-password" className="text-knit-primary font-semibold underline">
-                    Forgot your password?
+                    {t('login.forgot_password')}
                   </Link>
                 </p>
               )}
@@ -131,13 +137,13 @@ export default function AdminLogin() {
         </div>
 
         <p className="text-sm text-gray-600 text-center pt-6">
-          Don&rsquo;t have access yet?{' '}
+          {t('login.no_access')}{' '}
           <Link to="/signup" className="text-knit-primary font-semibold underline">
-            Get access to Knit
+            {t('login.get_access')}
           </Link>
         </p>
         <p className="text-xs text-gray-500 text-center pt-2">
-          Members &mdash; don&rsquo;t sign in here. Use the link we texted you.
+          {t('login.members_no_signin')}
         </p>
       </div>
     </main>

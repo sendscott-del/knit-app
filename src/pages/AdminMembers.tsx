@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
@@ -24,6 +25,7 @@ type Ctx = { profile: AdminProfile }
 
 export default function AdminMembers() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
   const editor = canEdit(profile)
   const [members, setMembers] = useState<MemberWithExtras[]>([])
@@ -41,15 +43,12 @@ export default function AdminMembers() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [totalCount, setTotalCount] = useState<number | null>(null)
-  // Default view is "only members who have completed the survey." Search
-  // overrides this so admins can still find someone in the broader roster
-  // (e.g. to manually add them or check why they aren't showing up).
   const [showAll, setShowAll] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
 
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 200)
-    return () => clearTimeout(t)
+    const tt = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 200)
+    return () => clearTimeout(tt)
   }, [searchQuery])
 
   async function refresh() {
@@ -65,8 +64,6 @@ export default function AdminMembers() {
       .order('first_name', { ascending: true })
     if (wardFilter) q = q.eq('ward_id', wardFilter)
     if (!showAll && !debouncedQuery) {
-      // Idle view: registered members only. Searching or toggling "show all"
-      // widens the set; the row cap still applies via PostgREST.
       q = q.not('onboarding_completed_at', 'is', null).is('opted_out_at', null)
     }
     if (debouncedQuery) {
@@ -97,14 +94,13 @@ export default function AdminMembers() {
 
   useEffect(() => {
     void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wardFilter, debouncedQuery, showAll])
 
-  // Server-side filter already trimmed the list; this is just an alias so
-  // the JSX doesn't need to change much.
   const visibleMembers = members
 
   async function remove(id: string) {
-    if (!confirm('Remove this member? This is permanent for now.')) return
+    if (!confirm(t('members.remove_confirm'))) return
     const { error } = await supabase.from('knit_members').delete().eq('id', id)
     if (error) {
       alert(error.message)
@@ -116,9 +112,7 @@ export default function AdminMembers() {
   async function generateInvite(member: MemberWithExtras) {
     if (
       member.token_issued_at &&
-      !confirm(
-        'This member already has a link. Generating a new one will invalidate the old one. Continue?',
-      )
+      !confirm(t('members.regenerate_confirm'))
     ) {
       return
     }
@@ -128,13 +122,13 @@ export default function AdminMembers() {
     })
     setGenerating(null)
     if (error || !data) {
-      alert(error?.message ?? 'Could not generate link.')
+      alert(error?.message ?? t('members.could_not_generate'))
       return
     }
     const url = memberInviteUrl(window.location.origin, member.id, data as string)
     setInviteLink({
       memberId: member.id,
-      memberName: displayName(member),
+      memberName: displayName(member, t('dash')),
       url,
       phone: member.phone ?? null,
     })
@@ -144,9 +138,9 @@ export default function AdminMembers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Members</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('members.page_title')}</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Ward members enrolled in fellowship matching.
+            {t('members.page_subtitle')}
           </p>
         </div>
         {editor ? (
@@ -154,7 +148,7 @@ export default function AdminMembers() {
             onClick={() => setShowForm((v) => !v)}
             className="btn-primary text-sm py-2 px-4"
           >
-            {showForm ? 'Cancel' : 'Add member'}
+            {showForm ? t('cancel') : t('members.add_member')}
           </button>
         ) : null}
       </div>
@@ -180,7 +174,7 @@ export default function AdminMembers() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by name or phone"
+          placeholder={t('members.search_placeholder')}
           className="form-input"
         />
         {wards.length > 1 ? (
@@ -190,7 +184,7 @@ export default function AdminMembers() {
             disabled={wardsLoading}
             className="form-input"
           >
-            <option value="">All wards ({wards.length})</option>
+            <option value="">{t('all_wards', { count: wards.length })}</option>
             {wards.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -203,19 +197,33 @@ export default function AdminMembers() {
         <p className="text-xs text-gray-500">
           {(() => {
             const wardLabel = wardFilter
-              ? ` in ${wards.find((w) => w.id === wardFilter)?.name ?? 'selected ward'}`
+              ? t('members.summary_in_ward_prefix', {
+                  name: wards.find((w) => w.id === wardFilter)?.name ?? t('members.summary_selected_ward'),
+                })
               : ''
             const total = totalCount ?? members.length
             if (debouncedQuery) {
-              return `${members.length.toLocaleString()} ${members.length === 1 ? 'match' : 'matches'} for "${debouncedQuery}"${wardLabel} (of ${total.toLocaleString()} ${showAll ? 'in roster' : 'registered'}).`
+              const base = showAll ? t('members.summary_base_in_roster') : t('members.summary_base_registered')
+              return t('members.summary_match', {
+                count: members.length,
+                matches: members.length.toLocaleString(),
+                q: debouncedQuery,
+                wardLabel,
+                total: total.toLocaleString(),
+                base,
+              })
             }
             if (showAll) {
               if (totalCount !== null && members.length < totalCount) {
-                return `Showing first ${members.length.toLocaleString()} of ${totalCount.toLocaleString()} members in the roster${wardLabel}. Type a name or phone to search the rest.`
+                return t('members.summary_show_all_partial', {
+                  shown: members.length.toLocaleString(),
+                  total: totalCount.toLocaleString(),
+                  wardLabel,
+                })
               }
-              return `${members.length.toLocaleString()} member${members.length === 1 ? '' : 's'} in roster${wardLabel}.`
+              return t('members.summary_in_roster', { count: members.length, wardLabel })
             }
-            return `${members.length.toLocaleString()} registered member${members.length === 1 ? '' : 's'}${wardLabel}.`
+            return t('members.summary_registered', { count: members.length, wardLabel })
           })()}
         </p>
         <label className="flex items-center gap-2 text-xs text-gray-600">
@@ -224,44 +232,41 @@ export default function AdminMembers() {
             checked={showAll}
             onChange={(e) => setShowAll(e.target.checked)}
           />
-          Show everyone in the roster (not just registered)
+          {t('members.show_all_label')}
         </label>
       </div>
 
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500">Loading members…</div>
+          <div className="p-6 text-sm text-gray-500">{t('members.loading')}</div>
         ) : error ? (
           <div className="p-6 text-sm text-error">{error}</div>
         ) : members.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
-            No members yet. Add your first above.
+            {t('members.empty_top')}
           </div>
         ) : visibleMembers.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
-            No members match those filters. {searchQuery ? (
+            {t('members.no_match_filters')} {searchQuery ? (
               <button
                 onClick={() => setSearchQuery('')}
                 className="text-knit-primary hover:underline"
               >
-                Clear search
+                {t('members.clear_search')}
               </button>
             ) : null}
           </div>
         ) : (
-          // Wrapped in overflow-x-auto for narrow viewports; columns also
-          // collapse with hidden/md:table-cell so the most important data
-          // (name + status + actions) stays in view on a phone.
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium hidden sm:table-cell">Phone</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Language</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Available</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">Ward</th>
-                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">{t('members.col_name')}</th>
+                <th className="px-4 py-3 font-medium hidden sm:table-cell">{t('members.col_phone')}</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">{t('members.col_language')}</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">{t('members.col_available')}</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">{t('members.col_ward')}</th>
+                <th className="px-4 py-3 font-medium">{t('members.col_status')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -273,13 +278,13 @@ export default function AdminMembers() {
                       onClick={() => setDetailId(m.id)}
                       className="text-left text-gray-900 hover:text-knit-primary hover:underline"
                     >
-                      {displayName(m)}
+                      {displayName(m, t('dash'))}
                     </button>
                     <DemoBadge when={m.is_demo} />
                   </td>
-                  <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{m.phone ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{m.phone ?? t('dash')}</td>
                   <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
-                    {m.locale === 'es' ? 'Spanish' : 'English'}
+                    {m.locale === 'es' ? t('spanish') : t('english')}
                   </td>
                   <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
                     {m.availability && m.availability.length > 0
@@ -289,9 +294,9 @@ export default function AdminMembers() {
                             timeSlot: r.time_slot as TimeSlot,
                           })),
                         )
-                      : '—'}
+                      : t('dash')}
                   </td>
-                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{m.ward?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{m.ward?.name ?? t('dash')}</td>
                   <td className="px-4 py-3">
                     <StatusBadge member={m} />
                   </td>
@@ -304,20 +309,20 @@ export default function AdminMembers() {
                           className="text-sm text-gray-700 hover:text-gray-900 mr-4 disabled:opacity-50"
                         >
                           {generating === m.id
-                            ? 'Generating…'
+                            ? t('members.generating')
                             : m.token_issued_at
-                              ? 'New link'
-                              : 'Invite link'}
+                              ? t('members.new_link')
+                              : t('members.invite_link')}
                         </button>
                         <button
                           onClick={() => void remove(m.id)}
                           className="text-sm text-error hover:opacity-80"
                         >
-                          Remove
+                          {t('members.remove_action')}
                         </button>
                       </>
                     ) : (
-                      <span className="text-xs text-gray-400">View-only</span>
+                      <span className="text-xs text-gray-400">{t('view_only')}</span>
                     )}
                   </td>
                 </tr>
@@ -349,9 +354,9 @@ export default function AdminMembers() {
       ) : null}
 
       <p className="text-xs text-gray-500">
-        Want to search across the whole stake?{' '}
+        {t('members.search_across_stake')}{' '}
         <Link to="/admin/invitations" className="text-knit-primary hover:underline">
-          Open the Invitations page →
+          {t('members.open_invitations')}
         </Link>
       </p>
     </div>
@@ -371,6 +376,7 @@ function InviteLinkModal({
   phone: string | null
   onClose: () => void
 }) {
+  const { t } = useTranslation('common')
   const [copied, setCopied] = useState(false)
   const [sending, setSending] = useState(false)
   const [outcome, setOutcome] = useState<
@@ -403,11 +409,11 @@ function InviteLinkModal({
         | { ok?: boolean; recipient?: string; error?: string }
         | null
       if (!res.ok || !body?.ok) {
-        setOutcome({ kind: 'err', text: body?.error ?? `Send failed (${res.status})` })
+        setOutcome({ kind: 'err', text: body?.error ?? t('invite_modal.send_failed', { status: res.status }) })
       } else {
         setOutcome({
           kind: 'ok',
-          text: `Texted ${memberName} at ${body.recipient ?? phone}`,
+          text: t('invite_modal.texted_at', { name: memberName, recipient: body.recipient ?? phone }),
         })
       }
     } catch (e) {
@@ -428,11 +434,10 @@ function InviteLinkModal({
       >
         <div>
           <h2 className="text-lg font-semibold text-gray-900">
-            Invite {memberName}
+            {t('invite_modal.title', { name: memberName })}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            Knit will send {memberName.split(' ')[0]} a personal link to the availability survey.
-            The link is unique to them and valid for 30 days.
+            {t('invite_modal.intro', { first: memberName.split(' ')[0] })}
           </p>
         </div>
 
@@ -441,7 +446,7 @@ function InviteLinkModal({
           disabled={!phone || sending}
           className="w-full rounded-md border-[1.5px] border-knit-primary text-knit-primary px-3 py-2 text-sm font-medium hover:bg-knit-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {sending ? 'Sending text…' : phone ? 'Send by text' : 'Send by text (no phone)'}
+          {sending ? t('invite_modal.sending_text') : phone ? t('invite_modal.send_text') : t('invite_modal.send_text_no_phone')}
         </button>
 
         {outcome ? (
@@ -454,7 +459,7 @@ function InviteLinkModal({
 
         <details className="text-xs text-gray-500">
           <summary className="cursor-pointer text-gray-600 hover:text-gray-900">
-            Or copy the link to send another way
+            {t('invite_modal.or_copy')}
           </summary>
           <div className="mt-2 space-y-2">
             <div className="rounded-md border-[1.5px] border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 break-all font-mono">
@@ -464,7 +469,7 @@ function InviteLinkModal({
               onClick={() => void copy()}
               className="rounded-md border-[1.5px] border-gray-200 text-gray-700 hover:bg-gray-50 px-3 py-1.5 text-xs font-medium"
             >
-              {copied ? 'Copied!' : 'Copy link'}
+              {copied ? t('invite_modal.copied') : t('invite_modal.copy_link')}
             </button>
           </div>
         </details>
@@ -474,7 +479,7 @@ function InviteLinkModal({
             onClick={onClose}
             className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
-            Close
+            {t('close')}
           </button>
         </div>
       </div>
@@ -482,30 +487,26 @@ function InviteLinkModal({
   )
 }
 
-function displayName(m: MemberRow): string {
+function displayName(m: MemberRow, dash: string): string {
   if (m.preferred_name) return m.preferred_name
   const full = [m.first_name, m.last_name].filter(Boolean).join(' ').trim()
-  return full || '—'
+  return full || dash
 }
 
 function StatusBadge({ member }: { member: MemberWithExtras }) {
-  if (member.opted_out_at) return <Badge tone="rose">Opted out</Badge>
+  const { t } = useTranslation('common')
+  if (member.opted_out_at) return <Badge tone="rose">{t('members.status_opted_out')}</Badge>
   if (member.paused_until && new Date(member.paused_until) > new Date()) {
-    return <Badge tone="amber">Paused</Badge>
+    return <Badge tone="amber">{t('members.status_paused')}</Badge>
   }
-  // Per the Gathered User Access spreadsheet: "Ward members don't show as
-  // active options until they have completed a Knit availability update."
-  // So "Active" requires onboarding done AND at least one availability
-  // baseline row. Onboarded-but-no-availability gets its own state so admins
-  // can see who needs a nudge.
   const hasAvailability = (member.availability?.length ?? 0) > 0
   if (member.onboarding_completed_at && hasAvailability) {
-    return <Badge tone="emerald">Active</Badge>
+    return <Badge tone="emerald">{t('members.status_active')}</Badge>
   }
   if (member.onboarding_completed_at) {
-    return <Badge tone="amber">No availability yet</Badge>
+    return <Badge tone="amber">{t('members.status_no_availability')}</Badge>
   }
-  return <Badge tone="slate">Not onboarded</Badge>
+  return <Badge tone="slate">{t('members.status_not_onboarded')}</Badge>
 }
 
 function Badge({
@@ -541,6 +542,7 @@ function NewMemberForm({
   defaultWardId: string
   onCreated: () => void | Promise<void>
 }) {
+  const { t } = useTranslation('common')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
@@ -557,7 +559,7 @@ function NewMemberForm({
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!wardId) {
-      setErr('Pick a ward.')
+      setErr(t('members.pick_ward_first'))
       return
     }
     setSaving(true)
@@ -576,7 +578,7 @@ function NewMemberForm({
 
     if (error || !created) {
       setSaving(false)
-      setErr(error?.message ?? 'Failed to save member.')
+      setErr(error?.message ?? t('members.failed_save_member'))
       return
     }
 
@@ -590,7 +592,7 @@ function NewMemberForm({
       )
       if (availErr) {
         setSaving(false)
-        setErr(`Member saved, but availability failed: ${availErr.message}`)
+        setErr(`${t('members.failed_save_member')} ${availErr.message}`)
         return
       }
     }
@@ -609,7 +611,7 @@ function NewMemberForm({
       onSubmit={submit}
       className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
-      <Field label="First name" required>
+      <Field label={t('members.first_name')} required>
         <input
           type="text"
           required
@@ -618,7 +620,7 @@ function NewMemberForm({
           className="form-input"
         />
       </Field>
-      <Field label="Last name">
+      <Field label={t('members.last_name')}>
         <input
           type="text"
           value={lastName}
@@ -626,27 +628,27 @@ function NewMemberForm({
           className="form-input"
         />
       </Field>
-      <Field label="Phone" hint="Used later for SMS nudges via Tidings">
+      <Field label={t('members.col_phone')} hint={t('members.phone_hint')}>
         <input
           type="tel"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="+1 555 555 5555"
+          placeholder={t('members.phone_placeholder')}
           className="form-input"
         />
       </Field>
-      <Field label="Language">
+      <Field label={t('members.language')}>
         <select
           value={locale}
           onChange={(e) => setLocale(e.target.value as 'en' | 'es')}
           className="form-input"
         >
-          <option value="en">English</option>
-          <option value="es">Spanish</option>
+          <option value="en">{t('english')}</option>
+          <option value="es">{t('spanish')}</option>
         </select>
       </Field>
       {wards.length > 1 ? (
-        <Field label="Ward" required>
+        <Field label={t('ward')} required>
           <select
             required
             value={wardId}
@@ -654,7 +656,7 @@ function NewMemberForm({
             className="form-input"
             disabled={wardsLoading}
           >
-            <option value="">{wardsLoading ? 'Loading…' : 'Pick a ward'}</option>
+            <option value="">{wardsLoading ? t('loading') : t('pick_a_ward')}</option>
             {wards.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -665,8 +667,8 @@ function NewMemberForm({
       ) : null}
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-gray-700">Availability</span>
-          <span className="text-xs text-gray-500">{slotsToString(availability) || 'Tap to select times'}</span>
+          <span className="text-sm font-medium text-gray-700">{t('members.availability')}</span>
+          <span className="text-xs text-gray-500">{slotsToString(availability) || t('members.tap_to_select_times')}</span>
         </div>
         <AvailabilityGrid value={availability} onChange={setAvailability} />
       </div>
@@ -677,7 +679,7 @@ function NewMemberForm({
           disabled={saving}
           className="btn-primary text-sm py-2 px-4"
         >
-          {saving ? 'Saving…' : 'Save member'}
+          {saving ? t('saving') : t('members.save_member')}
         </button>
       </div>
     </form>
@@ -708,11 +710,7 @@ function Field({
 }
 
 /**
- * Detail / edit modal for a member's survey answers. Loads availability,
- * interests, and styles directly from the DB (we're admin — RLS lets us
- * write to these tables for members in our scope, no token needed). Saves
- * write back to the same tables. The modal is a viewer first; clicking
- * "Edit" on each section flips it to edit mode.
+ * Detail / edit modal for a member's survey answers.
  */
 function MemberDetailModal({
   memberId,
@@ -723,6 +721,7 @@ function MemberDetailModal({
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
+  const { t } = useTranslation('common')
   type DetailData = {
     member: MemberRow
     ward: { id: string; name: string } | null
@@ -759,7 +758,7 @@ function MemberDetailModal({
         .eq('member_id', memberId),
     ])
     if (memberRes.error || !memberRes.data) {
-      setError(memberRes.error?.message ?? 'Member not found.')
+      setError(memberRes.error?.message ?? t('members.detail.member_not_found'))
       setLoading(false)
       return
     }
@@ -908,12 +907,12 @@ function MemberDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-gray-500">{t('loading')}</p>
         ) : error ? (
           <div className="space-y-3">
             <p className="text-sm text-error">{error}</p>
             <button onClick={onClose} className="btn-primary text-sm py-2 px-4">
-              Close
+              {t('close')}
             </button>
           </div>
         ) : data ? (
@@ -921,20 +920,20 @@ function MemberDetailModal({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {displayName(data.member)}
+                  {displayName(data.member, t('dash'))}
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {data.ward?.name ?? '—'} · {data.member.phone ?? 'no phone'} ·{' '}
-                  {data.member.locale === 'es' ? 'Spanish' : 'English'}
+                  {data.ward?.name ?? t('dash')} · {data.member.phone ?? t('members.detail.no_phone')} ·{' '}
+                  {data.member.locale === 'es' ? t('spanish') : t('english')}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {data.member.onboarding_completed_at
-                    ? `Registered ${new Date(data.member.onboarding_completed_at).toLocaleDateString()}`
-                    : 'Not yet onboarded'}
+                    ? t('members.detail.registered_on', { date: new Date(data.member.onboarding_completed_at).toLocaleDateString() })
+                    : t('members.detail.not_onboarded')}
                 </p>
               </div>
               <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-900">
-                Close
+                {t('close')}
               </button>
             </div>
 
@@ -992,6 +991,7 @@ function SectionShell({
   onStartEdit: () => void
   children: React.ReactNode
 }) {
+  const { t } = useTranslation('common')
   return (
     <section className="rounded-md border border-gray-200 p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -1001,7 +1001,7 @@ function SectionShell({
             onClick={onStartEdit}
             className="text-xs text-gray-700 hover:text-gray-900 underline"
           >
-            Edit
+            {t('edit')}
           </button>
         ) : null}
       </div>
@@ -1025,6 +1025,7 @@ function ProfileSection({
   onCancel: () => void
   onSave: (p: { preferred_name: string | null; locale: 'en' | 'es'; phone: string | null }) => void
 }) {
+  const { t } = useTranslation('common')
   const [preferred, setPreferred] = useState(member.preferred_name ?? '')
   const [locale, setLocale] = useState<'en' | 'es'>(member.locale ?? 'en')
   const [phone, setPhone] = useState(member.phone ?? '')
@@ -1039,11 +1040,11 @@ function ProfileSection({
   }, [editing])
 
   return (
-    <SectionShell title="Profile" editing={editing} onStartEdit={onStartEdit}>
+    <SectionShell title={t('members.detail.section_profile')} editing={editing} onStartEdit={onStartEdit}>
       {editing ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1">
-            <span className="text-xs text-gray-600">Preferred name</span>
+            <span className="text-xs text-gray-600">{t('members.detail.preferred_name')}</span>
             <input
               type="text"
               value={preferred}
@@ -1052,7 +1053,7 @@ function ProfileSection({
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-600">Phone</span>
+            <span className="text-xs text-gray-600">{t('members.detail.phone')}</span>
             <input
               type="tel"
               value={phone}
@@ -1061,14 +1062,14 @@ function ProfileSection({
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xs text-gray-600">Language</span>
+            <span className="text-xs text-gray-600">{t('members.detail.language')}</span>
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value as 'en' | 'es')}
               className="form-input"
             >
-              <option value="en">English</option>
-              <option value="es">Spanish</option>
+              <option value="en">{t('english')}</option>
+              <option value="es">{t('spanish')}</option>
             </select>
           </label>
           <div className="sm:col-span-2 flex gap-2 pt-1">
@@ -1083,29 +1084,29 @@ function ProfileSection({
               disabled={saving}
               className="btn-primary text-sm py-1.5 px-3"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : (
         <div className="text-sm text-gray-700 space-y-1">
           <div>
-            <span className="text-gray-500">Preferred name:</span>{' '}
-            {member.preferred_name || '—'}
+            <span className="text-gray-500">{t('members.detail.preferred_name')}:</span>{' '}
+            {member.preferred_name || t('dash')}
           </div>
           <div>
-            <span className="text-gray-500">Phone:</span> {member.phone ?? '—'}
+            <span className="text-gray-500">{t('members.detail.phone')}:</span> {member.phone ?? t('dash')}
           </div>
           <div>
-            <span className="text-gray-500">Language:</span>{' '}
-            {member.locale === 'es' ? 'Spanish' : 'English'}
+            <span className="text-gray-500">{t('members.detail.language')}:</span>{' '}
+            {member.locale === 'es' ? t('spanish') : t('english')}
           </div>
         </div>
       )}
@@ -1128,6 +1129,7 @@ function AvailabilitySection({
   onCancel: () => void
   onSave: (s: Slot[]) => void
 }) {
+  const { t } = useTranslation('common')
   const [draft, setDraft] = useState<Slot[]>(slots)
   useEffect(() => {
     if (editing) setDraft(slots)
@@ -1135,30 +1137,30 @@ function AvailabilitySection({
   }, [editing])
 
   return (
-    <SectionShell title="Availability" editing={editing} onStartEdit={onStartEdit}>
+    <SectionShell title={t('members.detail.section_availability')} editing={editing} onStartEdit={onStartEdit}>
       {editing ? (
         <div className="space-y-3">
           <AvailabilityGrid value={draft} onChange={setDraft} />
-          <p className="text-xs text-gray-500">{slotsToString(draft) || 'No times set.'}</p>
+          <p className="text-xs text-gray-500">{slotsToString(draft) || t('members.detail.no_times')}</p>
           <div className="flex gap-2">
             <button
               onClick={() => onSave(draft)}
               disabled={saving}
               className="btn-primary text-sm py-1.5 px-3"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-700">{slotsToString(slots) || 'No times set yet.'}</p>
+        <p className="text-sm text-gray-700">{slotsToString(slots) || t('members.detail.no_times_yet')}</p>
       )}
     </SectionShell>
   )
@@ -1181,6 +1183,7 @@ function InterestsSection({
   onCancel: () => void
   onSave: (ids: string[]) => void
 }) {
+  const { t } = useTranslation('common')
   const [draft, setDraft] = useState<string[]>(ids)
   useEffect(() => {
     if (editing) setDraft(ids)
@@ -1188,7 +1191,7 @@ function InterestsSection({
   }, [editing])
 
   return (
-    <SectionShell title="Interests" editing={editing} onStartEdit={onStartEdit}>
+    <SectionShell title={t('members.detail.section_interests')} editing={editing} onStartEdit={onStartEdit}>
       {editing ? (
         <div className="space-y-3">
           <InterestChipPicker wardId={wardId} value={draft} onChange={setDraft} />
@@ -1198,21 +1201,21 @@ function InterestsSection({
               disabled={saving}
               className="btn-primary text-sm py-1.5 px-3"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : ids.length === 0 ? (
-        <p className="text-sm text-gray-500">No interests set.</p>
+        <p className="text-sm text-gray-500">{t('members.detail.no_interests')}</p>
       ) : (
-        <p className="text-sm text-gray-700">{ids.length} picked.</p>
+        <p className="text-sm text-gray-700">{t('members.detail.n_picked', { count: ids.length })}</p>
       )}
     </SectionShell>
   )
@@ -1233,6 +1236,7 @@ function StylesSection({
   onCancel: () => void
   onSave: (keys: string[]) => void
 }) {
+  const { t } = useTranslation('common')
   const [draft, setDraft] = useState<string[]>(keys)
   useEffect(() => {
     if (editing) setDraft(keys)
@@ -1240,7 +1244,7 @@ function StylesSection({
   }, [editing])
 
   return (
-    <SectionShell title="How they help" editing={editing} onStartEdit={onStartEdit}>
+    <SectionShell title={t('members.detail.section_styles')} editing={editing} onStartEdit={onStartEdit}>
       {editing ? (
         <div className="space-y-3">
           <StylePicker value={draft} onChange={setDraft} />
@@ -1250,21 +1254,21 @@ function StylesSection({
               disabled={saving}
               className="btn-primary text-sm py-1.5 px-3"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : keys.length === 0 ? (
-        <p className="text-sm text-gray-500">Not set.</p>
+        <p className="text-sm text-gray-500">{t('members.detail.no_styles')}</p>
       ) : (
-        <p className="text-sm text-gray-700">{keys.length} picked.</p>
+        <p className="text-sm text-gray-700">{t('members.detail.n_picked', { count: keys.length })}</p>
       )}
     </SectionShell>
   )

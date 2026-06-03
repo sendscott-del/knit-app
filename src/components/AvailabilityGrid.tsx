@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { DAYS_OF_WEEK, TIME_SLOTS, slotKey, type Slot, type DayOfWeek, type TimeSlot } from '@/lib/availability'
 
 export default function AvailabilityGrid({
@@ -9,6 +10,7 @@ export default function AvailabilityGrid({
   onChange: (next: Slot[]) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation('common')
   const selected = new Set(value.map((s) => slotKey(s.day, s.timeSlot)))
 
   function toggle(day: DayOfWeek, timeSlot: TimeSlot) {
@@ -20,6 +22,16 @@ export default function AvailabilityGrid({
     }
   }
 
+  const shortDay = (value: number) => {
+    const keys = ['short_sun', 'short_mon', 'short_tue', 'short_wed', 'short_thu', 'short_fri', 'short_sat']
+    return t(`days.${keys[value] ?? 'short_sun'}`)
+  }
+  const longDay = (value: number) => {
+    const keys = ['long_sun', 'long_mon', 'long_tue', 'long_wed', 'long_thu', 'long_fri', 'long_sat']
+    return t(`days.${keys[value] ?? 'long_sun'}`)
+  }
+  const slotLabel = (slot: string) => t(`outings.time_slots.${slot}`)
+
   return (
     <div className="overflow-x-auto">
       <table className="border-separate border-spacing-1">
@@ -28,7 +40,7 @@ export default function AvailabilityGrid({
             <th className="w-20"></th>
             {DAYS_OF_WEEK.map((d) => (
               <th key={d.value} className="text-xs font-bold uppercase tracking-wide text-gray-500 px-1 pb-1">
-                {d.short}
+                {shortDay(d.value)}
               </th>
             ))}
           </tr>
@@ -37,7 +49,7 @@ export default function AvailabilityGrid({
           {TIME_SLOTS.map((slot) => (
             <tr key={slot.value}>
               <td className="text-xs font-semibold text-gray-600 pr-2 text-right">
-                {slot.label}
+                {slotLabel(slot.value)}
               </td>
               {DAYS_OF_WEEK.map((d) => {
                 const active = selected.has(slotKey(d.value as DayOfWeek, slot.value))
@@ -47,7 +59,7 @@ export default function AvailabilityGrid({
                       type="button"
                       disabled={disabled}
                       onClick={() => toggle(d.value as DayOfWeek, slot.value)}
-                      aria-label={`${d.long} ${slot.label}`}
+                      aria-label={`${longDay(d.value)} ${slotLabel(slot.value)}`}
                       aria-pressed={active}
                       className={`h-11 w-11 sm:h-12 sm:w-12 rounded-md border-[1.5px] text-sm font-bold transition ${
                         active

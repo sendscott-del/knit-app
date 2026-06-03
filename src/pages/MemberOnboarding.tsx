@@ -55,7 +55,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
         if (error) throw error
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.')
+      setError(e instanceof Error ? e.message : t('layout.something_wrong'))
       setSaving(false)
       return false
     }
@@ -114,7 +114,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
               className="text-sm text-gray-600 hover:text-gray-900"
               disabled={saving}
             >
-              ← Back
+              {t('onboarding_inline.back')}
             </button>
           ) : null}
 
@@ -204,28 +204,28 @@ function ScreenWelcome({
   onYes: () => void
   onTellMore: () => void
 }) {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-5">
       <h1 className="text-3xl font-semibold text-gray-900">
-        Hi {firstName || 'there'}. This is Knit.
+        {t('onboarding_inline.hi_name', { name: firstName || t('onboarding_inline.hi_there') })}
       </h1>
       <p className="text-lg text-gray-700 leading-relaxed">
-        Our missionaries are teaching people who could use a friend — a real one,
-        who stays after the missionaries transfer.
+        {t('onboarding_inline.intro')}
       </p>
-      <p className="text-lg text-gray-700">Want to help?</p>
+      <p className="text-lg text-gray-700">{t('onboarding_inline.want_help')}</p>
       <div className="grid gap-3 pt-2">
         <button
           onClick={onYes}
           className="btn-primary min-h-[48px] px-6 py-4 w-full"
         >
-          Yes, let's go
+          {t('onboarding_inline.yes_go')}
         </button>
         <button
           onClick={onTellMore}
           className="rounded-md border-[1.5px] border-gray-200 bg-white text-gray-900 px-6 py-4 text-base font-medium hover:bg-gray-100 min-h-[48px]"
         >
-          Tell me more first
+          {t('onboarding_inline.tell_more')}
         </button>
       </div>
     </div>
@@ -233,16 +233,17 @@ function ScreenWelcome({
 }
 
 function ScreenWhatWeAsk({ onContinue: _ }: { onContinue: () => void }) {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-900">What we'll ask</h1>
+      <h1 className="text-2xl font-semibold text-gray-900">{t('onboarding_inline.what_we_ask_title')}</h1>
       <ul className="space-y-3 text-lg text-gray-700">
-        <li>• What days you're usually free</li>
-        <li>• What you love doing</li>
-        <li>• How you'd like to help</li>
+        <li>• {t('onboarding_inline.what_days')}</li>
+        <li>• {t('onboarding_inline.what_love')}</li>
+        <li>• {t('onboarding_inline.what_help')}</li>
       </ul>
       <p className="text-base text-gray-600 pt-2">
-        We keep just those things. No address, no finances, no family details.
+        {t('onboarding_inline.privacy')}
       </p>
     </div>
   )
@@ -257,10 +258,11 @@ function ScreenDays({
   onChange: (next: Slot[]) => void
   wardId: string | null
 }) {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-900">When are you usually free?</h1>
-      <p className="text-base text-gray-600">Tap any times that work most weeks.</p>
+      <h1 className="text-2xl font-semibold text-gray-900">{t('onboarding_inline.days_title')}</h1>
+      <p className="text-base text-gray-600">{t('onboarding_inline.days_hint')}</p>
       <AvailabilityGrid value={slots} onChange={onChange} />
       {slots.length > 0 ? (
         <p className="text-sm text-gray-600">
@@ -280,10 +282,11 @@ function ScreenInterests({
   value: string[]
   onChange: (next: string[]) => void
 }) {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-900">What do you love doing?</h1>
-      <p className="text-base text-gray-600">Pick a few — as many as you want.</p>
+      <h1 className="text-2xl font-semibold text-gray-900">{t('onboarding_inline.interests_title')}</h1>
+      <p className="text-base text-gray-600">{t('onboarding_inline.interests_hint')}</p>
       <InterestChipPicker wardId={wardId} value={value} onChange={onChange} />
     </div>
   )
@@ -296,11 +299,12 @@ function ScreenStyles({
   value: string[]
   onChange: (next: string[]) => void
 }) {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-900">How can you help?</h1>
+      <h1 className="text-2xl font-semibold text-gray-900">{t('onboarding_inline.styles_title')}</h1>
       <p className="text-base text-gray-600">
-        Missionaries need different kinds of help. What are you happy to do?
+        {t('onboarding_inline.styles_hint')}
       </p>
       <StylePicker value={value} onChange={onChange} />
     </div>
@@ -318,23 +322,32 @@ function ScreenConfirm({
   interestIds: string[]
   styleKeys: string[]
 }) {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-gray-900">Got it, {firstName || 'friend'}.</h1>
-      <p className="text-base text-gray-600">Here's what we have:</p>
+      <h1 className="text-2xl font-semibold text-gray-900">
+        {t('onboarding_inline.confirm_title', { name: firstName || t('onboarding_inline.confirm_friend') })}
+      </h1>
+      <p className="text-base text-gray-600">{t('onboarding_inline.confirm_intro')}</p>
       <ul className="space-y-3 text-base text-gray-800">
         <li>
-          <strong>Free:</strong> {slotsToString(slots) || '— (none yet)'}
+          <strong>{t('onboarding_inline.label_free')}</strong> {slotsToString(slots) || t('onboarding_inline.none_yet')}
         </li>
         <li>
-          <strong>Love:</strong> {interestIds.length === 0 ? '— (none yet)' : `${interestIds.length} interest${interestIds.length === 1 ? '' : 's'} picked`}
+          <strong>{t('onboarding_inline.label_love')}</strong>{' '}
+          {interestIds.length === 0
+            ? t('onboarding_inline.none_yet')
+            : t('onboarding_inline.interests_count', { count: interestIds.length })}
         </li>
         <li>
-          <strong>Willing to:</strong> {styleKeys.length === 0 ? '— (none yet)' : `${styleKeys.length} way${styleKeys.length === 1 ? '' : 's'} to help`}
+          <strong>{t('onboarding_inline.label_willing')}</strong>{' '}
+          {styleKeys.length === 0
+            ? t('onboarding_inline.none_yet')
+            : t('onboarding_inline.ways_count', { count: styleKeys.length })}
         </li>
       </ul>
       <p className="text-sm text-gray-600 pt-2">
-        We'll text you again in about 90 days to update your availability. You can always change it sooner by tapping your link.
+        {t('onboarding_inline.footer_note')}
       </p>
     </div>
   )

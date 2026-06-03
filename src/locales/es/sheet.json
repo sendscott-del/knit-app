@@ -1,9 +1,9 @@
 {
-  "tab_start_here": "TODO",
-  "tab_available": "TODO",
-  "tab_friends": "TODO",
-  "tab_suggestions": "TODO",
-  "tab_log_outing": "TODO",
-  "tab_urgent": "TODO",
-  "tab_recent": "TODO"
+  "tab_start_here": "Empieza aquí",
+  "tab_available": "Disponibles esta semana",
+  "tab_friends": "Amigos a quienes enseñamos",
+  "tab_suggestions": "Sugerencias",
+  "tab_log_outing": "Registrar una visita",
+  "tab_urgent": "Necesidad urgente",
+  "tab_recent": "Visitas recientes"
 }

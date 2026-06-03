@@ -56,7 +56,7 @@ export default function MoreSheet({
     <div
       className="md:hidden fixed inset-0 z-50"
       role="dialog"
-      aria-label={t('nav.more', 'More')}
+      aria-label={t('nav.more')}
       aria-modal="true"
     >
       <div
@@ -70,24 +70,24 @@ export default function MoreSheet({
       >
         <div className="mx-auto w-9 h-1 bg-gray-300 rounded-full mt-1 mb-2" />
 
-        <SheetGroup title={t('more.workspace', 'Workspace')}>
+        <SheetGroup title={t('more.workspace')}>
           <SheetLink
             to="/admin/outings"
             icon="calendar-outline"
-            label="Outings"
+            label={t('more.outings')}
             onClose={onClose}
           />
           <SheetLink
             to="/admin/sheet"
             icon="grid-outline"
-            label="Google Sheet"
+            label={t('more.google_sheet')}
             onClose={onClose}
           />
           {showInvitations && (
             <SheetLink
               to="/admin/invitations"
               icon="mail-outline"
-              label="Invitations"
+              label={t('more.invitations')}
               onClose={onClose}
             />
           )}
@@ -95,28 +95,28 @@ export default function MoreSheet({
             <SheetLink
               to="/admin/users"
               icon="shield-outline"
-              label="Users & roles"
+              label={t('more.users_roles')}
               onClose={onClose}
             />
           )}
           <SheetLink
             to="/admin/settings"
             icon="settings-outline"
-            label="Settings"
+            label={t('more.settings')}
             onClose={onClose}
           />
           <SheetExternal
             href={GATHER_CANONICAL_URL}
             icon="apps-outline"
-            label="Gather"
+            label={t('more.gather')}
             onClose={onClose}
           />
         </SheetGroup>
 
-        <SheetGroup title={t('more.help', 'Help')}>
+        <SheetGroup title={t('more.help')}>
           <SheetButton
             icon="bulb-outline"
-            label="Suggest an enhancement"
+            label={t('more.suggest_enhancement')}
             onClick={() => {
               onClose()
               onSuggestEnhancement()
@@ -125,20 +125,20 @@ export default function MoreSheet({
           <SheetLink
             to="/admin/guide"
             icon="book-outline"
-            label="User guide"
+            label={t('more.user_guide')}
             onClose={onClose}
           />
           <SheetLink
             to="/admin/release-notes"
             icon="sparkles-outline"
-            label="Release notes"
+            label={t('more.release_notes')}
             onClose={onClose}
           />
         </SheetGroup>
 
         <SheetButton
           icon="log-out-outline"
-          label="Sign out"
+          label={t('sign_out')}
           muted
           onClick={() => {
             onClose()

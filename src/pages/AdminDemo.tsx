@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
@@ -12,6 +13,7 @@ type Status = { members: number; friends: number; outings: number }
 
 export default function AdminDemo() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
 
   const [wardId, setWardId] = useState<string>(
@@ -47,6 +49,7 @@ export default function AdminDemo() {
 
   useEffect(() => {
     void refreshStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wardId])
 
   async function load() {
@@ -65,15 +68,15 @@ export default function AdminDemo() {
     const d = data as { already_loaded?: boolean; members?: number; friends?: number; outings?: number }
     setNotice(
       d.already_loaded
-        ? `Demo data already present (${d.members} members · ${d.friends} friends · ${d.outings} outings).`
-        : `Loaded ${d.members} members, ${d.friends} friends, ${d.outings} outings.`,
+        ? t('demo.already_loaded_notice', { members: d.members, friends: d.friends, outings: d.outings })
+        : t('demo.loaded_notice', { members: d.members, friends: d.friends, outings: d.outings }),
     )
     await refreshStatus()
   }
 
   async function clear() {
     if (!wardId) return
-    if (!confirm('Delete all demo members, friends, and outings in this ward?')) return
+    if (!confirm(t('demo.clear_confirm'))) return
     setBusy('clear')
     setErr(null)
     setNotice(null)
@@ -86,7 +89,7 @@ export default function AdminDemo() {
       return
     }
     const d = data as { members?: number; friends?: number; outings?: number }
-    setNotice(`Cleared ${d.members} members, ${d.friends} friends, ${d.outings} outings.`)
+    setNotice(t('demo.cleared_notice', { members: d.members, friends: d.friends, outings: d.outings }))
     await refreshStatus()
   }
 
@@ -96,39 +99,35 @@ export default function AdminDemo() {
   return (
     <div className="space-y-6">
       <div className="rounded-md border border-gray-200 bg-white p-5 space-y-2">
-        <h2 className="font-medium text-gray-900">Demo role banner</h2>
+        <h2 className="font-medium text-gray-900">{t('demo.role_banner_title')}</h2>
         <p className="text-xs text-gray-600">
-          Overlay a &ldquo;viewing as &lt;role&gt;&rdquo; strip across every Knit
-          screen so you can talk through what each role experiences. Independent
-          of the database-level demo data toggle below.
+          {t('demo.role_banner_subtitle')}
         </p>
         <DemoBannerToggle />
       </div>
 
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Demo data</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('demo.demo_data_title')}</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Seed a realistic set of members, friends, and outings so you can test
-          the suggestion algorithm, onboarding flow, and sheet integration
-          without hand-entering everything. Demo rows are tagged{' '}
+          {t('demo.demo_data_subtitle_pre')}
           <span className="inline-flex items-center rounded-full bg-brand-accent-light text-brand-primary-dark border border-brand-accent/40 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide align-middle">
-            Demo
-          </span>{' '}
-          and can be wiped at any time.
+            {t('demo.demo_pill')}
+          </span>
+          {t('demo.demo_data_subtitle_post')}
         </p>
       </div>
 
       {wards.length > 1 ? (
         <div className="rounded-md border border-gray-200 bg-white p-5">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">Ward</span>
+            <span className="text-sm font-medium text-gray-700">{t('demo.ward_label')}</span>
             <select
               value={wardId}
               onChange={(e) => setWardId(e.target.value)}
               className="form-input"
               disabled={wardsLoading}
             >
-              <option value="">{wardsLoading ? 'Loading…' : 'Pick a ward'}</option>
+              <option value="">{wardsLoading ? t('loading') : t('pick_a_ward')}</option>
               {wards.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -151,16 +150,16 @@ export default function AdminDemo() {
       ) : null}
 
       <div className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
-        <h2 className="font-medium text-gray-900">Current demo data in this ward</h2>
+        <h2 className="font-medium text-gray-900">{t('demo.current_data_title')}</h2>
         {loadingStatus ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-gray-500">{t('demo.loading')}</p>
         ) : status === null ? (
-          <p className="text-sm text-gray-500">Pick a ward to see status.</p>
+          <p className="text-sm text-gray-500">{t('demo.pick_ward_status')}</p>
         ) : (
           <dl className="grid grid-cols-3 gap-4 text-center">
-            <Stat label="Members" value={status.members} />
-            <Stat label="Friends" value={status.friends} />
-            <Stat label="Outings" value={status.outings} />
+            <Stat label={t('demo.stat_members')} value={status.members} />
+            <Stat label={t('demo.stat_friends')} value={status.friends} />
+            <Stat label={t('demo.stat_outings')} value={status.outings} />
           </dl>
         )}
 
@@ -170,37 +169,35 @@ export default function AdminDemo() {
             disabled={busy !== null || !wardId || hasDemo}
             className="btn-primary text-sm py-2 px-4"
           >
-            {busy === 'load' ? 'Loading…' : hasDemo ? 'Demo data already loaded' : 'Load demo data'}
+            {busy === 'load' ? t('demo.loading_btn') : hasDemo ? t('demo.already_loaded') : t('demo.load_label')}
           </button>
           <button
             onClick={() => void clear()}
             disabled={busy !== null || !hasDemo}
             className="rounded-md border-[1.5px] border-error/60 text-error px-4 py-2 text-sm font-semibold hover:bg-error/5 disabled:opacity-50 disabled:text-gray-400 disabled:border-gray-200"
           >
-            {busy === 'clear' ? 'Clearing…' : 'Clear demo data'}
+            {busy === 'clear' ? t('demo.clearing') : t('demo.clear_label')}
           </button>
         </div>
       </div>
 
       <details className="text-sm text-gray-600">
         <summary className="cursor-pointer font-medium text-gray-700">
-          What's in the demo dataset?
+          {t('demo.details_summary')}
         </summary>
         <div className="mt-3 space-y-3 pl-4">
           <p>
-            <strong>6 members</strong> with varied availability, interests, and
-            participation styles. Two are Spanish speakers, one hasn't been
-            onboarded yet so you can see the "Not onboarded" state.
+            <strong>6 members</strong> {t('demo.details_members')}
           </p>
           <p>
-            <strong>3 friends</strong> with different teaching statuses
-            (investigating, progressing, on a baptism date) and languages.
+            <strong>3 friends</strong> {t('demo.details_friends')}
           </p>
           <p>
-            <strong>8 outings</strong> spread over the last 45 days, plus one
-            scheduled 5 days out. Mix of <em>happened</em>, <em>flaked</em>, and{' '}
-            <em>scheduled</em> — enough to exercise the freshness and reliability
-            scoring in Suggest.
+            <strong>8 outings</strong> {t('demo.details_outings')}{' '}
+            <em>{t('demo.details_outings_happened')}</em>,{' '}
+            <em>{t('demo.details_outings_flaked')}</em>, {t('or').toLowerCase()}{' '}
+            <em>{t('demo.details_outings_scheduled')}</em>
+            {t('demo.details_outings_post')}
           </p>
         </div>
       </details>

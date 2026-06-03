@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.0',
+    date: '2026-06-02',
+    summary: 'Full i18n pass — every visible string in Knit now translates between English and Spanish.',
+    details: [
+      "Previous state: the EN/ES toggle only changed the scripture at the top because that one component was the only thing routed through react-i18next. Everything else was hardcoded English, so flipping to Spanish did nothing visible past the masthead.",
+      "Now: every page and component is wrapped in t() — Landing, Signup, AdminLogin, ForgotPassword, ResetPassword, AdminCallback, AdminLayout (sidebar + top bar + mobile tab bar + More sheet), AdminGuide, AdminReleaseNotes, AdminMembers, AdminFriends, AdminOutings, AdminSuggest, AdminInvitations, AdminSheet, AdminSettings, AdminUsers, AdminDemo, MemberJoin, MemberMagicLink, MemberOnboarding, MemberDashboard, NotFound, plus shared components (AppSwitcher, AvailabilityGrid, DemoBadge, DemoModeBanner, InterestChipPicker, MobileTabBar, MoreSheet, StylePicker, SuggestionFAB).",
+      "~400+ new keys added to en/common.json + ES counterparts. ES translations use LDS-canonical Spanish — estaca, barrio, sumo consejero, líder misional de barrio, Sociedad de Socorro, Quórum de Élderes, amigo (for the people the missionaries are teaching), élderes / hermanas, obispo. Tone matches the warm, plain English wording. Proper nouns (Knit, ward names, Gather, Magnify) stay untranslated.",
+      "Deliberately skipped: src/constants/changelog.ts (release notes, English-only), DB-driven interest tag + participation style labels (need a separate label_es column in Supabase — follow-up migration), raw Supabase error.message strings (developer-facing). The slotsToString() helper in lib/availability.ts still returns English short-day summaries when called from table cells — its callers are localized but the helper itself is a follow-up.",
+      "Build went from 768 kB to 851 kB (gzip 219→243 kB) because of the locale JSON inline. Acceptable; we'll split bundles when we get serious about code-splitting.",
+    ],
+  },
+  {
     version: '0.45.1',
     date: '2026-06-02',
     summary: 'Hotfix: friend-removal pull was skipping because it checked the wrong row for header drift.',

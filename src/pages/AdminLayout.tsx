@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
 import { supabase } from '@/lib/supabase'
@@ -15,7 +16,6 @@ import KnitLangToggle from '@/components/KnitLangToggle'
 import SuggestionFAB from '@/components/SuggestionFAB'
 import MobileTabBar from '@/components/MobileTabBar'
 import MoreSheet from '@/components/MoreSheet'
-import { useTranslation } from 'react-i18next'
 
 /**
  * Suite-wide layout for Knit's admin area. Mirrors the Glean shell on
@@ -28,6 +28,7 @@ import { useTranslation } from 'react-i18next'
 export default function AdminLayout() {
   const { session, loading: authLoading, signOut } = useAuth()
   const admin = useAdmin()
+  const { t } = useTranslation('common')
   const [moreOpen, setMoreOpen] = useState(false)
   const [suggestOpen, setSuggestOpen] = useState(false)
 
@@ -40,16 +41,16 @@ export default function AdminLayout() {
   const readyAdminId = admin.status === 'ready' ? admin.profile.id : null
   useSheetAccessOnce(readyAdminId)
 
-  if (authLoading) return <FullPage>Loading…</FullPage>
+  if (authLoading) return <FullPage>{t('loading')}</FullPage>
   if (!session) return <Navigate to="/admin/login" replace />
 
-  if (admin.status === 'loading') return <FullPage>Loading your profile…</FullPage>
+  if (admin.status === 'loading') return <FullPage>{t('layout.loading_profile')}</FullPage>
 
   if (admin.status === 'error') {
     return (
       <FullPage>
         <div className="max-w-md space-y-3 text-center">
-          <h1 className="text-xl font-semibold text-gray-900">Something went wrong</h1>
+          <h1 className="text-xl font-semibold text-gray-900">{t('layout.something_wrong')}</h1>
           <p className="text-sm text-error">{admin.message}</p>
         </div>
       </FullPage>
@@ -60,14 +61,17 @@ export default function AdminLayout() {
     return (
       <FullPage>
         <div className="max-w-md space-y-4 text-center">
-          <h1 className="text-xl font-semibold text-gray-900">Not yet provisioned</h1>
+          <h1 className="text-xl font-semibold text-gray-900">{t('layout.not_provisioned_title')}</h1>
           <p className="text-base text-gray-600">
-            You're signed in as <strong>{admin.email}</strong>, but you don't have a Knit
-            admin profile yet. Ask the person who invited you to finish setting up your
-            account, or — if you're the first admin for your stake — reach out to support.
+            <Trans
+              i18nKey="layout.not_provisioned_body"
+              ns="common"
+              values={{ email: admin.email }}
+              components={{ strong: <strong /> }}
+            />
           </p>
           <button onClick={() => void signOut()} className="btn-outline">
-            Sign out
+            {t('sign_out')}
           </button>
         </div>
       </FullPage>
@@ -82,8 +86,8 @@ export default function AdminLayout() {
     profile.role === 'relief_society_presidency' ||
     profile.role === 'elders_quorum_presidency'
   const scopeLabel = wardScoped
-    ? profile.ward?.name ?? 'Your ward'
-    : profile.stake?.name ?? 'Your stake'
+    ? profile.ward?.name ?? t('layout.your_ward')
+    : profile.stake?.name ?? t('layout.your_stake')
   const showStakeAdminTabs = canManageStake(profile)
   const showInvitations = canSendInvitations(profile)
 
@@ -143,12 +147,8 @@ function SuiteTopBar({
   onSignOut: () => void
 }) {
   const { t } = useTranslation('common')
-  // i18n key is best-effort — older locale bundles may not have these yet.
-  const scripture = t('app.scripture', {
-    defaultValue:
-      '"Their hearts [were] knit together in unity and in love."',
-  })
-  const scriptureRef = t('app.scriptureRef', { defaultValue: 'Mosiah 18:21' })
+  const scripture = t('app.scripture')
+  const scriptureRef = t('app.scriptureRef')
   return (
     <div className="sticky top-0 z-30 w-full bg-white border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center gap-3">
@@ -171,7 +171,7 @@ function SuiteTopBar({
           <span>{ROLE_LABELS[role]}</span>
           {isSuper ? (
             <span className="rounded-full bg-knit-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-              Super
+              {t('layout.super')}
             </span>
           ) : null}
           <span className="opacity-50">·</span>
@@ -181,7 +181,7 @@ function SuiteTopBar({
           onClick={onSignOut}
           className="hidden md:inline text-xs font-medium text-gray-500 hover:text-gray-800"
         >
-          Sign out
+          {t('sign_out')}
         </button>
       </div>
     </div>
@@ -193,18 +193,19 @@ function SuiteTopBar({
 // redirect for stragglers, but the nav links straight out to skip the hop.
 const GATHER_CANONICAL_URL = 'https://gathered-admin-neon.vercel.app/gather'
 
-function navLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
+function useNavLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
+  const { t } = useTranslation('common')
   return [
-    { to: '/admin', label: 'Dashboard', end: true },
-    { to: '/admin/members', label: 'Members' },
-    ...(showInvitations ? [{ to: '/admin/invitations', label: 'Invitations' }] : []),
-    { to: '/admin/friends', label: 'Friends' },
-    { to: '/admin/outings', label: 'Outings' },
-    { to: '/admin/suggest', label: 'Suggest' },
-    { to: '/admin/sheet', label: 'Sheet' },
-    ...(showStakeAdminTabs ? [{ to: '/admin/users', label: 'Users & roles' }] : []),
-    { to: '/admin/settings', label: 'Settings' },
-    { href: GATHER_CANONICAL_URL, label: 'Gather ↗', external: true as const },
+    { to: '/admin', label: t('layout.nav_dashboard'), end: true },
+    { to: '/admin/members', label: t('layout.nav_members') },
+    ...(showInvitations ? [{ to: '/admin/invitations', label: t('layout.nav_invitations') }] : []),
+    { to: '/admin/friends', label: t('layout.nav_friends') },
+    { to: '/admin/outings', label: t('layout.nav_outings') },
+    { to: '/admin/suggest', label: t('layout.nav_suggest') },
+    { to: '/admin/sheet', label: t('layout.nav_sheet') },
+    ...(showStakeAdminTabs ? [{ to: '/admin/users', label: t('layout.nav_users_roles') }] : []),
+    { to: '/admin/settings', label: t('layout.nav_settings') },
+    { href: GATHER_CANONICAL_URL, label: t('layout.nav_gather'), external: true as const },
   ]
 }
 
@@ -215,7 +216,8 @@ function Sidebar({
   showStakeAdminTabs: boolean
   showInvitations: boolean
 }) {
-  const links = navLinks(showStakeAdminTabs, showInvitations)
+  const { t } = useTranslation('common')
+  const links = useNavLinks(showStakeAdminTabs, showInvitations)
   return (
     <aside
       className="hidden md:flex md:flex-col md:flex-shrink-0 sticky top-0 h-screen text-white"
@@ -223,7 +225,7 @@ function Sidebar({
     >
       <div className="px-5 pt-6 pb-8 flex items-center gap-2.5">
         <KnitMark size={28} />
-        <div className="text-xl font-bold tracking-tight leading-none">Knit</div>
+        <div className="text-xl font-bold tracking-tight leading-none">{t('app_name')}</div>
       </div>
       <nav className="flex-1 px-2 space-y-0.5 overflow-y-auto">
         {links.map((item) =>
@@ -266,7 +268,7 @@ function Sidebar({
             }`
           }
         >
-          User guide
+          {t('layout.user_guide')}
         </NavLink>
         <NavLink
           to="/admin/release-notes"
@@ -278,7 +280,7 @@ function Sidebar({
             }`
           }
         >
-          Release notes
+          {t('layout.release_notes')}
         </NavLink>
       </div>
     </aside>

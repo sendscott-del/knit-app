@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
@@ -15,17 +16,11 @@ type FriendWithWard = FriendRow & { ward?: { id: string; name: string } | null }
 type Ctx = { profile: AdminProfile }
 type TeachingStatus = Database['public']['Enums']['knit_teaching_status']
 
-const STATUS_LABELS: Record<TeachingStatus, string> = {
-  investigating: 'Investigating',
-  progressing: 'Progressing',
-  on_date: 'On a baptism date',
-  baptized: 'Baptized',
-  paused: 'Paused',
-  lost_contact: 'Lost contact',
-}
+const STATUS_KEYS: TeachingStatus[] = ['investigating', 'progressing', 'on_date', 'baptized', 'paused', 'lost_contact']
 
 export default function AdminFriends() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
   const editor = canEdit(profile)
   const [friends, setFriends] = useState<FriendWithWard[]>([])
@@ -34,6 +29,8 @@ export default function AdminFriends() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showRemoved, setShowRemoved] = useState(false)
+
+  const statusLabel = (s: TeachingStatus) => t(`friends.status.${s}`)
 
   async function refresh() {
     setLoading(true)
@@ -51,10 +48,11 @@ export default function AdminFriends() {
 
   useEffect(() => {
     void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showRemoved])
 
   async function remove(id: string) {
-    if (!confirm('Remove this friend? Past outings stay; the friend will be hidden from the roster and the missionary sheet.')) return
+    if (!confirm(t('friends.remove_confirm'))) return
     const { error } = await supabase
       .from('knit_friends')
       .update({ removed_at: new Date().toISOString() })
@@ -92,9 +90,9 @@ export default function AdminFriends() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Friends being taught</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('friends.page_title')}</h1>
           <p className="text-sm text-gray-600 mt-1">
-            People the missionaries are currently teaching.
+            {t('friends.page_subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -105,14 +103,14 @@ export default function AdminFriends() {
               onChange={(e) => setShowRemoved(e.target.checked)}
               className="rounded border-gray-300"
             />
-            Show removed
+            {t('friends.show_removed')}
           </label>
           {editor ? (
             <button
               onClick={() => setShowForm((v) => !v)}
               className="btn-primary text-sm py-2 px-4"
             >
-              {showForm ? 'Cancel' : 'Add friend'}
+              {showForm ? t('cancel') : t('friends.add_friend')}
             </button>
           ) : null}
         </div>
@@ -136,23 +134,23 @@ export default function AdminFriends() {
 
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500">Loading…</div>
+          <div className="p-6 text-sm text-gray-500">{t('friends.loading')}</div>
         ) : error ? (
           <div className="p-6 text-sm text-error">{error}</div>
         ) : friends.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
-            No friends yet. Add your first above.
+            {t('friends.empty')}
           </div>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Language</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Typical availability</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">Ward</th>
+                <th className="px-4 py-3 font-medium">{t('friends.col_name')}</th>
+                <th className="px-4 py-3 font-medium">{t('friends.col_status')}</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">{t('friends.col_language')}</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">{t('friends.col_typical_avail')}</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">{t('friends.col_ward')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -178,21 +176,21 @@ export default function AdminFriends() {
                           className="ml-2 inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700"
                           title={f.removed_reason ?? undefined}
                         >
-                          Removed
+                          {t('friends.removed')}
                         </span>
                       ) : null}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
-                      {STATUS_LABELS[f.teaching_status]}
+                      {statusLabel(f.teaching_status)}
                     </td>
                     <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
-                      {f.locale === 'es' ? 'Spanish' : 'English'}
+                      {f.locale === 'es' ? t('spanish') : t('english')}
                     </td>
                     <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
-                      {f.typical_availability ?? '—'}
+                      {f.typical_availability ?? t('dash')}
                     </td>
                     <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
-                      {f.ward?.name ?? '—'}
+                      {f.ward?.name ?? t('dash')}
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {editor ? (
@@ -201,7 +199,7 @@ export default function AdminFriends() {
                             onClick={() => void restore(f.id)}
                             className="text-sm text-gray-700 hover:text-gray-900"
                           >
-                            Restore
+                            {t('restore')}
                           </button>
                         ) : (
                           <>
@@ -209,18 +207,18 @@ export default function AdminFriends() {
                               onClick={() => setEditingId(f.id)}
                               className="text-sm text-gray-700 hover:text-gray-900 mr-4"
                             >
-                              Edit
+                              {t('edit')}
                             </button>
                             <button
                               onClick={() => void remove(f.id)}
                               className="text-sm text-error hover:opacity-80"
                             >
-                              Remove
+                              {t('remove')}
                             </button>
                           </>
                         )
                       ) : (
-                        <span className="text-xs text-gray-400">View-only</span>
+                        <span className="text-xs text-gray-400">{t('view_only')}</span>
                       )}
                     </td>
                   </tr>
@@ -246,6 +244,7 @@ function NewFriendForm({
   defaultWardId: string
   onCreated: () => void | Promise<void>
 }) {
+  const { t } = useTranslation('common')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [nickname, setNickname] = useState('')
@@ -265,7 +264,7 @@ function NewFriendForm({
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!wardId) {
-      setErr('Pick a ward.')
+      setErr(t('friends.pick_ward'))
       return
     }
     setSaving(true)
@@ -303,7 +302,7 @@ function NewFriendForm({
       onSubmit={submit}
       className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
-      <Field label="First name" required>
+      <Field label={t('friends.first_name')} required>
         <input
           type="text"
           required
@@ -312,7 +311,7 @@ function NewFriendForm({
           className="form-input"
         />
       </Field>
-      <Field label="Last name">
+      <Field label={t('friends.last_name')}>
         <input
           type="text"
           value={lastName}
@@ -320,7 +319,7 @@ function NewFriendForm({
           className="form-input"
         />
       </Field>
-      <Field label="Nickname">
+      <Field label={t('friends.nickname')}>
         <input
           type="text"
           value={nickname}
@@ -328,7 +327,7 @@ function NewFriendForm({
           className="form-input"
         />
       </Field>
-      <Field label="Phone">
+      <Field label={t('friends.phone')}>
         <input
           type="tel"
           value={phone}
@@ -336,31 +335,31 @@ function NewFriendForm({
           className="form-input"
         />
       </Field>
-      <Field label="Language">
+      <Field label={t('friends.language')}>
         <select
           value={locale}
           onChange={(e) => setLocale(e.target.value as 'en' | 'es')}
           className="form-input"
         >
-          <option value="en">English</option>
-          <option value="es">Spanish</option>
+          <option value="en">{t('english')}</option>
+          <option value="es">{t('spanish')}</option>
         </select>
       </Field>
-      <Field label="Teaching status">
+      <Field label={t('friends.teaching_status')}>
         <select
           value={teachingStatus}
           onChange={(e) => setTeachingStatus(e.target.value as TeachingStatus)}
           className="form-input"
         >
-          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          {STATUS_KEYS.map((s) => (
+            <option key={s} value={s}>
+              {t(`friends.status.${s}`)}
             </option>
           ))}
         </select>
       </Field>
       {wards.length > 1 ? (
-        <Field label="Ward" required>
+        <Field label={t('ward')} required>
           <select
             required
             value={wardId}
@@ -368,7 +367,7 @@ function NewFriendForm({
             className="form-input"
             disabled={wardsLoading}
           >
-            <option value="">{wardsLoading ? 'Loading…' : 'Pick a ward'}</option>
+            <option value="">{wardsLoading ? t('loading') : t('pick_a_ward')}</option>
             {wards.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -379,18 +378,18 @@ function NewFriendForm({
       ) : null}
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-gray-700">Typical availability</span>
+          <span className="text-sm font-medium text-gray-700">{t('friends.typical_availability')}</span>
           <span className="text-xs text-gray-500">
-            {slotsToString(availability) || "Tap any slots when the friend is usually free"}
+            {slotsToString(availability) || t('friends.tap_when_free')}
           </span>
         </div>
         <AvailabilityGrid value={availability} onChange={setAvailability} />
       </div>
       <div className="sm:col-span-2 space-y-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium text-gray-700">Interests</span>
+          <span className="text-sm font-medium text-gray-700">{t('friends.interests')}</span>
           <span className="text-xs text-gray-500">
-            What the friend likes — used to find members with shared interests
+            {t('friends.interests_hint')}
           </span>
         </div>
         <InterestChipPicker
@@ -406,7 +405,7 @@ function NewFriendForm({
           disabled={saving}
           className="btn-primary text-sm py-2 px-4"
         >
-          {saving ? 'Saving…' : 'Save friend'}
+          {saving ? t('saving') : t('friends.save_friend')}
         </button>
       </div>
     </form>
@@ -437,9 +436,7 @@ function Field({
 }
 
 /**
- * Inline edit row. Edits land directly on knit_friends; the next
- * populateDataTabs / morning push rewrites Friends We are Teaching on the
- * sheet so changes propagate within the hour without any extra work.
+ * Inline edit row.
  */
 function EditFriendRow({
   friend,
@@ -450,6 +447,7 @@ function EditFriendRow({
   onCancel: () => void
   onSave: (patch: Partial<FriendRow>) => void
 }) {
+  const { t } = useTranslation('common')
   const [firstName, setFirstName] = useState(friend.first_name ?? '')
   const [lastName, setLastName] = useState(friend.last_name ?? '')
   const [nickname, setNickname] = useState(friend.nickname ?? '')
@@ -480,7 +478,7 @@ function EditFriendRow({
     <tr className="bg-gray-50/60">
       <td colSpan={6} className="px-4 py-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="First name">
+          <Field label={t('friends.first_name')}>
             <input
               type="text"
               value={firstName}
@@ -488,7 +486,7 @@ function EditFriendRow({
               className="form-input"
             />
           </Field>
-          <Field label="Last name">
+          <Field label={t('friends.last_name')}>
             <input
               type="text"
               value={lastName}
@@ -496,7 +494,7 @@ function EditFriendRow({
               className="form-input"
             />
           </Field>
-          <Field label="Nickname">
+          <Field label={t('friends.nickname')}>
             <input
               type="text"
               value={nickname}
@@ -504,7 +502,7 @@ function EditFriendRow({
               className="form-input"
             />
           </Field>
-          <Field label="Phone">
+          <Field label={t('friends.phone')}>
             <input
               type="tel"
               value={phone}
@@ -512,32 +510,32 @@ function EditFriendRow({
               className="form-input"
             />
           </Field>
-          <Field label="Language">
+          <Field label={t('friends.language')}>
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value as 'en' | 'es')}
               className="form-input"
             >
-              <option value="en">English</option>
-              <option value="es">Spanish</option>
+              <option value="en">{t('english')}</option>
+              <option value="es">{t('spanish')}</option>
             </select>
           </Field>
-          <Field label="Teaching status">
+          <Field label={t('friends.teaching_status')}>
             <select
               value={teachingStatus}
               onChange={(e) => setTeachingStatus(e.target.value as TeachingStatus)}
               className="form-input"
             >
-              {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
+              {STATUS_KEYS.map((s) => (
+                <option key={s} value={s}>
+                  {t(`friends.status.${s}`)}
                 </option>
               ))}
             </select>
           </Field>
           <Field
-            label="Typical availability"
-            hint="Free-form, e.g. 'Tue/Thu evenings'"
+            label={t('friends.typical_availability')}
+            hint={t('friends.edit_typical_hint')}
           >
             <input
               type="text"
@@ -546,7 +544,7 @@ function EditFriendRow({
               className="form-input"
             />
           </Field>
-          <Field label="Notes" hint="Visible to leaders only">
+          <Field label={t('friends.notes')} hint={t('friends.notes_hint')}>
             <textarea
               rows={2}
               value={notes}
@@ -557,16 +555,16 @@ function EditFriendRow({
         </div>
         <div className="flex gap-2 pt-3">
           <button onClick={save} className="btn-primary text-sm py-1.5 px-3">
-            Save
+            {t('save')}
           </button>
           <button
             onClick={onCancel}
             className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
-            Cancel
+            {t('cancel')}
           </button>
           <p className="text-xs text-gray-500 self-center">
-            Changes appear on the missionary sheet within the hour.
+            {t('friends.appear_within_hour')}
           </p>
         </div>
       </td>
