@@ -24,12 +24,42 @@ export function slotKey(day: DayOfWeek, timeSlot: TimeSlot) {
 }
 
 /**
+ * Optional translator hook. If callers pass a `t`, day names and time-slot
+ * phrases come from the i18n catalog so the output follows the EN/ES toggle.
+ * If `t` is omitted, falls back to the canonical English forms — handy for
+ * server-side log messages or tests.
+ *
+ * Expected catalog keys (under namespace 'common'):
+ *   slots.day_short.{sun,mon,tue,wed,thu,fri,sat}
+ *   slots.all_day
+ *   slots.mornings | slots.afternoons | slots.evenings
+ *   slots.phrase_join  (separator between phrases, e.g. "; ")
+ *   slots.day_join     (separator between day names, e.g. ", ")
+ *   slots.slot_join    (separator between slot names, e.g. " & ")
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Translator = (key: string, defaultValue?: any) => string
+
+const DAY_SHORT_KEYS: Record<DayOfWeek, string> = {
+  0: 'slots.day_short.sun',
+  1: 'slots.day_short.mon',
+  2: 'slots.day_short.tue',
+  3: 'slots.day_short.wed',
+  4: 'slots.day_short.thu',
+  5: 'slots.day_short.fri',
+  6: 'slots.day_short.sat',
+}
+
+/**
  * Compact, readable string for a set of slots.
  * Groups days that share an identical set of time-slots together.
  *   "Tue, Thu evenings; Sun afternoons"
  */
-export function slotsToString(slots: Slot[]): string {
+export function slotsToString(slots: Slot[], t?: Translator): string {
   if (slots.length === 0) return ''
+
+  const tr = (key: string, fallback: string): string =>
+    t ? t(key, fallback) || fallback : fallback
 
   // Build: day -> sorted array of time slots
   const daySlots = new Map<DayOfWeek, TimeSlot[]>()
@@ -50,20 +80,31 @@ export function slotsToString(slots: Slot[]): string {
     groups.set(key, g)
   }
 
-  // Build phrases
+  const dayJoin = tr('slots.day_join', ', ')
+  const slotJoin = tr('slots.slot_join', ' & ')
+  const phraseJoin = tr('slots.phrase_join', '; ')
+
   const phrases: string[] = []
   // Sort groups by their first day
   const sortedGroups = [...groups.values()].sort((a, b) => a.days[0] - b.days[0])
   for (const g of sortedGroups) {
     g.days.sort((a, b) => a - b)
-    const dayNames = g.days.map((d) => DAYS_OF_WEEK[d].short).join(', ')
+    const dayNames = g.days
+      .map((d) => tr(DAY_SHORT_KEYS[d], DAYS_OF_WEEK[d].short))
+      .join(dayJoin)
     const slotName =
       g.slots.length === 3
-        ? 'all day'
+        ? tr('slots.all_day', 'all day')
         : g.slots
-            .map((s) => (s === 'morning' ? 'mornings' : s === 'afternoon' ? 'afternoons' : 'evenings'))
-            .join(' & ')
+            .map((s) =>
+              s === 'morning'
+                ? tr('slots.mornings', 'mornings')
+                : s === 'afternoon'
+                  ? tr('slots.afternoons', 'afternoons')
+                  : tr('slots.evenings', 'evenings'),
+            )
+            .join(slotJoin)
     phrases.push(`${dayNames} ${slotName}`)
   }
-  return phrases.join('; ')
+  return phrases.join(phraseJoin)
 }

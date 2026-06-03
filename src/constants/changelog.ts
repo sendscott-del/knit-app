@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.1',
+    date: '2026-06-02',
+    summary: 'Close the four i18n gaps from v0.46.0 — DB labels, availability summaries, role labels, error messages.',
+    details: [
+      "Backfilled ES translations on the seed knit_interest_tags (~48 rows) and knit_participation_styles (7 rows). The chips on member onboarding and /me, the Suggest 'Need' dropdown, and the friend-detail interest pills now swap to Spanish on the toggle. Custom ward-added tags without a name_es fall back to name_en safely. Migration: supabase/migrations/20260602080000_knit_backfill_es_labels.sql.",
+      "ROLE_LABELS converted from a static map to a roleLabel(role, t) function backed by new common.roles.* keys. Updated four call sites: AdminLayout top bar, AdminDashboard subheader, AdminSettings profile card, and ROLE_LABELS still exported as the EN fallback for any non-UI usage. ES labels: Presidencia de Estaca, Sumo Consejero, Líder Misional de Barrio, Presidencia de la Sociedad de Socorro, Presidencia del Quórum de Élderes.",
+      "slotsToString() now accepts an optional translator. Updated all six call sites (AdminFriends, AdminMembers x4, MemberOnboarding x2) to pass the page-local t. Day shorts swap Sun→Dom, Mon→Lun, etc.; 'mornings/afternoons/evenings' → 'mañanas/tardes/noches'; 'all day' → 'todo el día'; ' & ' → ' y '. Without a translator it still emits the original English forms for server-side use.",
+      "New translateSupabaseError(err, t) helper at src/lib/errors.ts maps the common Postgres / PostgREST / Supabase Auth error patterns (unique violation, FK violation, NOT NULL, permission denied, rate limit, invalid credentials, email not confirmed, JWT expired, network) to friendly translated messages. Unknown errors fall back to a translated 'Something went wrong:' prefix + the raw upstream string so the language toggle at least changes the framing. Available for adoption at every error display site — not yet wired into every form, but ready to drop in.",
+    ],
+  },
+  {
     version: '0.46.0',
     date: '2026-06-02',
     summary: 'Full i18n pass — every visible string in Knit now translates between English and Spanish.',

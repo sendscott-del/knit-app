@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
+import { localizedStyleLabel } from '@/lib/localizedLabel'
 
 type Style = Database['public']['Tables']['knit_participation_styles']['Row']
 
@@ -22,7 +23,7 @@ export default function StylePicker({
   value: string[]
   onChange: (next: string[]) => void
 }) {
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const [styles, setStyles] = useState<Style[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -71,7 +72,7 @@ export default function StylePicker({
             <span className="text-2xl" aria-hidden="true">
               {STYLE_ICONS[s.key] ?? '•'}
             </span>
-            <span className="text-base font-semibold">{s.label_en}</span>
+            <span className="text-base font-semibold">{localizedStyleLabel(s, i18n.language)}</span>
           </button>
         )
       })}

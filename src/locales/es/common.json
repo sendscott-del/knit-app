@@ -804,5 +804,45 @@
     "ways_count_one": "{{count}} forma de ayudar",
     "ways_count_other": "{{count}} formas de ayudar",
     "footer_note": "Te enviaremos otro mensaje en unos 90 días para actualizar tu disponibilidad. Siempre puedes cambiarla antes desde tu enlace."
+  },
+  "roles": {
+    "stake_presidency": "Presidencia de Estaca",
+    "high_councilor": "Sumo Consejero",
+    "ward_mission_leader": "Líder Misional de Barrio",
+    "relief_society_presidency": "Presidencia de la Sociedad de Socorro",
+    "elders_quorum_presidency": "Presidencia del Quórum de Élderes"
+  },
+  "slots": {
+    "day_short": {
+      "sun": "Dom",
+      "mon": "Lun",
+      "tue": "Mar",
+      "wed": "Mié",
+      "thu": "Jue",
+      "fri": "Vie",
+      "sat": "Sáb"
+    },
+    "all_day": "todo el día",
+    "mornings": "mañanas",
+    "afternoons": "tardes",
+    "evenings": "noches",
+    "day_join": ", ",
+    "slot_join": " y ",
+    "phrase_join": "; "
+  },
+  "errors": {
+    "unknown": "Algo salió mal.",
+    "unknown_prefix": "Algo salió mal",
+    "unique_violation": "Ya existe un registro con esos datos.",
+    "fk_violation": "No se pudo completar — un registro relacionado falta o está en uso.",
+    "not_null": "Por favor completa todos los campos requeridos.",
+    "check_violation": "Ese valor no cumple con los requisitos de este campo.",
+    "permission_denied": "No tienes permiso para hacer eso.",
+    "not_found": "No encontramos lo que buscabas.",
+    "rate_limited": "Demasiados intentos. Espera un momento y vuelve a intentar.",
+    "invalid_credentials": "Ese correo y contraseña no coinciden con una cuenta.",
+    "email_not_confirmed": "Confirma tu dirección de correo primero — revisa tu bandeja de entrada.",
+    "unauthenticated": "Tu sesión expiró. Por favor inicia sesión otra vez.",
+    "network": "Problema de red. Revisa tu conexión y vuelve a intentar."
   }
 }

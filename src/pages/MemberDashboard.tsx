@@ -10,6 +10,7 @@ import MemberOnboarding from '@/pages/MemberOnboarding'
 import KnitMark from '@/components/KnitMark'
 import { slotsToString, type DayOfWeek, type Slot, type TimeSlot } from '@/lib/availability'
 import type { Database } from '@/lib/database.types'
+import { localizedTagName, localizedStyleLabel } from '@/lib/localizedLabel'
 
 type MemberRow = Database['public']['Tables']['knit_members']['Row']
 type WardRow = Database['public']['Tables']['knit_wards']['Row']
@@ -424,7 +425,7 @@ function EditableInterests({
   onCancel: () => void
   onSaved: () => Promise<void>
 }) {
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const [draft, setDraft] = useState<string[]>(interests.map((i) => i.id))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -485,7 +486,7 @@ function EditableInterests({
               key={it.id}
               className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700"
             >
-              {it.name_en}
+              {localizedTagName(it, i18n.language)}
             </span>
           ))}
         </div>
@@ -509,7 +510,7 @@ function EditableStyles({
   onCancel: () => void
   onSaved: () => Promise<void>
 }) {
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const [draft, setDraft] = useState<string[]>(styles.map((s) => s.key))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -566,7 +567,7 @@ function EditableStyles({
       ) : (
         <ul className="space-y-1 text-gray-700">
           {styles.map((s) => (
-            <li key={s.key}>• {s.label_en}</li>
+            <li key={s.key}>• {localizedStyleLabel(s, i18n.language)}</li>
           ))}
         </ul>
       )}
