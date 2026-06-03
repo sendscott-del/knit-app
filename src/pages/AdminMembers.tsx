@@ -735,7 +735,7 @@ function MemberDetailModal({
   const [editing, setEditing] = useState<'availability' | 'interests' | 'styles' | 'profile' | null>(null)
   const [saving, setSaving] = useState(false)
 
-  async function load() {
+  async function load(signal?: { cancelled: boolean }) {
     setLoading(true)
     setError(null)
     const [memberRes, availRes, interestRes, styleRes] = await Promise.all([
@@ -757,6 +757,7 @@ function MemberDetailModal({
         .select('style_key')
         .eq('member_id', memberId),
     ])
+    if (signal?.cancelled) return
     if (memberRes.error || !memberRes.data) {
       setError(memberRes.error?.message ?? t('members.detail.member_not_found'))
       setLoading(false)
@@ -781,8 +782,12 @@ function MemberDetailModal({
     setLoading(false)
   }
 
+  // Use a cancellation flag so that rapidly switching between different
+  // member IDs doesn't let an earlier slow fetch overwrite the current data.
   useEffect(() => {
-    void load()
+    const signal = { cancelled: false }
+    void load(signal)
+    return () => { signal.cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
 

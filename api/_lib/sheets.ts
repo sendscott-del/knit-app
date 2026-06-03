@@ -222,18 +222,25 @@ export async function shareFileAsUser(
 ) {
   if (emails.length === 0) return
   const drive = google.drive({ version: 'v3', auth: oauthClient })
+  // Per-email try/catch: a single bad address (non-existent Google account,
+  // invalid email format) no longer aborts the whole share batch. Errors are
+  // logged; other recipients still get access.
   for (const email of emails) {
     const trimmed = email.trim()
     if (!trimmed) continue
-    await drive.permissions.create({
-      fileId,
-      requestBody: {
-        role: 'writer',
-        type: 'user',
-        emailAddress: trimmed,
-      },
-      sendNotificationEmail,
-    })
+    try {
+      await drive.permissions.create({
+        fileId,
+        requestBody: {
+          role: 'writer',
+          type: 'user',
+          emailAddress: trimmed,
+        },
+        sendNotificationEmail,
+      })
+    } catch (err) {
+      console.error(`[shareFileAsUser] failed to share ${fileId} with ${trimmed}:`, err instanceof Error ? err.message : String(err))
+    }
   }
 }
 

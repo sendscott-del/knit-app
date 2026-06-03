@@ -76,6 +76,8 @@ export default function AdminSheet() {
       const r = await authorizedFetch('/api/admin/google?action=status')
       const body = (await r.json()) as OAuthStatus
       setOauthStatus(body)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t('sheet.status_load_failed'))
     } finally {
       setLoadingStatus(false)
     }
@@ -95,7 +97,7 @@ export default function AdminSheet() {
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
       setBinding(body.binding as BindingRow | null)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to load binding')
+      setErr(e instanceof Error ? e.message : t('sheet.binding_load_failed'))
     } finally {
       setLoadingBinding(false)
     }
@@ -120,10 +122,10 @@ export default function AdminSheet() {
         body: JSON.stringify({ action: 'authorize' }),
       })
       const body = await r.json()
-      if (!r.ok || !body.url) throw new Error(body.error ?? 'Failed to start connect')
+      if (!r.ok || !body.url) throw new Error(body.error ?? t('sheet.connect_failed'))
       window.location.href = body.url
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to start connect')
+      setErr(e instanceof Error ? e.message : t('sheet.connect_failed'))
       setBusy(false)
     }
   }
@@ -141,7 +143,7 @@ export default function AdminSheet() {
       setNotice(t('sheet.disconnected'))
       await loadStatus()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Disconnect failed')
+      setErr(e instanceof Error ? e.message : t('sheet.disconnect_failed'))
     } finally {
       setBusy(false)
     }
@@ -171,7 +173,7 @@ export default function AdminSheet() {
       setEmailInput('')
       await loadBinding()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to create sheet')
+      setErr(e instanceof Error ? e.message : t('sheet.create_failed'))
     } finally {
       setBusy(false)
     }
@@ -185,7 +187,7 @@ export default function AdminSheet() {
     try {
       await pullThenRefresh(wardId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Sync failed')
+      setErr(e instanceof Error ? e.message : t('sheet.sync_failed'))
     } finally {
       setBusy(false)
     }
@@ -494,7 +496,7 @@ function BoundCard({
       .map((s) => s.trim())
       .filter((s) => s.includes('@'))
     if (emails.length === 0) {
-      setShareErr('Add at least one email address.')
+      setShareErr(t('sheet.add_at_least_one_email'))
       return
     }
     setSharing(true)
@@ -503,7 +505,7 @@ function BoundCard({
       await onShare(emails)
       setAddEmails('')
     } catch (err) {
-      setShareErr(err instanceof Error ? err.message : 'Share failed')
+      setShareErr(err instanceof Error ? err.message : t('sheet.share_failed'))
     } finally {
       setSharing(false)
     }
@@ -515,7 +517,7 @@ function BoundCard({
     try {
       await onRevoke(email)
     } catch (err) {
-      setShareErr(err instanceof Error ? err.message : 'Remove failed')
+      setShareErr(err instanceof Error ? err.message : t('sheet.remove_failed'))
     } finally {
       setSharing(false)
     }
@@ -527,7 +529,7 @@ function BoundCard({
     try {
       await onShareAdmins()
     } catch (err) {
-      setShareErr(err instanceof Error ? err.message : 'Share-with-admins failed')
+      setShareErr(err instanceof Error ? err.message : t('sheet.share_admins_failed'))
     } finally {
       setSharing(false)
     }
@@ -590,13 +592,13 @@ function BoundCard({
             {t('sheet.access_intro')}
           </p>
         </div>
-        {binding.shared_emails.length === 0 ? (
+        {(binding.shared_emails ?? []).length === 0 ? (
           <p className="text-sm text-gray-500">
             {t('sheet.nobody_added')}
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {binding.shared_emails.map((email) => (
+            {(binding.shared_emails ?? []).map((email) => (
               <li
                 key={email}
                 className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-800"

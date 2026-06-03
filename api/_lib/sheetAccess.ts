@@ -121,7 +121,11 @@ export async function reconcileBindingAccess(
         await drive.permissions.create({
           fileId: binding.sheet_id,
           requestBody: { role: 'writer', type: 'user', emailAddress: email },
-          sendNotificationEmail: true,
+          // Silent for cron-driven reconciles — admins don't need an email
+          // blast every morning when the sweep reconfirms existing access.
+          // The explicit "Share with all current Knit admins" UI action and
+          // the new-admin invite path still pass sendNotificationEmail: true.
+          sendNotificationEmail: false,
         })
         report.added.push(email)
       } catch (err) {
@@ -245,7 +249,9 @@ export async function reconcileAdminAccess(
       await drive.permissions.create({
         fileId: b.sheet_id,
         requestBody: { role: 'writer', type: 'user', emailAddress: admin.email },
-        sendNotificationEmail: true,
+        // Silent for sign-in-triggered reconciles — same reasoning as the
+        // cron path; admins don't need a Google notification every session.
+        sendNotificationEmail: false,
       })
       const merged = Array.from(
         new Set([...(b.shared_emails ?? []), admin.email]),
