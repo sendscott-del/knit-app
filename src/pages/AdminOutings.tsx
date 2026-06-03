@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
@@ -21,21 +22,6 @@ type OutingWithRels = OutingRow & {
 
 type Ctx = { profile: AdminProfile }
 
-// Display buckets. The DB enum has six values (scheduled, happened, flaked,
-// rescheduled, canceled, needs_checkin) but missionaries don't need to
-// distinguish flaked vs canceled vs needs_checkin — they all mean "the
-// outing didn't happen as planned." Surface four buckets and map flaked /
-// canceled / needs_checkin → "Didn't happen" for display. New entries
-// only get to pick from these four; canonical write values are below.
-const STATUS_LABELS: Record<OutingStatus, string> = {
-  scheduled: 'Scheduled',
-  happened: 'Happened',
-  flaked: "Didn't happen",
-  canceled: "Didn't happen",
-  needs_checkin: "Didn't happen",
-  rescheduled: 'Rescheduled',
-}
-
 const STATUS_TONE: Record<OutingStatus, 'slate' | 'emerald' | 'amber' | 'rose' | 'sky'> = {
   scheduled: 'sky',
   happened: 'emerald',
@@ -45,19 +31,20 @@ const STATUS_TONE: Record<OutingStatus, 'slate' | 'emerald' | 'amber' | 'rose' |
   needs_checkin: 'rose',
 }
 
-// The four buckets a missionary can choose when logging or editing an outing.
-// "Didn't happen" canonicalizes to 'flaked' since that's the most common cause.
-const STATUS_OPTIONS: { value: OutingStatus; label: string }[] = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'happened', label: 'Happened' },
-  { value: 'flaked', label: "Didn't happen" },
-  { value: 'rescheduled', label: 'Rescheduled' },
-]
-
 const SLOT_HOURS: Record<TimeSlot, number> = { morning: 9, afternoon: 14, evening: 19 }
+
+const PICKABLE_STATUS: OutingStatus[] = ['scheduled', 'happened', 'flaked', 'rescheduled']
+
+function statusLabelOf(s: OutingStatus, t: (k: string) => string): string {
+  if (s === 'scheduled') return t('outings.status_options.scheduled')
+  if (s === 'happened') return t('outings.status_options.happened')
+  if (s === 'rescheduled') return t('outings.status_options.rescheduled')
+  return t('outings.status_options.didnt_happen')
+}
 
 export default function AdminOutings() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
   const editor = canEdit(profile)
   const [outings, setOutings] = useState<OutingWithRels[]>([])
@@ -88,7 +75,7 @@ export default function AdminOutings() {
   }, [])
 
   async function remove(id: string) {
-    if (!confirm('Remove this outing record?')) return
+    if (!confirm(t('outings.remove_confirm'))) return
     const { error } = await supabase.from('knit_outings').delete().eq('id', id)
     if (error) {
       alert(error.message)
@@ -101,9 +88,9 @@ export default function AdminOutings() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Outings</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('outings.page_title')}</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Who went with whom, when, and what came of it.
+            {t('outings.page_subtitle')}
           </p>
         </div>
         {editor ? (
@@ -111,7 +98,7 @@ export default function AdminOutings() {
             onClick={() => setShowForm((v) => !v)}
             className="btn-primary text-sm py-2 px-4"
           >
-            {showForm ? 'Cancel' : 'Log outing'}
+            {showForm ? t('cancel') : t('outings.log_outing')}
           </button>
         ) : null}
       </div>
@@ -134,23 +121,23 @@ export default function AdminOutings() {
 
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500">Loading outings…</div>
+          <div className="p-6 text-sm text-gray-500">{t('outings.loading')}</div>
         ) : error ? (
           <div className="p-6 text-sm text-error">{error}</div>
         ) : outings.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
-            No outings logged yet. Log your first above.
+            {t('outings.empty')}
           </div>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[640px] md:min-w-0">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
-                <th className="px-4 py-3 font-medium">When</th>
-                <th className="px-4 py-3 font-medium">Friend</th>
-                <th className="px-4 py-3 font-medium hidden md:table-cell">Member</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium hidden lg:table-cell">Notes</th>
+                <th className="px-4 py-3 font-medium">{t('outings.col_when')}</th>
+                <th className="px-4 py-3 font-medium">{t('outings.col_friend')}</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">{t('outings.col_member')}</th>
+                <th className="px-4 py-3 font-medium">{t('outings.col_status')}</th>
+                <th className="px-4 py-3 font-medium hidden lg:table-cell">{t('outings.col_notes')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -158,22 +145,22 @@ export default function AdminOutings() {
               {outings.map((o) => (
                 <tr key={o.id}>
                   <td className="px-4 py-3 text-gray-900 whitespace-nowrap">
-                    {formatWhen(o.scheduled_at, o.scheduled_time_slot as TimeSlot)}
+                    {formatWhen(o.scheduled_at, o.scheduled_time_slot as TimeSlot, t)}
                     <DemoBadge when={o.is_demo} />
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     {o.friend
                       ? [o.friend.first_name, o.friend.last_name].filter(Boolean).join(' ')
-                      : '—'}
+                      : t('dash')}
                   </td>
                   <td className="px-4 py-3 text-gray-700 hidden md:table-cell">
-                    {o.member ? memberName(o.member) : '— (no member)'}
+                    {o.member ? memberName(o.member, t) : t('outings.no_member_display')}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={o.status} />
                   </td>
                   <td className="px-4 py-3 text-gray-600 max-w-xs truncate hidden lg:table-cell">
-                    {o.outcome_notes ?? '—'}
+                    {o.outcome_notes ?? t('dash')}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {editor ? (
@@ -181,10 +168,10 @@ export default function AdminOutings() {
                         onClick={() => void remove(o.id)}
                         className="text-sm text-error hover:opacity-80"
                       >
-                        Remove
+                        {t('remove')}
                       </button>
                     ) : (
-                      <span className="text-xs text-gray-400">View-only</span>
+                      <span className="text-xs text-gray-400">{t('view_only')}</span>
                     )}
                   </td>
                 </tr>
@@ -198,19 +185,23 @@ export default function AdminOutings() {
   )
 }
 
-function memberName(m: { first_name: string | null; last_name: string | null; preferred_name: string | null }) {
+function memberName(
+  m: { first_name: string | null; last_name: string | null; preferred_name: string | null },
+  t: (k: string) => string,
+) {
   if (m.preferred_name) return m.preferred_name
-  return [m.first_name, m.last_name].filter(Boolean).join(' ').trim() || '—'
+  return [m.first_name, m.last_name].filter(Boolean).join(' ').trim() || t('dash')
 }
 
-function formatWhen(scheduledAt: string, slot: TimeSlot) {
+function formatWhen(scheduledAt: string, slot: TimeSlot, t: (k: string) => string) {
   const d = new Date(scheduledAt)
   const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-  const slotLabel = slot.charAt(0).toUpperCase() + slot.slice(1)
+  const slotLabel = t(`outings.time_slots.${slot}`)
   return `${dateStr} · ${slotLabel}`
 }
 
 function StatusBadge({ status }: { status: OutingStatus }) {
+  const { t } = useTranslation('common')
   const tone = STATUS_TONE[status]
   const palette: Record<string, string> = {
     slate: 'bg-gray-100 text-gray-700',
@@ -221,7 +212,7 @@ function StatusBadge({ status }: { status: OutingStatus }) {
   }
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${palette[tone]}`}>
-      {STATUS_LABELS[status]}
+      {statusLabelOf(status, t)}
     </span>
   )
 }
@@ -237,6 +228,7 @@ function NewOutingForm({
   defaultWardId: string
   onCreated: () => void | Promise<void>
 }) {
+  const { t } = useTranslation('common')
   const [wardId, setWardId] = useState(defaultWardId)
   const [friends, setFriends] = useState<FriendRow[]>([])
   const [members, setMembers] = useState<MemberRow[]>([])
@@ -276,9 +268,6 @@ function NewOutingForm({
           .from('knit_members')
           .select('*')
           .eq('ward_id', wardId)
-          // Only members who have actually completed the survey can be
-          // logged as participants — they're the only ones the missionaries
-          // have committed availability for.
           .not('onboarding_completed_at', 'is', null)
           .is('opted_out_at', null)
           .order('first_name'),
@@ -292,13 +281,12 @@ function NewOutingForm({
   async function submit(e: FormEvent) {
     e.preventDefault()
     if (!wardId || !friendId) {
-      setErr('Pick a ward and a friend.')
+      setErr(t('outings.pick_ward_friend'))
       return
     }
     setSaving(true)
     setErr(null)
 
-    // Compose scheduled_at from date + slot hour (local time; stored as UTC ISO).
     const [y, m, d] = date.split('-').map(Number)
     const scheduledAt = new Date(y, (m ?? 1) - 1, d ?? 1, SLOT_HOURS[slot], 0, 0).toISOString()
 
@@ -334,7 +322,7 @@ function NewOutingForm({
       className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
     >
       {wards.length > 1 ? (
-        <Field label="Ward" required>
+        <Field label={t('ward')} required>
           <select
             value={wardId}
             onChange={(e) => {
@@ -345,7 +333,7 @@ function NewOutingForm({
             className="form-input"
             disabled={wardsLoading}
           >
-            <option value="">{wardsLoading ? 'Loading…' : 'Pick a ward'}</option>
+            <option value="">{wardsLoading ? t('loading') : t('pick_a_ward')}</option>
             {wards.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
@@ -355,7 +343,7 @@ function NewOutingForm({
         </Field>
       ) : null}
 
-      <Field label="Friend" required>
+      <Field label={t('outings.friend')} required>
         <select
           value={friendId}
           onChange={(e) => setFriendId(e.target.value)}
@@ -365,10 +353,10 @@ function NewOutingForm({
         >
           <option value="">
             {loadingPools
-              ? 'Loading…'
+              ? t('loading')
               : friends.length === 0
-                ? 'No friends in this ward'
-                : 'Pick a friend'}
+                ? t('outings.no_friends_in_ward')
+                : t('outings.pick_a_friend')}
           </option>
           {friends.map((f) => (
             <option key={f.id} value={f.id}>
@@ -378,23 +366,23 @@ function NewOutingForm({
         </select>
       </Field>
 
-      <Field label="Member" hint="Leave blank if missionaries went without a ward member">
+      <Field label={t('outings.member')} hint={t('outings.member_hint')}>
         <select
           value={memberId}
           onChange={(e) => setMemberId(e.target.value)}
           className="form-input"
           disabled={loadingPools}
         >
-          <option value="">— (no member)</option>
+          <option value="">{t('outings.no_member_display')}</option>
           {members.map((m) => (
             <option key={m.id} value={m.id}>
-              {memberName(m)}
+              {memberName(m, t)}
             </option>
           ))}
         </select>
       </Field>
 
-      <Field label="Date" required>
+      <Field label={t('outings.date')} required>
         <input
           type="date"
           required
@@ -404,7 +392,7 @@ function NewOutingForm({
         />
       </Field>
 
-      <Field label="Time of day" required>
+      <Field label={t('outings.time_of_day')} required>
         <select
           value={slot}
           onChange={(e) => setSlot(e.target.value as TimeSlot)}
@@ -412,34 +400,34 @@ function NewOutingForm({
         >
           {TIME_SLOTS.map((s) => (
             <option key={s.value} value={s.value}>
-              {s.label}
+              {t(`outings.time_slots.${s.value}`)}
             </option>
           ))}
         </select>
       </Field>
 
-      <Field label="Status" required>
+      <Field label={t('outings.status_label')} required>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as OutingStatus)}
           className="form-input"
         >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
+          {PICKABLE_STATUS.map((s) => (
+            <option key={s} value={s}>
+              {statusLabelOf(s, t)}
             </option>
           ))}
         </select>
       </Field>
 
       <div className="sm:col-span-2">
-        <Field label="Outcome notes" hint="What happened? What should someone follow up on?">
+        <Field label={t('outings.outcome_notes')} hint={t('outings.outcome_hint')}>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             className="form-input"
-            placeholder="Friend loved meeting the Johnsons — wants to come to dinner next week."
+            placeholder={t('outings.notes_placeholder')}
           />
         </Field>
       </div>
@@ -451,7 +439,7 @@ function NewOutingForm({
           disabled={saving}
           className="btn-primary text-sm py-2 px-4"
         >
-          {saving ? 'Saving…' : 'Save outing'}
+          {saving ? t('saving') : t('outings.save_outing')}
         </button>
       </div>
     </form>

@@ -25,34 +25,34 @@ export default function MobileTabBar({
     <nav
       className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 grid grid-cols-5"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      aria-label="Primary"
+      aria-label={t('tabbar.primary_label')}
     >
-      <TabLink to="/admin" end label={t('nav.home', 'Home')} icon="home" />
+      <TabLink to="/admin" end label={t('nav.home')} icon="home" />
       <TabLink
         to="/admin/members"
-        label={t('nav.members', 'Members')}
+        label={t('nav.members')}
         icon="members"
       />
       <TabLink
         to="/admin/friends"
-        label={t('nav.friends', 'Friends')}
+        label={t('nav.friends')}
         icon="friends"
       />
       <TabLink
         to="/admin/suggest"
-        label={t('nav.suggest', 'Suggest')}
+        label={t('nav.suggest')}
         icon="suggest"
       />
       <button
         type="button"
         onClick={onMoreClick}
-        aria-label={t('nav.more', 'More')}
+        aria-label={t('nav.more')}
         className={`flex flex-col items-center justify-center gap-0.5 min-h-[56px] text-[10px] font-semibold ${
           moreActive ? 'text-knit-primary' : 'text-gray-500'
         }`}
       >
         <Icon name="more" active={moreActive} />
-        {t('nav.more', 'More')}
+        {t('nav.more')}
       </button>
     </nav>
   )

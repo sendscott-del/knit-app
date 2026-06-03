@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { canManageStake, ROLE_LABELS } from '@/lib/roles'
@@ -19,6 +20,7 @@ type Ctx = { profile: AdminProfile }
 
 export default function AdminSettings() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const stakeAdmin = canManageStake(profile)
 
   const [stake, setStake] = useState<StakeRow | null>(profile.stake)
@@ -86,6 +88,7 @@ export default function AdminSettings() {
 
   useEffect(() => {
     void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.stake_id])
 
   async function updateStakeName(name: string) {
@@ -101,7 +104,7 @@ export default function AdminSettings() {
       return
     }
     setStake({ ...stake, name })
-    setNotice('Stake name saved.')
+    setNotice(t('settings.stake_name_saved'))
   }
 
   async function createWard(name: string) {
@@ -115,10 +118,7 @@ export default function AdminSettings() {
       setError(error.message)
       return
     }
-    // No sheet binding row yet — the ward's WML provisions it later from
-    // /admin/sheet (which uses the server with service role). Keeping this
-    // page free of writes that need ward-edit RLS.
-    setNotice(`Ward added. ${name}'s WML can wire up the Google Sheet from /admin/sheet.`)
+    setNotice(t('settings.ward_added', { name }))
     setShowNewWard(false)
     await refresh()
   }
@@ -131,18 +131,22 @@ export default function AdminSettings() {
       setError(error.message)
       return
     }
-    setNotice('Ward renamed.')
+    setNotice(t('settings.ward_renamed'))
     await refresh()
   }
 
   async function removeWard(ward: WardWithBinding) {
     if (ward.member_count > 0 || ward.friend_count > 0) {
       alert(
-        `Cannot remove ${ward.name} — it has ${ward.member_count} member(s) and ${ward.friend_count} friend(s). Move or remove those first.`,
+        t('settings.ward_cannot_remove', {
+          name: ward.name,
+          members: ward.member_count,
+          friends: ward.friend_count,
+        }),
       )
       return
     }
-    if (!confirm(`Remove ${ward.name}? This is permanent.`)) return
+    if (!confirm(t('settings.remove_ward_confirm', { name: ward.name }))) return
     if (ward.binding) {
       await supabase.from('knit_google_sheet_bindings').delete().eq('id', ward.binding.id)
     }
@@ -151,16 +155,16 @@ export default function AdminSettings() {
       setError(error.message)
       return
     }
-    setNotice(`Removed ${ward.name}.`)
+    setNotice(t('settings.ward_removed', { name: ward.name }))
     await refresh()
   }
 
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('settings.page_title')}</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Stake configuration, ward roster, and per-ward Google Sheet bindings.
+          {t('settings.page_subtitle')}
         </p>
       </div>
 
@@ -177,15 +181,15 @@ export default function AdminSettings() {
 
       <section className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
         <header>
-          <h2 className="text-lg font-medium text-gray-900">Stake</h2>
+          <h2 className="text-lg font-medium text-gray-900">{t('settings.stake_heading')}</h2>
           <p className="text-sm text-gray-600">
-            Top-level org unit. Wards live underneath it.
+            {t('settings.stake_subtitle')}
           </p>
         </header>
         {loading ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-gray-500">{t('loading')}</p>
         ) : !stake ? (
-          <p className="text-sm text-gray-500">No stake configured yet.</p>
+          <p className="text-sm text-gray-500">{t('settings.no_stake')}</p>
         ) : (
           <StakeNameForm
             stake={stake}
@@ -198,10 +202,9 @@ export default function AdminSettings() {
       <section className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-medium text-gray-900">Wards</h2>
+            <h2 className="text-lg font-medium text-gray-900">{t('settings.wards_heading')}</h2>
             <p className="text-sm text-gray-600">
-              {wards.length} ward{wards.length === 1 ? '' : 's'} configured. Each
-              ward has its own members, friends, and Google Sheet.
+              {t('settings.wards_summary', { count: wards.length })}
             </p>
           </div>
           {stakeAdmin ? (
@@ -209,7 +212,7 @@ export default function AdminSettings() {
               onClick={() => setShowNewWard((v) => !v)}
               className="btn-primary text-sm py-2 px-4 whitespace-nowrap"
             >
-              {showNewWard ? 'Cancel' : 'Add ward'}
+              {showNewWard ? t('cancel') : t('settings.add_ward')}
             </button>
           ) : null}
         </header>
@@ -219,9 +222,9 @@ export default function AdminSettings() {
         ) : null}
 
         {loading ? (
-          <p className="text-sm text-gray-500">Loading wards…</p>
+          <p className="text-sm text-gray-500">{t('settings.loading_wards')}</p>
         ) : wards.length === 0 ? (
-          <p className="text-sm text-gray-500">No wards yet.</p>
+          <p className="text-sm text-gray-500">{t('settings.no_wards')}</p>
         ) : (
           <ul className="divide-y divide-gray-100 -mx-5">
             {wards.map((w) => (
@@ -239,28 +242,28 @@ export default function AdminSettings() {
 
       <section className="rounded-md border border-gray-200 bg-white p-5 space-y-3">
         <header>
-          <h2 className="text-lg font-medium text-gray-900">Your account</h2>
+          <h2 className="text-lg font-medium text-gray-900">{t('settings.account_heading')}</h2>
         </header>
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <Meta label="Name">{profile.name ?? '—'}</Meta>
-          <Meta label="Email">{profile.email}</Meta>
-          <Meta label="Role">{ROLE_LABELS[profile.role]}</Meta>
-          <Meta label="Scope">
-            {profile.ward?.name ?? profile.stake?.name ?? '—'}
+          <Meta label={t('settings.name')}>{profile.name ?? t('dash')}</Meta>
+          <Meta label={t('settings.email')}>{profile.email}</Meta>
+          <Meta label={t('settings.role')}>{ROLE_LABELS[profile.role]}</Meta>
+          <Meta label={t('settings.scope')}>
+            {profile.ward?.name ?? profile.stake?.name ?? t('dash')}
           </Meta>
           {profile.is_super_admin ? (
-            <Meta label="Privileges">
+            <Meta label={t('settings.privileges')}>
               <span className="rounded-full bg-knit-primary px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
-                Super admin
+                {t('settings.super_admin')}
               </span>
             </Meta>
           ) : null}
         </dl>
         {stakeAdmin ? (
           <p className="text-sm text-gray-600">
-            Need to add or change other admins?{' '}
+            {t('settings.need_change_admins')}{' '}
             <Link to="/admin/users" className="text-knit-primary font-medium underline">
-              Open the Users page →
+              {t('settings.open_users')}
             </Link>
           </p>
         ) : null}
@@ -278,6 +281,7 @@ function StakeNameForm({
   canEditStake: boolean
   onSave: (name: string) => void
 }) {
+  const { t } = useTranslation('common')
   const [name, setName] = useState(stake.name)
   const [dirty, setDirty] = useState(false)
   useEffect(() => {
@@ -287,7 +291,7 @@ function StakeNameForm({
   return (
     <div className="flex flex-wrap items-end gap-3">
       <label className="block space-y-1.5 flex-1 min-w-[200px]">
-        <span className="text-sm font-medium text-gray-700">Stake name</span>
+        <span className="text-sm font-medium text-gray-700">{t('settings.stake_name')}</span>
         <input
           type="text"
           value={name}
@@ -305,7 +309,7 @@ function StakeNameForm({
           disabled={!dirty || !name.trim()}
           className="btn-primary text-sm py-2 px-4"
         >
-          Save
+          {t('save')}
         </button>
       ) : null}
     </div>
@@ -313,6 +317,7 @@ function StakeNameForm({
 }
 
 function NewWardForm({ onCreate }: { onCreate: (name: string) => void }) {
+  const { t } = useTranslation('common')
   const [name, setName] = useState('')
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -326,18 +331,18 @@ function NewWardForm({ onCreate }: { onCreate: (name: string) => void }) {
       className="flex flex-wrap items-end gap-3 rounded-md border border-dashed border-gray-300 p-4"
     >
       <label className="block space-y-1.5 flex-1 min-w-[200px]">
-        <span className="text-sm font-medium text-gray-700">Ward name</span>
+        <span className="text-sm font-medium text-gray-700">{t('settings.ward_name')}</span>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Hyde Park 4th"
+          placeholder={t('settings.ward_name_placeholder')}
           className="form-input"
           autoFocus
         />
       </label>
       <button type="submit" className="btn-primary text-sm py-2 px-4">
-        Create
+        {t('create')}
       </button>
     </form>
   )
@@ -354,6 +359,7 @@ function WardRowItem({
   onRename: (name: string) => void
   onRemove: () => void
 }) {
+  const { t } = useTranslation('common')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(ward.name)
 
@@ -371,10 +377,10 @@ function WardRowItem({
   const status = ward.binding?.status ?? 'not_configured'
   const statusLabel =
     status === 'healthy'
-      ? 'Sheet healthy'
+      ? t('settings.sheet_healthy')
       : status === 'error'
-        ? 'Sheet error'
-        : 'No sheet yet'
+        ? t('settings.sheet_error')
+        : t('settings.no_sheet_yet')
   const statusTone =
     status === 'healthy'
       ? 'bg-emerald-100 text-emerald-800'
@@ -405,8 +411,8 @@ function WardRowItem({
           <div className="font-medium text-gray-900">{ward.name}</div>
         )}
         <div className="text-xs text-gray-500 mt-1">
-          {ward.member_count} member{ward.member_count === 1 ? '' : 's'} ·{' '}
-          {ward.friend_count} friend{ward.friend_count === 1 ? '' : 's'}
+          {t('settings.members', { count: ward.member_count })} ·{' '}
+          {t('settings.friends', { count: ward.friend_count })}
         </div>
       </div>
       <span
@@ -419,14 +425,14 @@ function WardRowItem({
           to={`/admin/sheet?wardId=${ward.id}`}
           className="text-sm text-knit-primary font-medium hover:underline"
         >
-          Manage sheet →
+          {t('settings.manage_sheet')}
         </Link>
         {canEdit && !editing ? (
           <button
             onClick={() => setEditing(true)}
             className="text-sm text-gray-600 hover:text-gray-900"
           >
-            Rename
+            {t('rename')}
           </button>
         ) : null}
         {canEdit ? (
@@ -434,7 +440,7 @@ function WardRowItem({
             onClick={onRemove}
             className="text-sm text-error hover:opacity-80"
           >
-            Remove
+            {t('remove')}
           </button>
         ) : null}
       </div>

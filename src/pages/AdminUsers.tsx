@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import {
@@ -11,19 +12,6 @@ import {
   type AdminRole,
 } from '@/lib/roles'
 import type { Database } from '@/lib/database.types'
-
-/**
- * Consolidated Users page — replaces the old separate Users + Roles pages.
- *
- * One row per person (keyed by email). Each row shows:
- *   • Name + email
- *   • Knit admin role (from knit_admin_users), if any, with super badge
- *   • Suite roles (from gather_user_roles), if any, as small pills
- *
- * Editing opens an inline form that lets stake admins change BOTH the Knit
- * admin role/ward AND the 19-role suite catalog in one place. Invite covers
- * both as well. Sync from Tidings stays as a super-admin button at the top.
- */
 
 type AdminRow = Database['public']['Tables']['knit_admin_users']['Row']
 type WardRow = Database['public']['Tables']['knit_wards']['Row']
@@ -38,13 +26,11 @@ type GatherAppUser = { user_id: string; email: string | null }
 
 type PersonRow = {
   email: string
-  // From gather_app_users — the auth user id if they've ever signed in.
   user_id: string | null
   knit: AdminWithWard | null
   suite: SuiteRoleRow[]
 }
 
-// Mirrors public.gather_roles_catalog (kept in sync with migration 0006).
 const SUITE_ROLES: SuiteRoleDef[] = [
   { key: 'stake_president', label: 'Stake President', scope: 'stake' },
   { key: 'stake_clerk', label: 'Stake Clerk', scope: 'stake' },
@@ -80,6 +66,7 @@ async function authorizedFetch(path: string, init: RequestInit = {}) {
 
 export default function AdminUsers() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const stakeAdmin = canManageStake(profile)
 
   const [people, setPeople] = useState<PersonRow[]>([])
@@ -139,7 +126,6 @@ export default function AdminUsers() {
     const suiteRows = (suiteRes.data ?? []) as SuiteRoleRow[]
     const appUsers = (appUsersRes.data ?? []) as GatherAppUser[]
 
-    // Build the union by email.
     const byEmail = new Map<string, PersonRow>()
     const upsert = (email: string): PersonRow => {
       const key = email.toLowerCase()
@@ -175,6 +161,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.stake_id])
 
   const visible = useMemo(() => {
@@ -204,11 +191,17 @@ export default function AdminUsers() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
       setSyncResult(
-        `Pulled ${data.contact_count ?? 0} contacts: ${data.inserted ?? 0} new, ${data.updated ?? 0} updated, ${data.skipped ?? 0} skipped, ${data.missing_ward ?? 0} unmapped ward.`,
+        t('users.sync_result', {
+          contacts: data.contact_count ?? 0,
+          inserted: data.inserted ?? 0,
+          updated: data.updated ?? 0,
+          skipped: data.skipped ?? 0,
+          missing: data.missing_ward ?? 0,
+        }),
       )
       await refresh()
     } catch (e) {
-      setSyncResult(`Sync failed: ${e instanceof Error ? e.message : String(e)}`)
+      setSyncResult(t('users.sync_failed', { detail: e instanceof Error ? e.message : String(e) }))
     } finally {
       setSyncing(false)
     }
@@ -217,9 +210,9 @@ export default function AdminUsers() {
   if (!stakeAdmin) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold text-gray-900">Users</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('users.page_title')}</h1>
         <p className="text-sm text-gray-600">
-          Only stake presidency or super admins can manage users and roles.
+          {t('users.no_permission')}
         </p>
       </div>
     )
@@ -228,7 +221,6 @@ export default function AdminUsers() {
   async function invitePerson(payload: InvitePayload) {
     setError(null)
     setNotice(null)
-    // 1) Knit admin row (if a Knit role was picked).
     if (payload.knit_role) {
       const r = await authorizedFetch('/api/admin/users', {
         method: 'POST',
@@ -247,8 +239,6 @@ export default function AdminUsers() {
         return
       }
     }
-    // 2) Suite roles. Granted via gather_grant_role; existing rows are
-    //    no-ops because the RPC upserts.
     for (const sr of payload.suite_roles) {
       const { error } = await supabase.rpc('gather_grant_role', {
         p_email: payload.email,
@@ -261,7 +251,7 @@ export default function AdminUsers() {
         return
       }
     }
-    setNotice(`Invited ${payload.email}.`)
+    setNotice(t('users.invited', { email: payload.email }))
     setShowInvite(false)
     await refresh()
   }
@@ -270,9 +260,7 @@ export default function AdminUsers() {
     setError(null)
     setNotice(null)
     try {
-      // Knit-side updates
       if (person.knit) {
-        // Existing knit_admin_users row — update in place.
         if (
           patch.knit_role !== undefined ||
           patch.knit_ward_id !== undefined ||
@@ -292,7 +280,6 @@ export default function AdminUsers() {
           if (error) throw new Error(error.message)
         }
       } else if (patch.knit_role) {
-        // No knit_admin_users row yet — invite them so one gets created.
         const r = await authorizedFetch('/api/admin/users', {
           method: 'POST',
           body: JSON.stringify({
@@ -308,7 +295,6 @@ export default function AdminUsers() {
         if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
       }
 
-      // Suite-role diff
       if (patch.suite_roles) {
         const current = person.suite
         const sameKey = (
@@ -340,7 +326,7 @@ export default function AdminUsers() {
         }
       }
 
-      setNotice('Saved.')
+      setNotice(t('users.saved'))
       setEditingEmail(null)
       await refresh()
     } catch (e) {
@@ -351,10 +337,10 @@ export default function AdminUsers() {
   async function removePerson(person: PersonRow) {
     if (!person.knit) return
     if (person.knit.id === profile.id) {
-      alert("You can't remove yourself.")
+      alert(t('users.cant_remove_self'))
       return
     }
-    if (!confirm(`Remove ${person.email}? They will lose Knit admin access (suite roles stay).`)) return
+    if (!confirm(t('users.remove_confirm', { email: person.email }))) return
     setError(null)
     setNotice(null)
     const r = await authorizedFetch('/api/admin/users', {
@@ -366,7 +352,7 @@ export default function AdminUsers() {
       setError(body.error ?? `HTTP ${r.status}`)
       return
     }
-    setNotice(`Removed ${person.email}.`)
+    setNotice(t('users.removed', { email: person.email }))
     await refresh()
   }
 
@@ -374,17 +360,16 @@ export default function AdminUsers() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Users & roles</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('users.page_title_full')}</h1>
           <p className="text-sm text-gray-600 mt-1">
-            One list of everyone who can sign in to Knit or has a stake/ward role
-            in the Gathered apps. Edit Knit admin access and suite roles in one place.
+            {t('users.page_subtitle')}
           </p>
         </div>
         <button
           onClick={() => setShowInvite((v) => !v)}
           className="btn-primary text-sm py-2 px-4 whitespace-nowrap"
         >
-          {showInvite ? 'Cancel' : 'Invite a user'}
+          {showInvite ? t('cancel') : t('users.invite_user')}
         </button>
       </div>
 
@@ -392,10 +377,9 @@ export default function AdminUsers() {
         <div className="rounded-md border border-gray-200 bg-white p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium text-gray-900">Tidings member directory</p>
+              <p className="text-sm font-medium text-gray-900">{t('users.tidings_title')}</p>
               <p className="text-xs text-gray-500">
-                Pulls every active contact from Tidings into knit_members. Safe to run anytime.
-                Auto-runs nightly via pg_cron.
+                {t('users.tidings_subtitle')}
               </p>
             </div>
             <button
@@ -403,7 +387,7 @@ export default function AdminUsers() {
               disabled={syncing}
               className="rounded-md bg-knit-primary px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 whitespace-nowrap"
             >
-              {syncing ? 'Syncing…' : 'Sync from Tidings'}
+              {syncing ? t('users.syncing') : t('users.sync_from_tidings')}
             </button>
           </div>
           {syncResult ? (
@@ -437,16 +421,16 @@ export default function AdminUsers() {
         type="text"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="Filter by name or email"
+        placeholder={t('users.filter_placeholder')}
         className="form-input"
       />
 
       <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500">Loading users…</div>
+          <div className="p-6 text-sm text-gray-500">{t('users.loading')}</div>
         ) : visible.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
-            No users match. Invite the first above.
+            {t('users.empty')}
           </div>
         ) : (
           <ul className="divide-y divide-gray-100">
@@ -470,10 +454,6 @@ export default function AdminUsers() {
     </div>
   )
 }
-
-/* ============================================================
-   List row
-   ============================================================ */
 
 type SavePatch = {
   name?: string
@@ -504,6 +484,7 @@ function PersonItem({
   onSave: (patch: SavePatch) => void
   onRemove: () => void
 }) {
+  const { t } = useTranslation('common')
   if (editing) {
     return (
       <li className="px-4 py-4 bg-gray-50/50">
@@ -526,7 +507,7 @@ function PersonItem({
           </span>
           {person.knit?.is_super_admin ? (
             <span className="rounded-full bg-knit-primary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-              Super
+              {t('users.super')}
             </span>
           ) : null}
         </div>
@@ -534,11 +515,11 @@ function PersonItem({
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           {person.knit ? (
             <span className="inline-flex items-center rounded-full bg-knit-primary/10 px-2 py-0.5 text-[11px] font-medium text-knit-primary">
-              Knit: {ROLE_LABELS[person.knit.role]}
+              {t('users.knit_prefix', { label: ROLE_LABELS[person.knit.role] })}
               {person.knit.ward ? ` · ${person.knit.ward.name}` : ''}
             </span>
           ) : (
-            <span className="text-[11px] italic text-gray-400">No Knit admin role</span>
+            <span className="text-[11px] italic text-gray-400">{t('users.no_knit_role')}</span>
           )}
           {person.suite.map((r) => {
             const def = SUITE_ROLES.find((s) => s.key === r.role_key)
@@ -559,19 +540,19 @@ function PersonItem({
           onClick={onStartEdit}
           className="text-sm text-gray-700 hover:text-gray-900"
         >
-          Edit
+          {t('edit')}
         </button>
         {person.knit ? (
           isSelf ? (
-            <span className="text-xs text-gray-400">(you)</span>
+            <span className="text-xs text-gray-400">{t('users.you')}</span>
           ) : person.knit.is_super_admin && !callerIsSuper ? (
-            <span className="text-xs text-gray-400">Protected</span>
+            <span className="text-xs text-gray-400">{t('users.protected')}</span>
           ) : (
             <button
               onClick={onRemove}
               className="text-sm text-error hover:opacity-80"
             >
-              Remove
+              {t('remove')}
             </button>
           )
         ) : null}
@@ -579,10 +560,6 @@ function PersonItem({
     </li>
   )
 }
-
-/* ============================================================
-   Editor (inline)
-   ============================================================ */
 
 function EditorForm({
   person,
@@ -597,6 +574,7 @@ function EditorForm({
   onCancel: () => void
   onSave: (patch: SavePatch) => void
 }) {
+  const { t } = useTranslation('common')
   const [name, setName] = useState(person.knit?.name ?? '')
   const [knitRole, setKnitRole] = useState<AdminRole | ''>(person.knit?.role ?? '')
   const [knitWardId, setKnitWardId] = useState<string>(person.knit?.ward_id ?? '')
@@ -622,7 +600,7 @@ function EditorForm({
 
   function save() {
     if (knitWardRequired && !knitWardId) {
-      alert('Pick a ward for this Knit role.')
+      alert(t('users.pick_ward_role'))
       return
     }
     onSave({
@@ -641,10 +619,10 @@ function EditorForm({
       </div>
 
       <fieldset className="space-y-3 rounded-md border border-gray-200 bg-white p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">Knit admin</legend>
+        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.knit_admin')}</legend>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1.5">
-            <span className="text-xs text-gray-600">Display name</span>
+            <span className="text-xs text-gray-600">{t('users.display_name')}</span>
             <input
               type="text"
               value={name}
@@ -653,13 +631,13 @@ function EditorForm({
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-xs text-gray-600">Role</span>
+            <span className="text-xs text-gray-600">{t('users.role_label')}</span>
             <select
               value={knitRole}
               onChange={(e) => setKnitRole(e.target.value as AdminRole | '')}
               className="form-input"
             >
-              <option value="">— No Knit admin role —</option>
+              <option value="">{t('users.no_knit_role_option')}</option>
               {ALL_KNIT_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
@@ -669,13 +647,13 @@ function EditorForm({
           </label>
           {knitWardRequired ? (
             <label className="block space-y-1.5 sm:col-span-2">
-              <span className="text-xs text-gray-600">Ward</span>
+              <span className="text-xs text-gray-600">{t('users.ward_label')}</span>
               <select
                 value={knitWardId}
                 onChange={(e) => setKnitWardId(e.target.value)}
                 className="form-input"
               >
-                <option value="">Pick a ward</option>
+                <option value="">{t('users.pick_a_ward')}</option>
                 {wards.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
@@ -691,16 +669,16 @@ function EditorForm({
                 checked={isSuper}
                 onChange={(e) => setIsSuper(e.target.checked)}
               />
-              Grant super admin
+              {t('users.grant_super')}
             </label>
           ) : null}
         </div>
       </fieldset>
 
       <fieldset className="space-y-2 rounded-md border border-gray-200 bg-white p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">Suite roles</legend>
+        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.suite_roles')}</legend>
         <p className="text-xs text-gray-500 -mt-1">
-          Roles shared across all Gathered apps. One person can hold multiple.
+          {t('users.suite_roles_explain')}
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {SUITE_ROLES.map((role) => {
@@ -719,7 +697,7 @@ function EditorForm({
                   />
                   <span className="flex-1">{role.label}</span>
                   <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                    {role.scope}
+                    {role.scope === 'stake' ? t('users.scope_stake') : t('users.scope_ward')}
                   </span>
                 </label>
                 {selected && role.scope === 'ward' ? (
@@ -728,7 +706,7 @@ function EditorForm({
                     onChange={(e) => setWardForSuite(role.key, e.target.value || null)}
                     className="mt-2 w-full text-xs px-2 py-1 border border-gray-300 rounded"
                   >
-                    <option value="">— Pick a ward —</option>
+                    <option value="">{t('users.pick_ward_dash')}</option>
                     {wards.map((w) => (
                       <option key={w.id} value={w.name}>
                         {w.name}
@@ -744,22 +722,18 @@ function EditorForm({
 
       <div className="flex items-center gap-2">
         <button onClick={save} className="btn-primary text-sm py-2 px-4">
-          Save
+          {t('save')}
         </button>
         <button
           onClick={onCancel}
           className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
         >
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </div>
   )
 }
-
-/* ============================================================
-   Invite form
-   ============================================================ */
 
 type InvitePayload = {
   email: string
@@ -779,6 +753,7 @@ function InviteForm({
   callerIsSuper: boolean
   onSubmit: (payload: InvitePayload) => void
 }) {
+  const { t } = useTranslation('common')
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [knitRole, setKnitRole] = useState<AdminRole | ''>('')
@@ -807,7 +782,7 @@ function InviteForm({
     if (!email.trim().includes('@')) return
     if (knitWardRequired && !knitWardId) return
     if (!knitRole && suiteDraft.length === 0) {
-      alert('Pick at least one Knit role or one suite role.')
+      alert(t('users.pick_at_least_one'))
       return
     }
     onSubmit({
@@ -827,18 +802,18 @@ function InviteForm({
     >
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">Email *</span>
+          <span className="text-sm font-medium text-gray-700">{t('users.email_required')}</span>
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="form-input"
-            placeholder="name@example.com"
+            placeholder={t('users.email_placeholder')}
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">Display name</span>
+          <span className="text-sm font-medium text-gray-700">{t('users.display_name')}</span>
           <input
             type="text"
             value={name}
@@ -849,16 +824,16 @@ function InviteForm({
       </fieldset>
 
       <fieldset className="space-y-3 rounded-md border border-gray-200 p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">Knit admin (optional)</legend>
+        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.knit_admin_optional')}</legend>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1.5">
-            <span className="text-xs text-gray-600">Role</span>
+            <span className="text-xs text-gray-600">{t('users.role_label')}</span>
             <select
               value={knitRole}
               onChange={(e) => setKnitRole(e.target.value as AdminRole | '')}
               className="form-input"
             >
-              <option value="">— No Knit admin role —</option>
+              <option value="">{t('users.no_knit_role_option')}</option>
               {ALL_KNIT_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
@@ -868,13 +843,13 @@ function InviteForm({
           </label>
           {knitWardRequired ? (
             <label className="block space-y-1.5">
-              <span className="text-xs text-gray-600">Ward</span>
+              <span className="text-xs text-gray-600">{t('users.ward_label')}</span>
               <select
                 value={knitWardId}
                 onChange={(e) => setKnitWardId(e.target.value)}
                 className="form-input"
               >
-                <option value="">Pick a ward</option>
+                <option value="">{t('users.pick_a_ward')}</option>
                 {wards.map((w) => (
                   <option key={w.id} value={w.id}>
                     {w.name}
@@ -890,16 +865,16 @@ function InviteForm({
                 checked={isSuper}
                 onChange={(e) => setIsSuper(e.target.checked)}
               />
-              Grant super admin (bypasses ward / stake scoping)
+              {t('users.grant_super_long')}
             </label>
           ) : null}
         </div>
       </fieldset>
 
       <fieldset className="space-y-2 rounded-md border border-gray-200 p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">Suite roles (optional)</legend>
+        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.suite_roles_optional')}</legend>
         <p className="text-xs text-gray-500 -mt-1">
-          Shared across all Gathered apps. One person can hold multiple.
+          {t('users.suite_roles_short')}
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {SUITE_ROLES.map((role) => {
@@ -918,7 +893,7 @@ function InviteForm({
                   />
                   <span className="flex-1">{role.label}</span>
                   <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                    {role.scope}
+                    {role.scope === 'stake' ? t('users.scope_stake') : t('users.scope_ward')}
                   </span>
                 </label>
                 {selected && role.scope === 'ward' ? (
@@ -927,7 +902,7 @@ function InviteForm({
                     onChange={(e) => setWardForSuite(role.key, e.target.value || null)}
                     className="mt-2 w-full text-xs px-2 py-1 border border-gray-300 rounded"
                   >
-                    <option value="">— Pick a ward —</option>
+                    <option value="">{t('users.pick_ward_dash')}</option>
                     {wards.map((w) => (
                       <option key={w.id} value={w.name}>
                         {w.name}
@@ -943,11 +918,10 @@ function InviteForm({
 
       <div className="flex items-center justify-between pt-1">
         <p className="text-xs text-gray-500">
-          If they already have a Knit login, we'll add the role to their account.
-          Otherwise, they get a magic-link email to finish signing in.
+          {t('users.invite_footer')}
         </p>
         <button type="submit" className="btn-primary text-sm py-2 px-4">
-          Send invite
+          {t('users.send_invite')}
         </button>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import KnitMark from '@/components/KnitMark'
 
 /**
@@ -15,6 +16,7 @@ import KnitMark from '@/components/KnitMark'
  * you" message so a stranger can't enumerate phones.
  */
 export default function MemberJoin() {
+  const { t } = useTranslation('common')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phone, setPhone] = useState('')
@@ -43,19 +45,18 @@ export default function MemberJoin() {
         | { ok?: boolean; message?: string; error?: string }
         | null
       if (!res.ok || body?.ok === false) {
-        setOutcome({ kind: 'err', text: body?.error ?? `Request failed (${res.status})` })
+        setOutcome({ kind: 'err', text: body?.error ?? t('join.request_failed', { status: res.status }) })
       } else {
         setOutcome({
           kind: 'ok',
           text:
-            body?.message ??
-            "If we found you in your ward roster, we just texted your Knit link to that number. Tap it to open your survey.",
+            body?.message ?? t('join.default_success'),
         })
       }
     } catch (err) {
       setOutcome({
         kind: 'err',
-        text: err instanceof Error ? err.message : 'Something went wrong.',
+        text: err instanceof Error ? err.message : t('layout.something_wrong'),
       })
     } finally {
       setSubmitting(false)
@@ -69,9 +70,9 @@ export default function MemberJoin() {
           <div className="flex justify-center mb-4">
             <KnitMark size={56} />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight mb-2">Get your Knit link</h1>
+          <h1 className="text-2xl font-semibold tracking-tight mb-2">{t('join.title')}</h1>
           <p className="text-base text-brand-primary-fade max-w-md mx-auto">
-            Tell us who you are and we'll text your personal survey link.
+            {t('join.subtitle')}
           </p>
         </div>
       </div>
@@ -79,7 +80,7 @@ export default function MemberJoin() {
       <div className="max-w-md mx-auto px-6 -mt-10 pb-12 w-full">
         <form onSubmit={submit} className="suite-card p-6 space-y-4">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">First name</span>
+            <span className="text-sm font-medium text-gray-700">{t('join.first_name')}</span>
             <input
               type="text"
               required
@@ -90,7 +91,7 @@ export default function MemberJoin() {
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">Last name</span>
+            <span className="text-sm font-medium text-gray-700">{t('join.last_name')}</span>
             <input
               type="text"
               required
@@ -101,19 +102,19 @@ export default function MemberJoin() {
             />
           </label>
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">Phone</span>
+            <span className="text-sm font-medium text-gray-700">{t('join.phone')}</span>
             <input
               type="tel"
               required
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="(555) 555-1234"
+              placeholder={t('join.phone_placeholder')}
               className="form-input"
               autoComplete="tel"
               inputMode="tel"
             />
             <span className="text-xs text-gray-500">
-              The number you usually get texts on. We'll text your link there.
+              {t('join.phone_hint')}
             </span>
           </label>
 
@@ -122,7 +123,7 @@ export default function MemberJoin() {
             disabled={submitting}
             className="btn-primary w-full disabled:opacity-50"
           >
-            {submitting ? 'Sending…' : 'Text me my link'}
+            {submitting ? t('join.sending') : t('join.text_me_link')}
           </button>
 
           {outcome ? (
@@ -136,13 +137,13 @@ export default function MemberJoin() {
           ) : null}
 
           <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-            Trouble? Ask your ward mission leader to add you, or reach out to your bishop.
+            {t('join.trouble')}
           </p>
         </form>
 
         <p className="text-xs text-gray-400 text-center pt-6">
           <Link to="/" className="hover:underline">
-            ← Knit home
+            {t('join.knit_home')}
           </Link>
         </p>
       </div>

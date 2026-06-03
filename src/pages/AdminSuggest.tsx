@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
@@ -26,12 +27,12 @@ type RecentRequest = {
   suggested_member_ids: string[]
   suggestion_reasons: Record<string, string[]> | null
   friend: { id: string; first_name: string; last_name: string | null; ward_id: string } | null
-  // Materialized from suggested_member_ids → knit_members on load.
   member_names: string[]
 }
 
 export default function AdminSuggest() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
 
   const [wardId, setWardId] = useState<string>(
@@ -54,14 +55,9 @@ export default function AdminSuggest() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Recent sheet-initiated suggestion requests (missionaries filling the
-  // Suggestions tab → Knit runs the algorithm → row lands in
-  // knit_outing_suggestions). Mirrors the table on /admin/sheet but lives
-  // here so missionary work doesn't get lost.
   const [recent, setRecent] = useState<RecentRequest[]>([])
   const [recentLoading, setRecentLoading] = useState(false)
 
-  // Load friends for the ward and styles for label resolution
   useEffect(() => {
     if (!wardId) {
       setFriends([])
@@ -86,9 +82,6 @@ export default function AdminSuggest() {
     })()
   }, [wardId])
 
-  // Recent missionary requests (sheet-initiated). Scoped to the picked
-  // ward when a ward is selected; otherwise stake-wide via RLS (a stake
-  // admin sees every ward in their scope).
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -111,7 +104,6 @@ export default function AdminSuggest() {
         friend: { id: string; first_name: string; last_name: string | null; ward_id: string } | null | Array<{ id: string; first_name: string; last_name: string | null; ward_id: string }>
       }>
 
-      // Materialize member names so the table can show them inline.
       const allMemberIds = Array.from(
         new Set(rows.flatMap((r) => r.suggested_member_ids ?? [])),
       )
@@ -164,7 +156,7 @@ export default function AdminSuggest() {
   async function run(e: FormEvent) {
     e.preventDefault()
     if (!wardId || !friendId) {
-      setError('Pick a friend first.')
+      setError(t('suggest.pick_friend_first'))
       return
     }
     setRunning(true)
@@ -174,11 +166,10 @@ export default function AdminSuggest() {
     const friend = friends.find((f) => f.id === friendId)
     if (!friend) {
       setRunning(false)
-      setError('Friend not found.')
+      setError(t('suggest.friend_not_found'))
       return
     }
 
-    // Load candidates (members + their related availability/interests/styles)
     const { data: members, error: membersErr } = await supabase
       .from('knit_members')
       .select(
@@ -198,7 +189,6 @@ export default function AdminSuggest() {
       return
     }
 
-    // Recent outings (90 days)
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString()
     const { data: outings, error: outingsErr } = await supabase
       .from('knit_outings')
@@ -212,7 +202,6 @@ export default function AdminSuggest() {
       return
     }
 
-    // Interest tag names — for reasons
     const friendTagIds = friend.interest_tag_ids ?? []
     const allMemberTagIds = (members ?? []).flatMap((m: { interests: { interest_tag_id: string }[] }) =>
       m.interests.map((i) => i.interest_tag_id),
@@ -224,8 +213,8 @@ export default function AdminSuggest() {
         .from('knit_interest_tags')
         .select('id, name_en')
         .in('id', wantedTagIds)
-      for (const t of (tags as InterestTagRow[] | null) ?? []) {
-        interestNameById.set(t.id, t.name_en)
+      for (const tag of (tags as InterestTagRow[] | null) ?? []) {
+        interestNameById.set(tag.id, tag.name_en)
       }
     }
 
@@ -249,12 +238,17 @@ export default function AdminSuggest() {
     setRunning(false)
   }
 
+  const longDay = (value: number) => {
+    const keys = ['long_sun', 'long_mon', 'long_tue', 'long_wed', 'long_thu', 'long_fri', 'long_sat']
+    return t(`days.${keys[value] ?? 'long_sun'}`)
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Suggest members</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('suggest.page_title')}</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Pick a friend and a time; we'll rank the best 5 ward members for the outing.
+          {t('suggest.page_subtitle')}
         </p>
       </div>
 
@@ -263,7 +257,7 @@ export default function AdminSuggest() {
         className="rounded-md border border-gray-200 bg-white p-5 grid gap-4 sm:grid-cols-2"
       >
         {wards.length > 1 ? (
-          <Field label="Ward" required>
+          <Field label={t('ward')} required>
             <select
               value={wardId}
               onChange={(e) => {
@@ -273,7 +267,7 @@ export default function AdminSuggest() {
               className="form-input"
               disabled={wardsLoading}
             >
-              <option value="">{wardsLoading ? 'Loading…' : 'Pick a ward'}</option>
+              <option value="">{wardsLoading ? t('loading') : t('pick_a_ward')}</option>
               {wards.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -283,7 +277,7 @@ export default function AdminSuggest() {
           </Field>
         ) : null}
 
-        <Field label="Friend" required>
+        <Field label={t('suggest.friend')} required>
           <select
             value={friendId}
             onChange={(e) => setFriendId(e.target.value)}
@@ -293,10 +287,10 @@ export default function AdminSuggest() {
           >
             <option value="">
               {loadingFriends
-                ? 'Loading…'
+                ? t('loading')
                 : friends.length === 0
-                  ? 'No active friends in this ward'
-                  : 'Pick a friend'}
+                  ? t('suggest.no_active_friends')
+                  : t('suggest.pick_a_friend')}
             </option>
             {friends.map((f) => (
               <option key={f.id} value={f.id}>
@@ -306,7 +300,7 @@ export default function AdminSuggest() {
           </select>
         </Field>
 
-        <Field label="Day" required>
+        <Field label={t('suggest.day')} required>
           <select
             value={dayOfWeek}
             onChange={(e) => setDayOfWeek(Number(e.target.value) as DayOfWeek)}
@@ -314,13 +308,13 @@ export default function AdminSuggest() {
           >
             {DAYS_OF_WEEK.map((d) => (
               <option key={d.value} value={d.value}>
-                {d.long}
+                {longDay(d.value)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Time of day" required>
+        <Field label={t('suggest.time_of_day')} required>
           <select
             value={timeSlot}
             onChange={(e) => setTimeSlot(e.target.value as TimeSlot)}
@@ -328,19 +322,19 @@ export default function AdminSuggest() {
           >
             {TIME_SLOTS.map((s) => (
               <option key={s.value} value={s.value}>
-                {s.label}
+                {t(`outings.time_slots.${s.value}`)}
               </option>
             ))}
           </select>
         </Field>
 
-        <Field label="Need (optional)" hint="Filter to members willing to do this specifically">
+        <Field label={t('suggest.need_label')} hint={t('suggest.need_hint')}>
           <select
             value={need}
             onChange={(e) => setNeed(e.target.value)}
             className="form-input"
           >
-            <option value="">Any</option>
+            <option value="">{t('suggest.any')}</option>
             {styles.map((s) => (
               <option key={s.key} value={s.key}>
                 {s.label_en}
@@ -356,7 +350,7 @@ export default function AdminSuggest() {
             disabled={running || !friendId}
             className="btn-primary text-sm py-2 px-4"
           >
-            {running ? 'Thinking…' : 'Suggest members'}
+            {running ? t('suggest.thinking') : t('suggest.suggest_members')}
           </button>
         </div>
       </form>
@@ -383,38 +377,37 @@ function RecentRequestsCard({
   rows: RecentRequest[]
   loading: boolean
 }) {
+  const { t } = useTranslation('common')
   return (
     <section className="rounded-md border border-gray-200 bg-white overflow-hidden">
       <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-gray-900">
-            Recent missionary requests
+            {t('suggest.recent_title')}
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            What missionaries asked for on the sheet's Suggestions tab, with the
-            top members Knit returned.
+            {t('suggest.recent_subtitle')}
           </p>
         </div>
         <span className="text-xs text-gray-500 whitespace-nowrap">
-          Last {rows.length}
+          {t('suggest.last_n', { n: rows.length })}
         </span>
       </header>
       {loading ? (
-        <div className="p-6 text-sm text-gray-500">Loading…</div>
+        <div className="p-6 text-sm text-gray-500">{t('loading')}</div>
       ) : rows.length === 0 ? (
         <div className="p-10 text-center text-sm text-gray-500">
-          No requests yet. When a missionary fills the Suggestions tab on the
-          sheet, they'll appear here.
+          {t('suggest.recent_empty')}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[560px]">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
-                <th className="px-4 py-2 font-medium">When</th>
-                <th className="px-4 py-2 font-medium">Friend</th>
-                <th className="px-4 py-2 font-medium">Slot</th>
-                <th className="px-4 py-2 font-medium">Suggested members</th>
+                <th className="px-4 py-2 font-medium">{t('suggest.col_when')}</th>
+                <th className="px-4 py-2 font-medium">{t('suggest.col_friend')}</th>
+                <th className="px-4 py-2 font-medium">{t('suggest.col_slot')}</th>
+                <th className="px-4 py-2 font-medium">{t('suggest.col_suggested')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -433,15 +426,15 @@ function RecentRequestsCard({
                       ? [r.friend.first_name, r.friend.last_name]
                           .filter(Boolean)
                           .join(' ')
-                      : '—'}
+                      : t('dash')}
                   </td>
                   <td className="px-4 py-2 text-gray-600 capitalize">
-                    {r.time_slot_requested}
+                    {t(`outings.time_slots.${r.time_slot_requested}`)}
                   </td>
                   <td className="px-4 py-2 text-gray-700">
                     {r.member_names.length === 0 ? (
                       <span className="text-gray-400 italic">
-                        No matches at the time
+                        {t('suggest.no_matches_at_time')}
                       </span>
                     ) : (
                       <div className="flex flex-wrap gap-1">
@@ -473,15 +466,16 @@ function Results({
   result: SuggestionResult
   onPickSlot: (day: DayOfWeek, slot: TimeSlot) => void
 }) {
-  const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
+  const { t } = useTranslation('common')
+  const shortDayKeys = ['short_sun', 'short_mon', 'short_tue', 'short_wed', 'short_thu', 'short_fri', 'short_sat']
   if (result.top.length === 0) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 sm:p-6 space-y-3">
-        <h2 className="font-medium text-amber-900">No matches</h2>
+        <h2 className="font-medium text-amber-900">{t('suggest.no_matches_title')}</h2>
         {result.hint ? <p className="text-sm text-amber-900">{result.hint}</p> : null}
         {result.availableSlots.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-sm text-amber-900">Try one of these:</p>
+            <p className="text-sm text-amber-900">{t('suggest.try_these')}</p>
             <div className="flex flex-wrap gap-2">
               {result.availableSlots.slice(0, 12).map((s) => (
                 <button
@@ -489,7 +483,7 @@ function Results({
                   onClick={() => onPickSlot(s.day_of_week as DayOfWeek, s.time_slot as TimeSlot)}
                   className="rounded-full border-[1.5px] border-amber-300 bg-white text-amber-900 hover:bg-amber-100 px-3 py-1 text-xs font-medium"
                 >
-                  {DAY_SHORT[s.day_of_week]} {s.time_slot}
+                  {t(`days.${shortDayKeys[s.day_of_week]}`)} {t(`slots.${s.time_slot}`)}
                   <span className="ml-1 text-amber-700/70">· {s.count}</span>
                 </button>
               ))}
@@ -498,7 +492,7 @@ function Results({
         ) : null}
         {result.filtered.length > 0 ? (
           <details className="text-sm text-amber-800">
-            <summary className="cursor-pointer">Why was everyone filtered?</summary>
+            <summary className="cursor-pointer">{t('suggest.why_filtered')}</summary>
             <ul className="mt-2 space-y-1">
               {result.filtered.map(({ candidate, reason }) => (
                 <li key={candidate.id}>
@@ -531,10 +525,7 @@ function Results({
 }
 
 function Card({ suggestion, rank }: { suggestion: Suggestion; rank: number }) {
-  // Compact row recipe from the desktop mockup (Section 4): each row is
-  // a single ~48px-tall line with badge + name + inline reasons + score
-  // pill. Rank #1 gets the filled rose badge and the success-green pill;
-  // #2+ get the light-rose badge and a neutral gray pill.
+  const { t } = useTranslation('common')
   const isTop = rank === 1
   const reasonLine = suggestion.reasons.join(' · ')
   return (
@@ -560,7 +551,7 @@ function Card({ suggestion, rank }: { suggestion: Suggestion; rank: number }) {
         className={`suite-pill flex-none ${
           isTop ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-600'
         }`}
-        title={`Score ${suggestion.score.toFixed(1)}`}
+        title={t('suggest.score_tooltip', { score: suggestion.score.toFixed(1) })}
       >
         {Math.round(suggestion.score)}
       </span>

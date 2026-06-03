@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { clearMemberAuth, readMemberAuth, type MemberAuth } from '@/lib/memberAuth'
 import AvailabilityGrid from '@/components/AvailabilityGrid'
@@ -31,6 +32,7 @@ type State =
 
 export default function MemberDashboard() {
   const navigate = useNavigate()
+  const { t } = useTranslation('common')
   const [state, setState] = useState<State>({ kind: 'loading' })
 
   async function load() {
@@ -46,7 +48,7 @@ export default function MemberDashboard() {
     if (error || !data) {
       setState({
         kind: 'error',
-        message: error?.message ?? 'Could not load your info.',
+        message: error?.message ?? t('member_dash.couldnt_load'),
       })
       return
     }
@@ -55,6 +57,7 @@ export default function MemberDashboard() {
 
   useEffect(() => {
     void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function signOut() {
@@ -62,18 +65,18 @@ export default function MemberDashboard() {
     navigate('/', { replace: true })
   }
 
-  if (state.kind === 'loading') return <Shell>Loading…</Shell>
+  if (state.kind === 'loading') return <Shell>{t('loading')}</Shell>
 
   if (state.kind === 'unauthenticated') {
     return (
       <Shell>
         <div className="max-w-md text-center space-y-3">
-          <h1 className="text-2xl font-semibold text-gray-900">Not signed in</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('member_dash.not_signed_in')}</h1>
           <p className="text-gray-600">
-            Use the personal link your ward mission leader sent you by text to get in.
+            {t('member_dash.not_signed_in_body')}
           </p>
           <Link to="/" className="inline-block text-gray-700 underline">
-            Go home
+            {t('go_home')}
           </Link>
         </div>
       </Shell>
@@ -84,16 +87,16 @@ export default function MemberDashboard() {
     return (
       <Shell>
         <div className="max-w-md text-center space-y-3">
-          <h1 className="text-2xl font-semibold text-gray-900">Couldn't load</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('member_dash.couldnt_load')}</h1>
           <p className="text-error">{state.message}</p>
           <p className="text-sm text-gray-500">
-            Your link may have expired. Ask for a fresh one.
+            {t('member_dash.link_expired_body')}
           </p>
           <button
             onClick={signOut}
             className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
           >
-            Sign out
+            {t('sign_out')}
           </button>
         </div>
       </Shell>
@@ -129,6 +132,7 @@ function Dashboard({
   onRefresh: () => Promise<void>
   onSignOut: () => void
 }) {
+  const { t } = useTranslation('common')
   const { member, ward, availability, interests, styles } = data
   const firstName = firstNameOf(member)
   const isPausedNow =
@@ -160,9 +164,7 @@ function Dashboard({
 
   async function setOptOut(optOut: boolean) {
     if (optOut) {
-      const confirmed = confirm(
-        "Opt out of Knit?\n\nMissionaries won't be paired with you anymore and you'll stop getting the weekly check-in. You can rejoin anytime from this same page.",
-      )
+      const confirmed = confirm(t('member_dash.opt_out_confirm'))
       if (!confirmed) return
     }
     setOptingOut(true)
@@ -188,16 +190,13 @@ function Dashboard({
         <div className="max-w-2xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <KnitMark size={28} />
-            <span className="text-lg font-semibold text-gray-900 tracking-tight">Knit</span>
+            <span className="text-lg font-semibold text-gray-900 tracking-tight">{t('app_name')}</span>
           </div>
-          {/* Sign-out is a 44px tap target per Phase 6 acceptance ("all
-              buttons visible on /me ≥ 44px"). Compact outline variant keeps
-              the header chrome unchanged visually. */}
           <button
             onClick={onSignOut}
             className="inline-flex items-center justify-center min-h-11 px-3 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 active:bg-gray-100"
           >
-            Sign out
+            {t('sign_out')}
           </button>
         </div>
       </header>
@@ -205,20 +204,19 @@ function Dashboard({
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <div>
           <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">
-            Hi {firstName || 'friend'}
+            {firstName ? t('member_dash.hi_name', { name: firstName }) : t('member_dash.hi_friend')}
           </h1>
           <p className="text-gray-600 mt-1">
-            {ward?.name ? `Your ward: ${ward.name}` : 'Your ward'}
+            {ward?.name ? t('member_dash.your_ward_named', { name: ward.name }) : t('member_dash.your_ward')}
           </p>
         </div>
 
         {isOptedOut ? (
           <div className="rounded-md border border-rose-200 bg-rose-50 p-4 text-gray-900 text-sm space-y-3">
             <div>
-              <p className="font-medium text-rose-900">You've opted out of Knit.</p>
+              <p className="font-medium text-rose-900">{t('member_dash.opted_out_title')}</p>
               <p className="text-gray-700 mt-1">
-                Missionaries won't be paired with you and you won't get the weekly check-in.
-                Your availability and preferences are kept in case you want to come back.
+                {t('member_dash.opted_out_body')}
               </p>
             </div>
             <button
@@ -226,18 +224,23 @@ function Dashboard({
               disabled={optingOut}
               className="rounded-md bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-3 py-1.5 disabled:opacity-50"
             >
-              {optingOut ? 'Rejoining…' : 'Rejoin Knit'}
+              {optingOut ? t('member_dash.rejoining') : t('member_dash.rejoin')}
             </button>
           </div>
         ) : isPausedNow ? (
           <div className="rounded-md border border-warning/30 bg-warning/5 p-4 text-gray-900 text-sm">
-            You're paused until <strong>{member.paused_until}</strong>.{' '}
+            <Trans
+              i18nKey="member_dash.paused_until"
+              ns="common"
+              values={{ date: member.paused_until ?? '' }}
+              components={{ strong: <strong /> }}
+            />
             <button
               onClick={() => void pauseForDays(null)}
               className="underline font-medium"
               disabled={pausing}
             >
-              Unpause
+              {t('member_dash.unpause')}
             </button>
           </div>
         ) : null}
@@ -280,9 +283,9 @@ function Dashboard({
         />
 
         {!isOptedOut && (
-          <Section title="Need a break?">
+          <Section title={t('member_dash.break_title')}>
             <p className="text-gray-600 text-sm">
-              Pause and we won't send the weekly check-in for a while.
+              {t('member_dash.break_body')}
             </p>
             <div className="flex flex-wrap gap-2 pt-3">
               <button
@@ -290,27 +293,27 @@ function Dashboard({
                 disabled={pausing}
                 className="k-btn k-btn-outline"
               >
-                Pause 30 days
+                {t('member_dash.pause_30')}
               </button>
               <button
                 onClick={() => void pauseForDays(90)}
                 disabled={pausing}
                 className="k-btn k-btn-outline"
               >
-                Pause 90 days
+                {t('member_dash.pause_90')}
               </button>
             </div>
 
             <div className="border-t border-gray-100 mt-4 pt-4">
               <p className="text-gray-600 text-sm">
-                Or, if you'd rather not be part of Knit at all —
+                {t('member_dash.or_optout_intro')}
               </p>
               <button
                 onClick={() => void setOptOut(true)}
                 disabled={optingOut}
                 className="mt-2 text-sm font-medium text-rose-700 hover:text-rose-800 underline disabled:opacity-50"
               >
-                {optingOut ? 'Opting out…' : 'Opt out of Knit'}
+                {optingOut ? t('member_dash.opting_out') : t('member_dash.opt_out')}
               </button>
             </div>
           </Section>
@@ -335,6 +338,7 @@ function EditableAvailability({
   onCancel: () => void
   onSaved: () => Promise<void>
 }) {
+  const { t } = useTranslation('common')
   const current: Slot[] = availability.map((a) => ({
     day: a.day_of_week as DayOfWeek,
     timeSlot: a.time_slot as TimeSlot,
@@ -367,7 +371,7 @@ function EditableAvailability({
 
   return (
     <Section
-      title="Your availability"
+      title={t('member_dash.section_availability')}
       action={editing ? null : <EditChip onClick={onStartEdit} />}
     >
       {editing ? (
@@ -383,20 +387,20 @@ function EditableAvailability({
               disabled={saving}
               className="k-btn flex-1"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="k-btn k-btn-outline"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : (
         <p className="text-gray-700">
-          {slotsToString(current) || 'No times set yet.'}
+          {slotsToString(current) || t('member_dash.no_times_yet')}
         </p>
       )}
     </Section>
@@ -420,6 +424,7 @@ function EditableInterests({
   onCancel: () => void
   onSaved: () => Promise<void>
 }) {
+  const { t } = useTranslation('common')
   const [draft, setDraft] = useState<string[]>(interests.map((i) => i.id))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -447,7 +452,7 @@ function EditableInterests({
 
   return (
     <Section
-      title="What you love"
+      title={t('member_dash.section_interests')}
       action={editing ? null : <EditChip onClick={onStartEdit} />}
     >
       {editing ? (
@@ -460,19 +465,19 @@ function EditableInterests({
               disabled={saving}
               className="k-btn flex-1"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="k-btn k-btn-outline"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : interests.length === 0 ? (
-        <p className="text-gray-500 text-sm">No interests yet.</p>
+        <p className="text-gray-500 text-sm">{t('member_dash.no_interests_yet')}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {interests.map((it) => (
@@ -504,6 +509,7 @@ function EditableStyles({
   onCancel: () => void
   onSaved: () => Promise<void>
 }) {
+  const { t } = useTranslation('common')
   const [draft, setDraft] = useState<string[]>(styles.map((s) => s.key))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -531,7 +537,7 @@ function EditableStyles({
 
   return (
     <Section
-      title="How you like to help"
+      title={t('member_dash.section_styles')}
       action={editing ? null : <EditChip onClick={onStartEdit} />}
     >
       {editing ? (
@@ -544,19 +550,19 @@ function EditableStyles({
               disabled={saving}
               className="k-btn flex-1"
             >
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={onCancel}
               disabled={saving}
               className="k-btn k-btn-outline"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
       ) : styles.length === 0 ? (
-        <p className="text-gray-500 text-sm">Not set yet.</p>
+        <p className="text-gray-500 text-sm">{t('member_dash.not_set_yet')}</p>
       ) : (
         <ul className="space-y-1 text-gray-700">
           {styles.map((s) => (
@@ -575,12 +581,13 @@ function firstNameOf(m: MemberRow): string {
 }
 
 function EditChip({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation('common')
   return (
     <button
       onClick={onClick}
       className="inline-flex items-center justify-center min-h-11 px-4 rounded-full bg-knit-primary-fade text-knit-primary text-sm font-bold active:opacity-80"
     >
-      Edit
+      {t('edit')}
     </button>
   )
 }

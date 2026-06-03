@@ -1,11 +1,11 @@
 {
-  "dashboard": "TODO",
-  "members": "TODO",
-  "friends": "TODO",
-  "outings": "TODO",
-  "sheet": "TODO",
-  "settings": "TODO",
-  "invite_all_members": "TODO",
-  "suggest_members": "TODO",
-  "import_from_tidings": "TODO"
+  "dashboard": "Panel",
+  "members": "Miembros",
+  "friends": "Amigos",
+  "outings": "Visitas",
+  "sheet": "Hoja",
+  "settings": "Ajustes",
+  "invite_all_members": "Invitar a todos los miembros",
+  "suggest_members": "Sugerir miembros",
+  "import_from_tidings": "Importar desde Tidings"
 }

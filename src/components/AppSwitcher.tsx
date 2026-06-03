@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 
@@ -7,15 +8,15 @@ interface AppInfo {
   label: string
   url: string
   color: string
-  blurb: string
+  blurbKey: string
 }
 
 const APP_CATALOG: AppInfo[] = [
-  { name: 'magnify', label: 'Magnify', url: 'https://magnify-eta.vercel.app', color: '#1B3A6B', blurb: 'Calling administration' },
-  { name: 'steward', label: 'Steward', url: 'https://stewards-indeed.vercel.app',                color: '#2563EB', blurb: 'Leader standard work' },
-  { name: 'glean',   label: 'Glean',   url: 'https://glean-blue.vercel.app',                     color: '#C9A84C', blurb: 'Welfare & self-reliance' },
-  { name: 'tidings', label: 'Tidings', url: 'https://glad-tidings.vercel.app', color: '#F59E0B', blurb: 'Two-way SMS' },
-  { name: 'knit',    label: 'Knit',    url: 'https://knit-together.vercel.app',                   color: '#E11D48', blurb: 'Fellowship matching' },
+  { name: 'magnify', label: 'Magnify', url: 'https://magnify-eta.vercel.app', color: '#1B3A6B', blurbKey: 'blurb_magnify' },
+  { name: 'steward', label: 'Steward', url: 'https://stewards-indeed.vercel.app', color: '#2563EB', blurbKey: 'blurb_steward' },
+  { name: 'glean',   label: 'Glean',   url: 'https://glean-blue.vercel.app',     color: '#C9A84C', blurbKey: 'blurb_glean' },
+  { name: 'tidings', label: 'Tidings', url: 'https://glad-tidings.vercel.app',   color: '#F59E0B', blurbKey: 'blurb_tidings' },
+  { name: 'knit',    label: 'Knit',    url: 'https://knit-together.vercel.app',  color: '#E11D48', blurbKey: 'blurb_knit' },
 ]
 
 const CURRENT_APP = 'knit'
@@ -44,6 +45,7 @@ function AppMark({ app, size = 28 }: { app: AppInfo; size?: number }) {
 }
 
 export default function AppSwitcher() {
+  const { t } = useTranslation('common')
   const { session } = useAuth()
   const [otherApps, setOtherApps] = useState<AppInfo[]>([])
   const [expanded, setExpanded] = useState(false)
@@ -84,7 +86,7 @@ export default function AppSwitcher() {
         aria-expanded={expanded}
       >
         <span className="flex items-center gap-2">
-          <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">Gathered</span>
+          <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">{t('app_switcher.gathered')}</span>
           <span className="w-px h-3 bg-white/20" />
           <AppMark app={currentApp} size={18} />
           <span className="text-sm font-bold text-white">{currentApp.label}</span>
@@ -101,7 +103,7 @@ export default function AppSwitcher() {
 
       {expanded && (
         <div className="absolute left-0 right-0 bg-white border-b border-gray-200 py-1 shadow-md">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-4 py-1">Switch to</p>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-4 py-1">{t('app_switcher.switch_to')}</p>
           {otherApps.map(app => (
             <a
               key={app.name}
@@ -112,7 +114,7 @@ export default function AppSwitcher() {
               <AppMark app={app} size={28} />
               <span className="flex-1 min-w-0">
                 <span className="block text-sm font-semibold text-gray-800 truncate">{app.label}</span>
-                <span className="block text-xs text-gray-500 truncate">{app.blurb}</span>
+                <span className="block text-xs text-gray-500 truncate">{t(`app_switcher.${app.blurbKey}`)}</span>
               </span>
               <svg
                 width="14" height="14" viewBox="0 0 24 24" fill="none"

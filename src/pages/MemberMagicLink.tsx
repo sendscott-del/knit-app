@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import { writeMemberAuth } from '@/lib/memberAuth'
 
@@ -8,11 +9,12 @@ type Status = { kind: 'verifying' } | { kind: 'error'; message: string }
 export default function MemberMagicLink() {
   const { memberId, token } = useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation('common')
   const [status, setStatus] = useState<Status>({ kind: 'verifying' })
 
   useEffect(() => {
     if (!memberId || !token) {
-      setStatus({ kind: 'error', message: 'This link is missing its member id or token.' })
+      setStatus({ kind: 'error', message: t('magic_link.missing_token') })
       return
     }
     let cancelled = false
@@ -26,8 +28,7 @@ export default function MemberMagicLink() {
         setStatus({
           kind: 'error',
           message:
-            error?.message ??
-            "We couldn't verify this link. It may have expired or been replaced.",
+            error?.message ?? t('magic_link.could_not_verify'),
         })
         return
       }
@@ -37,12 +38,12 @@ export default function MemberMagicLink() {
     return () => {
       cancelled = true
     }
-  }, [memberId, token, navigate])
+  }, [memberId, token, navigate, t])
 
   if (status.kind === 'verifying') {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6 text-gray-600">
-        Verifying your link…
+        {t('magic_link.verifying')}
       </main>
     )
   }
@@ -50,13 +51,13 @@ export default function MemberMagicLink() {
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="max-w-md text-center space-y-4">
-        <h1 className="text-2xl font-semibold text-gray-900">Sign-in link didn't work</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('magic_link.title_failed')}</h1>
         <p className="text-gray-600">{status.message}</p>
         <p className="text-sm text-gray-500">
-          Ask your ward mission leader to send you a fresh link.
+          {t('magic_link.ask_for_fresh')}
         </p>
         <Link to="/" className="inline-block text-gray-700 underline">
-          Go home
+          {t('go_home')}
         </Link>
       </div>
     </main>

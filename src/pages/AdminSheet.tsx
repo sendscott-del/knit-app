@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { useWardOptions } from '@/lib/wardOptions'
@@ -25,6 +26,7 @@ async function authorizedFetch(
 
 export default function AdminSheet() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const { wards, loading: wardsLoading } = useWardOptions(profile)
   const [search, setSearch] = useSearchParams()
 
@@ -56,17 +58,17 @@ export default function AdminSheet() {
     const email = search.get('email')
     const errorCode = search.get('error')
     if (connected && email) {
-      setNotice(`Connected as ${email}.`)
+      setNotice(t('sheet.connected_as_email', { email }))
       search.delete('connected')
       search.delete('email')
       setSearch(search, { replace: true })
     } else if (errorCode) {
-      setErr(oauthErrorMessage(errorCode, email ?? undefined))
+      setErr(oauthErrorMessage(errorCode, email ?? undefined, t))
       search.delete('error')
       search.delete('email')
       setSearch(search, { replace: true })
     }
-  }, [search, setSearch])
+  }, [search, setSearch, t])
 
   async function loadStatus() {
     setLoadingStatus(true)
@@ -105,6 +107,7 @@ export default function AdminSheet() {
 
   useEffect(() => {
     void loadBinding()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wardId])
 
   async function connect() {
@@ -126,7 +129,7 @@ export default function AdminSheet() {
   }
 
   async function disconnect() {
-    if (!confirm('Disconnect the Google account? New sheets can\'t be created until you reconnect.')) return
+    if (!confirm(t('sheet.disconnect_confirm'))) return
     setBusy(true)
     setErr(null)
     try {
@@ -135,7 +138,7 @@ export default function AdminSheet() {
         body: JSON.stringify({ action: 'disconnect' }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      setNotice('Disconnected.')
+      setNotice(t('sheet.disconnected'))
       await loadStatus()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Disconnect failed')
@@ -151,7 +154,7 @@ export default function AdminSheet() {
       .map((s) => s.trim())
       .filter((s) => s.includes('@'))
     if (!wardId) {
-      setErr('Pick a ward first.')
+      setErr(t('sheet.pick_ward_first'))
       return
     }
     setBusy(true)
@@ -164,7 +167,7 @@ export default function AdminSheet() {
       })
       const body = await r.json()
       if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
-      setNotice('Sheet created and shared.')
+      setNotice(t('sheet.sheet_created'))
       setEmailInput('')
       await loadBinding()
     } catch (e) {
@@ -180,9 +183,6 @@ export default function AdminSheet() {
     setErr(null)
     setNotice(null)
     try {
-      // Pull first so missionary writes (new friends, feedback, outings,
-      // suggestion requests) land in the DB before the push rewrites the
-      // read-only tabs from the same DB.
       await pullThenRefresh(wardId)
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Sync failed')
@@ -223,18 +223,18 @@ export default function AdminSheet() {
 
     const parts: string[] = []
     if ((rep.friendsInserted ?? 0) > 0)
-      parts.push(`${rep.friendsInserted} friend${rep.friendsInserted === 1 ? '' : 's'} added`)
+      parts.push(t('sheet.report.friends_added', { count: rep.friendsInserted }))
     if ((rep.friendsRemoved ?? 0) > 0)
-      parts.push(`${rep.friendsRemoved} friend${rep.friendsRemoved === 1 ? '' : 's'} removed`)
+      parts.push(t('sheet.report.friends_removed', { count: rep.friendsRemoved }))
     if ((rep.suggestionsProcessed ?? 0) > 0)
-      parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
+      parts.push(t('sheet.report.suggestions_filled', { count: rep.suggestionsProcessed }))
     if ((rep.outingsInserted ?? 0) > 0)
-      parts.push(`${rep.outingsInserted} outing${rep.outingsInserted === 1 ? '' : 's'} logged`)
+      parts.push(t('sheet.report.outings_logged', { count: rep.outingsInserted }))
     if ((rep.feedbackProcessed ?? 0) > 0)
-      parts.push(`${rep.feedbackProcessed} feedback note${rep.feedbackProcessed === 1 ? '' : 's'} received`)
+      parts.push(t('sheet.report.feedback_received', { count: rep.feedbackProcessed }))
     if ((rep.headersRepaired ?? []).length > 0)
-      parts.push(`Restored headers on: ${(rep.headersRepaired ?? []).join(', ')}`)
-    if (parts.length === 0) parts.push('Sheet is up to date.')
+      parts.push(t('sheet.report.headers_restored', { tabs: (rep.headersRepaired ?? []).join(', ') }))
+    if (parts.length === 0) parts.push(t('sheet.sheet_up_to_date'))
     const errs = [
       ...(rep.suggestionErrors ?? []),
       ...(rep.outingErrors ?? []),
@@ -243,7 +243,7 @@ export default function AdminSheet() {
       ...(rep.friendRemovalErrors ?? []),
     ]
     if (errs.length > 0)
-      parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)
+      parts.push(t('sheet.report.issues', { count: errs.length, detail: errs.slice(0, 3).join('; ') }))
     setNotice(parts.join(' · '))
     await loadBinding()
   }
@@ -251,24 +251,23 @@ export default function AdminSheet() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Missionary sheet</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('sheet.page_title')}</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Auto-create a Google Sheet for each ward and share it with the
-          missionaries. Knit keeps the data tabs in sync.
+          {t('sheet.page_subtitle')}
         </p>
       </div>
 
       {wards.length > 1 ? (
         <div className="rounded-md border border-gray-200 bg-white p-5">
           <label className="block space-y-1.5">
-            <span className="text-sm font-medium text-gray-700">Ward</span>
+            <span className="text-sm font-medium text-gray-700">{t('ward')}</span>
             <select
               value={wardId}
               onChange={(e) => setWardId(e.target.value)}
               className="form-input"
               disabled={wardsLoading}
             >
-              <option value="">{wardsLoading ? 'Loading…' : 'Pick a ward'}</option>
+              <option value="">{wardsLoading ? t('loading') : t('pick_a_ward')}</option>
               {wards.map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}
@@ -281,9 +280,7 @@ export default function AdminSheet() {
 
       {!editor ? (
         <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-          Your role has view-only access. Sheet creation and sync are managed by
-          ward leadership (Ward Mission Leader, Relief Society Presidency, or
-          Elders Quorum Presidency).
+          {t('sheet.view_only_note')}
         </div>
       ) : null}
       {notice ? (
@@ -309,7 +306,7 @@ export default function AdminSheet() {
 
       {/* ---- Per-ward binding ---- */}
       {loadingBinding ? (
-        <div className="text-sm text-gray-500">Loading sheet status…</div>
+        <div className="text-sm text-gray-500">{t('sheet.loading_status')}</div>
       ) : binding && binding.sheet_id ? (
         <BoundCard
           binding={binding}
@@ -326,27 +323,29 @@ export default function AdminSheet() {
             const errs = (body.errors ?? []) as Array<{ email: string; error: string }>
             const parts: string[] = []
             if (added.length > 0)
-              parts.push(`Shared with ${added.join(', ')}`)
+              parts.push(t('sheet.shared_with', { list: added.join(', ') }))
             if (already.length > 0)
-              parts.push(`Already had access: ${already.join(', ')}`)
+              parts.push(t('sheet.already_had', { list: already.join(', ') }))
             if (errs.length > 0) {
               const detail = errs.slice(0, 3).map((e) => `${e.email}: ${e.error}`).join(' · ')
-              setErr(`${errs.length} failed — ${detail}${errs.length > 3 ? '…' : ''}`)
+              setErr(
+                t('sheet.n_failed', { count: errs.length, detail: detail + (errs.length > 3 ? t('sheet.ellipsis_more') : '') }),
+              )
               setNotice(parts.length > 0 ? parts.join(' · ') : null)
             } else {
-              setNotice(parts.join(' · ') || 'No changes.')
+              setNotice(parts.join(' · ') || t('sheet.no_changes'))
             }
             await loadBinding()
           }}
           onRevoke={async (email) => {
-            if (!confirm(`Remove ${email} from this sheet?`)) return
+            if (!confirm(t('sheet.remove_email_confirm', { email }))) return
             const r = await authorizedFetch('/api/admin/sheet', {
               method: 'POST',
               body: JSON.stringify({ action: 'unshare_email', wardId, email }),
             })
             const body = await r.json()
             if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
-            setNotice(`Removed ${email}.`)
+            setNotice(t('sheet.removed_email', { email }))
             await loadBinding()
           }}
           onShareAdmins={async () => {
@@ -360,19 +359,22 @@ export default function AdminSheet() {
             const errs = (body.errors ?? []) as Array<{ email: string; error: string }>
             const parts: string[] = []
             if (added.length > 0) {
-              parts.push(`Shared with ${added.length} Knit admin${added.length === 1 ? '' : 's'}: ${added.join(', ')}`)
+              parts.push(
+                t('sheet.shared_with_n_admins', { count: added.length, list: added.join(', ') }),
+              )
             }
             if (errs.length > 0) {
               const detail = errs.slice(0, 3).map((e) => `${e.email}: ${e.error}`).join(' · ')
-              parts.push(`${errs.length} failed — ${detail}${errs.length > 3 ? '…' : ''}`)
-              // Promote to error banner so it's not buried in the notice tone.
+              parts.push(
+                t('sheet.n_failed', { count: errs.length, detail: detail + (errs.length > 3 ? t('sheet.ellipsis_more') : '') }),
+              )
               setErr(parts.join(' · '))
               setNotice(null)
               await loadBinding()
               return
             }
             if (parts.length === 0) {
-              parts.push('All current Knit admins already have access.')
+              parts.push(t('sheet.all_admins_have_access'))
             }
             setNotice(parts.join(' · '))
             await loadBinding()
@@ -410,27 +412,32 @@ function GoogleConnectionCard({
   onConnect: () => void
   onDisconnect: () => void
 }) {
+  const { t } = useTranslation('common')
   return (
     <div className="rounded-md border border-gray-200 bg-white p-5 space-y-3">
       <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="font-medium text-gray-900">Google connection</h2>
+          <h2 className="font-medium text-gray-900">{t('sheet.google_connection')}</h2>
           {loading ? (
-            <p className="text-sm text-gray-500 mt-1">Checking…</p>
+            <p className="text-sm text-gray-500 mt-1">{t('sheet.checking')}</p>
           ) : status?.connected ? (
             <p className="text-sm text-gray-600 mt-1">
-              Connected as <strong>{status.email}</strong>
+              <Trans
+                i18nKey="sheet.connected_as"
+                ns="common"
+                values={{ email: status.email ?? '' }}
+                components={{ strong: <strong /> }}
+              />
               {status.granted_at ? (
                 <span className="text-gray-400">
-                  {' '}· since {new Date(status.granted_at).toLocaleDateString()}
+                  {t('sheet.since_date', { date: new Date(status.granted_at).toLocaleDateString() })}
                 </span>
               ) : null}
-              . New sheets will be created in this Google account's Drive.
+              {t('sheet.new_sheets_drive')}
             </p>
           ) : (
             <p className="text-sm text-gray-600 mt-1">
-              Not connected. Connect a Google account so Knit can create sheets
-              for you.
+              {t('sheet.not_connected')}
             </p>
           )}
         </div>
@@ -441,7 +448,7 @@ function GoogleConnectionCard({
               disabled={busy}
               className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 whitespace-nowrap"
             >
-              Disconnect
+              {t('sheet.disconnect')}
             </button>
           ) : (
             <button
@@ -449,7 +456,7 @@ function GoogleConnectionCard({
               disabled={busy}
               className="btn-primary text-sm py-2 px-4 whitespace-nowrap"
             >
-              Connect Google Account
+              {t('sheet.connect_google')}
             </button>
           )
         ) : null}
@@ -475,6 +482,7 @@ function BoundCard({
   busy: boolean
   editor: boolean
 }) {
+  const { t } = useTranslation('common')
   const [addEmails, setAddEmails] = useState('')
   const [sharing, setSharing] = useState(false)
   const [shareErr, setShareErr] = useState<string | null>(null)
@@ -529,9 +537,9 @@ function BoundCard({
     <div className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-3">
         <div>
-          <h2 className="font-medium text-gray-900">Sheet bound to this ward</h2>
+          <h2 className="font-medium text-gray-900">{t('sheet.sheet_bound_title')}</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Status: <StatusBadge status={binding.status as 'healthy' | 'error' | 'not_configured'} />
+            {t('sheet.status_label')} <StatusBadge status={binding.status as 'healthy' | 'error' | 'not_configured'} />
           </p>
         </div>
         <a
@@ -540,23 +548,23 @@ function BoundCard({
           rel="noreferrer"
           className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 whitespace-nowrap"
         >
-          Open sheet ↗
+          {t('sheet.open_sheet')}
         </a>
       </div>
 
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <Meta label="Last push">
+        <Meta label={t('sheet.last_push')}>
           {binding.last_push_at
             ? new Date(binding.last_push_at).toLocaleString()
-            : '—'}
+            : t('dash')}
         </Meta>
-        <Meta label="Last pull">
+        <Meta label={t('sheet.last_pull')}>
           {binding.last_pull_at
             ? new Date(binding.last_pull_at).toLocaleString()
-            : 'Never'}
+            : t('sheet.never')}
         </Meta>
         {binding.last_error ? (
-          <Meta label="Last error">
+          <Meta label={t('sheet.last_error')}>
             <span className="text-error">{binding.last_error}</span>
           </Meta>
         ) : null}
@@ -568,28 +576,23 @@ function BoundCard({
           disabled={busy}
           className="btn-primary text-sm py-2 px-4"
         >
-          {busy ? 'Syncing…' : 'Sync now'}
+          {busy ? t('sheet.syncing') : t('sheet.sync_now')}
         </button>
       </div>
       <p className="text-xs text-gray-500 pt-1">
-        Sync now is two-way: it pulls anything missionaries wrote on the sheet
-        (new friends, outings, suggestion requests, feedback) and then pushes
-        the latest member roster, friends list, and recent outings back. Also
-        runs hourly in the background.
+        {t('sheet.sync_explain')}
       </p>
 
       <div className="border-t border-gray-100 pt-4 space-y-3">
         <div>
-          <h3 className="font-medium text-gray-900 text-sm">Who has access</h3>
+          <h3 className="font-medium text-gray-900 text-sm">{t('sheet.who_has_access')}</h3>
           <p className="text-xs text-gray-500 mt-1">
-            Anyone here can open the sheet in Google. Add missionaries when a
-            new companionship arrives; remove them when they transfer.
+            {t('sheet.access_intro')}
           </p>
         </div>
         {binding.shared_emails.length === 0 ? (
           <p className="text-sm text-gray-500">
-            Nobody added yet — just you (the connected Google account) can open
-            the sheet.
+            {t('sheet.nobody_added')}
           </p>
         ) : (
           <ul className="flex flex-wrap gap-2">
@@ -605,7 +608,7 @@ function BoundCard({
                     onClick={() => void submitRevoke(email)}
                     disabled={sharing || busy}
                     className="text-gray-500 hover:text-rose-600 disabled:opacity-40"
-                    aria-label={`Remove ${email}`}
+                    aria-label={t('sheet.remove_email_aria', { email })}
                   >
                     ×
                   </button>
@@ -619,13 +622,13 @@ function BoundCard({
             <form onSubmit={submitShare} className="space-y-2">
               <label className="block space-y-1.5">
                 <span className="text-xs font-medium text-gray-700">
-                  Add missionary or admin Gmail addresses
+                  {t('sheet.add_emails_label')}
                 </span>
                 <textarea
                   value={addEmails}
                   onChange={(e) => setAddEmails(e.target.value)}
                   rows={2}
-                  placeholder="elder.smith@gmail.com, sister.jones@gmail.com"
+                  placeholder={t('sheet.emails_placeholder')}
                   className="form-input font-mono text-sm"
                   disabled={sharing || busy}
                 />
@@ -638,7 +641,7 @@ function BoundCard({
                 disabled={sharing || busy || addEmails.trim().length === 0}
                 className="btn-primary text-sm py-1.5 px-3"
               >
-                {sharing ? 'Sharing…' : 'Share sheet'}
+                {sharing ? t('sheet.sharing') : t('sheet.share_sheet')}
               </button>
             </form>
             <div className="border-t border-gray-100 pt-3">
@@ -648,12 +651,10 @@ function BoundCard({
                 disabled={sharing || busy}
                 className="rounded-md border-[1.5px] border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
-                Share with all current Knit admins
+                {t('sheet.share_with_admins')}
               </button>
               <p className="text-xs text-gray-500 mt-1.5">
-                Adds every stake-leadership and ward-leadership admin (super
-                admins, stake presidency, high councilors, and this ward&rsquo;s
-                WML / RSP / EQP) who isn&rsquo;t already on the sheet.
+                {t('sheet.share_admins_explain')}
               </p>
             </div>
           </>
@@ -680,6 +681,7 @@ function CreateSheetCard({
   disabled: boolean
   binding: BindingRow | null
 }) {
+  const { t } = useTranslation('common')
   return (
     <form
       onSubmit={onSubmit}
@@ -687,31 +689,28 @@ function CreateSheetCard({
     >
       {binding && binding.status === 'error' ? (
         <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm text-gray-900">
-          Previous attempt failed: {binding.last_error}
+          {t('sheet.previous_failed', { detail: binding.last_error })}
         </div>
       ) : null}
       <div>
-        <h2 className="font-medium text-gray-900">Create sheet for this ward</h2>
+        <h2 className="font-medium text-gray-900">{t('sheet.create_for_ward')}</h2>
         <p className="text-sm text-gray-600 mt-1">
-          {canCreate
-            ? "We'll create a new Google Sheet in your connected Drive, share it with the missionaries, and lay out the 7 tabs."
-            : 'Connect a Google account first (above), then come back to create the sheet.'}
+          {canCreate ? t('sheet.create_intro_can') : t('sheet.create_intro_cannot')}
         </p>
       </div>
       <label className="block space-y-1.5">
         <span className="text-sm font-medium text-gray-700">
-          Missionary Gmail addresses
+          {t('sheet.missionary_gmails')}
         </span>
         <textarea
           value={emailInput}
           onChange={(e) => onEmailChange(e.target.value)}
           rows={3}
-          placeholder="elder.smith@gmail.com, sister.jones@gmail.com"
+          placeholder={t('sheet.emails_placeholder')}
           className="form-input font-mono text-sm"
         />
         <span className="text-xs text-gray-500">
-          Separate with commas, spaces, or newlines. Leave blank for now and
-          share from the sheet directly later if you prefer.
+          {t('sheet.emails_hint')}
         </span>
       </label>
       <button
@@ -719,19 +718,25 @@ function CreateSheetCard({
         disabled={busy || disabled || !canCreate}
         className="btn-primary text-sm py-2 px-4"
       >
-        {busy ? 'Creating…' : 'Create and share sheet'}
+        {busy ? t('sheet.creating') : t('sheet.create_and_share')}
       </button>
     </form>
   )
 }
 
 function StatusBadge({ status }: { status: 'healthy' | 'error' | 'not_configured' }) {
+  const { t } = useTranslation('common')
   const palette = {
     healthy: 'bg-emerald-100 text-emerald-800',
     error: 'bg-rose-100 text-rose-800',
     not_configured: 'bg-gray-100 text-gray-700',
   }
-  const label = status === 'healthy' ? 'Healthy' : status === 'error' ? 'Error' : 'Not configured'
+  const label =
+    status === 'healthy'
+      ? t('sheet.status_healthy')
+      : status === 'error'
+        ? t('sheet.status_error')
+        : t('sheet.status_not_configured')
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${palette[status]}`}
@@ -752,17 +757,21 @@ function Meta({ label, children }: { label: string; children: React.ReactNode })
   )
 }
 
-function oauthErrorMessage(code: string, email?: string): string {
+function oauthErrorMessage(
+  code: string,
+  email: string | undefined,
+  t: (k: string, opts?: Record<string, unknown>) => string,
+): string {
   switch (code) {
     case 'state_mismatch':
-      return 'Connect attempt expired or was interfered with. Try again.'
+      return t('sheet.oauth_err_state')
     case 'no_refresh_token':
-      return 'Google did not return a refresh token. Try again; if it keeps failing, remove the app at https://myaccount.google.com/permissions and reconnect.'
+      return t('sheet.oauth_err_no_refresh')
     case 'no_user_email':
-      return 'Could not determine your Google email. Try again.'
+      return t('sheet.oauth_err_no_email')
     case 'no_admin_for_email':
-      return `You connected as ${email ?? 'that Google account'}, but that email doesn't match any Knit admin. Sign in to Knit with that same email first (or use a Google account whose email matches your Knit admin email).`
+      return t('sheet.oauth_err_no_admin', { email: email ?? t('sheet.oauth_err_no_admin_default') })
     default:
-      return `Connect failed: ${code}`
+      return t('sheet.oauth_err_default', { code })
   }
 }

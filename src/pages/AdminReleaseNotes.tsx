@@ -1,12 +1,14 @@
+import { useTranslation } from 'react-i18next'
 import { CHANGELOG } from '@/constants/changelog'
 
 export default function AdminReleaseNotes() {
+  const { t } = useTranslation('common')
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Release notes</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">{t('release_notes.title')}</h1>
         <p className="text-sm text-gray-500 mt-1">
-          What changed and when, newest first. Updated on every push.
+          {t('release_notes.subtitle')}
         </p>
       </header>
       <div className="space-y-4">

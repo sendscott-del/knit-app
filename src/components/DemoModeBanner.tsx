@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { KNIT_DEMO_ROLE_LABELS, useDemoMode, type KnitDemoRole } from '@/lib/demoMode'
 
 /**
@@ -8,6 +9,7 @@ import { KNIT_DEMO_ROLE_LABELS, useDemoMode, type KnitDemoRole } from '@/lib/dem
  * so trainers can talk through what each role experiences.
  */
 export default function DemoModeBanner() {
+  const { t } = useTranslation('common')
   const { demoBannerOn, demoRole, setDemoRole, setDemoBannerOn } = useDemoMode()
   if (!demoBannerOn) return null
 
@@ -18,12 +20,12 @@ export default function DemoModeBanner() {
       className="w-full px-4 py-2 flex items-center justify-between gap-3 text-white text-xs"
       style={{ background: 'repeating-linear-gradient(45deg, #b45309, #b45309 12px, #92400e 12px, #92400e 24px)' }}
     >
-      <span className="font-bold uppercase tracking-wider">Demo</span>
+      <span className="font-bold uppercase tracking-wider">{t('demo.banner_label')}</span>
       <span className="hidden sm:inline opacity-80">
-        Walk through Knit as different roles. Pair with /admin/demo Load to populate the database.
+        {t('demo.banner_blurb')}
       </span>
       <div className="flex items-center gap-2">
-        <label className="font-medium opacity-80">Viewing as</label>
+        <label className="font-medium opacity-80">{t('demo.viewing_as')}</label>
         <select
           value={demoRole}
           onChange={(e) => setDemoRole(e.target.value as KnitDemoRole)}
@@ -40,7 +42,7 @@ export default function DemoModeBanner() {
           onClick={() => setDemoBannerOn(false)}
           className="ml-1 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider border border-white/50 hover:bg-white/15 rounded"
         >
-          Exit
+          {t('demo.exit')}
         </button>
       </div>
     </div>
@@ -48,6 +50,7 @@ export default function DemoModeBanner() {
 }
 
 export function DemoBannerToggle() {
+  const { t } = useTranslation('common')
   const { demoBannerOn, setDemoBannerOn } = useDemoMode()
   return (
     <button
@@ -55,9 +58,9 @@ export function DemoBannerToggle() {
       onClick={() => setDemoBannerOn(!demoBannerOn)}
       className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between border border-gray-200 rounded-md"
     >
-      <span>Show demo role banner</span>
+      <span>{t('demo.show_role_banner')}</span>
       <span className={`text-xs font-bold uppercase ${demoBannerOn ? 'text-amber-700' : 'text-gray-400'}`}>
-        {demoBannerOn ? 'On' : 'Off'}
+        {demoBannerOn ? t('demo.on') : t('demo.off')}
       </span>
     </button>
   )

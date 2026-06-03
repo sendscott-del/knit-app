@@ -1,4 +1,5 @@
 import { Link, useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { ROLE_LABELS, isWardScoped, canManageStake, canEdit } from '@/lib/roles'
 
@@ -6,8 +7,9 @@ type Ctx = { profile: AdminProfile }
 
 export default function AdminDashboard() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const wardScope = isWardScoped(profile.role) && !profile.is_super_admin
-  const scopeName = wardScope ? profile.ward?.name ?? '—' : profile.stake?.name ?? '—'
+  const scopeName = wardScope ? profile.ward?.name ?? t('dash') : profile.stake?.name ?? t('dash')
   const editor = canEdit(profile)
   const stakeAdmin = canManageStake(profile)
 
@@ -15,16 +17,15 @@ export default function AdminDashboard() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
-          {greeting(profile.name ?? profile.email)}
+          {greeting(profile.name ?? profile.email, t)}
         </h1>
         <p className="text-base text-gray-600 mt-1">
           {ROLE_LABELS[profile.role]} · {scopeName}
-          {profile.is_super_admin ? ' · Super admin' : ''}
+          {profile.is_super_admin ? t('dashboard.super_admin_suffix') : ''}
         </p>
         {!editor ? (
           <p className="text-sm text-gray-500 mt-2 italic">
-            You have read-only access to Knit. Names, availability, and outings are
-            visible, but only ward leaders can make changes.
+            {t('dashboard.read_only_note')}
           </p>
         ) : null}
       </div>
@@ -32,47 +33,39 @@ export default function AdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <LinkCard
           to="/admin/members"
-          title="Members"
-          body={
-            wardScope
-              ? "Invite members, see who's active, review availability."
-              : 'See member engagement across the stake.'
-          }
+          title={t('dashboard.card_members_title')}
+          body={wardScope ? t('dashboard.card_members_ward') : t('dashboard.card_members_stake')}
         />
         <LinkCard
           to="/admin/friends"
-          title="Friends being taught"
-          body="Roster of people the missionaries are fellowshipping."
+          title={t('dashboard.card_friends_title')}
+          body={t('dashboard.card_friends_body')}
         />
         <LinkCard
           to="/admin/outings"
-          title="Outings"
-          body="Log completed outings, see upcoming."
+          title={t('dashboard.card_outings_title')}
+          body={t('dashboard.card_outings_body')}
         />
         <LinkCard
           to="/admin/suggest"
-          title="Suggestions"
-          body="Who should go with which friend? Ranked matches with reasons."
+          title={t('dashboard.card_suggest_title')}
+          body={t('dashboard.card_suggest_body')}
         />
         <LinkCard
           to="/admin/sheet"
-          title="Sheet"
-          body="Provision and refresh the Google Sheet for the missionaries."
+          title={t('dashboard.card_sheet_title')}
+          body={t('dashboard.card_sheet_body')}
         />
         <LinkCard
           to="/admin/settings"
-          title="Settings"
-          body={
-            stakeAdmin
-              ? 'Stake info, wards, sheet bindings.'
-              : 'View ward + stake configuration.'
-          }
+          title={t('dashboard.card_settings_title')}
+          body={stakeAdmin ? t('dashboard.card_settings_stake') : t('dashboard.card_settings_view')}
         />
         {stakeAdmin ? (
           <LinkCard
             to="/admin/users"
-            title="Users"
-            body="Add, edit, or remove Knit admins across the stake."
+            title={t('dashboard.card_users_title')}
+            body={t('dashboard.card_users_body')}
           />
         ) : null}
       </div>
@@ -80,15 +73,17 @@ export default function AdminDashboard() {
   )
 }
 
-function greeting(label: string) {
+function greeting(label: string, t: (key: string, opts?: Record<string, unknown>) => string) {
   const hour = new Date().getHours()
-  const prefix = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
   const first = label.split('@')[0].split(/[\s.]/)[0]
   const name = first.charAt(0).toUpperCase() + first.slice(1)
-  return `${prefix}, ${name}`
+  if (hour < 12) return t('dashboard.greet_morning', { name })
+  if (hour < 18) return t('dashboard.greet_afternoon', { name })
+  return t('dashboard.greet_evening', { name })
 }
 
 function LinkCard({ to, title, body }: { to: string; title: string; body: string }) {
+  const { t } = useTranslation('common')
   return (
     <Link
       to={to}
@@ -97,7 +92,7 @@ function LinkCard({ to, title, body }: { to: string; title: string; body: string
       <h2 className="text-base font-semibold text-gray-900">{title}</h2>
       <p className="text-sm text-gray-600">{body}</p>
       <p className="text-xs font-semibold text-knit-primary pt-2 group-hover:translate-x-0.5 transition">
-        Open →
+        {t('open_arrow')}
       </p>
     </Link>
   )

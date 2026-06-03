@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
@@ -21,6 +22,7 @@ export default function StylePicker({
   value: string[]
   onChange: (next: string[]) => void
 }) {
+  const { t } = useTranslation('common')
   const [styles, setStyles] = useState<Style[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +49,7 @@ export default function StylePicker({
     else onChange([...value, key])
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading…</p>
+  if (loading) return <p className="text-sm text-gray-500">{t('style_picker.loading')}</p>
   if (error) return <p className="text-sm text-error">{error}</p>
 
   return (

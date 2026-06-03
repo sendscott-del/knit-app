@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
 
@@ -6,13 +7,6 @@ type InterestTag = Database['public']['Tables']['knit_interest_tags']['Row']
 type Category = Database['public']['Enums']['knit_tag_category']
 
 const CATEGORY_ORDER: Category[] = ['hobby', 'sport', 'life_stage', 'profession', 'culture']
-const CATEGORY_LABELS: Record<Category, string> = {
-  hobby: 'Hobbies',
-  sport: 'Sports & activity',
-  life_stage: 'Life stage',
-  profession: 'Work',
-  culture: 'Languages or cultures you connect with',
-}
 
 export default function InterestChipPicker({
   wardId,
@@ -23,9 +17,18 @@ export default function InterestChipPicker({
   value: string[]
   onChange: (next: string[]) => void
 }) {
+  const { t } = useTranslation('common')
   const [tags, setTags] = useState<InterestTag[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const categoryLabel: Record<Category, string> = {
+    hobby: t('interest_picker.category_hobby'),
+    sport: t('interest_picker.category_sport'),
+    life_stage: t('interest_picker.category_life_stage'),
+    profession: t('interest_picker.category_profession'),
+    culture: t('interest_picker.category_culture'),
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -64,7 +67,7 @@ export default function InterestChipPicker({
     else onChange([...value, id])
   }
 
-  if (loading) return <p className="text-sm text-gray-500">Loading options…</p>
+  if (loading) return <p className="text-sm text-gray-500">{t('interest_picker.loading')}</p>
   if (error) return <p className="text-sm text-error">{error}</p>
 
   return (
@@ -75,7 +78,7 @@ export default function InterestChipPicker({
         return (
           <div key={cat} className="space-y-2">
             <h3 className="text-xs uppercase tracking-wide text-gray-500 font-bold">
-              {CATEGORY_LABELS[cat]}
+              {categoryLabel[cat]}
             </h3>
             <div className="flex flex-wrap gap-2">
               {list.map((tag) => {

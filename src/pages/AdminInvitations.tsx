@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
 import { canSendInvitations } from '@/lib/roles'
@@ -50,14 +51,18 @@ async function authorizedFetch(path: string, init: RequestInit = {}) {
   return fetch(path, { ...init, headers })
 }
 
-function memberDisplayName(m: Pick<MemberRow, 'first_name' | 'last_name' | 'preferred_name'>): string {
+function memberDisplayName(
+  m: Pick<MemberRow, 'first_name' | 'last_name' | 'preferred_name'>,
+  dash: string,
+): string {
   if (m.preferred_name) return m.preferred_name
   const full = [m.first_name, m.last_name].filter(Boolean).join(' ').trim()
-  return full || '—'
+  return full || dash
 }
 
 export default function AdminInvitations() {
   const { profile } = useOutletContext<Ctx>()
+  const { t } = useTranslation('common')
   const allowed = canSendInvitations(profile)
 
   const [history, setHistory] = useState<InvitationRow[]>([])
@@ -95,23 +100,17 @@ export default function AdminInvitations() {
     else setLoading(false)
   }, [allowed])
 
-  // Debounce the search query so we hit the DB once after the user pauses
-  // typing instead of on every keystroke.
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query.trim()), 200)
-    return () => clearTimeout(t)
+    const t2 = setTimeout(() => setDebouncedQuery(query.trim()), 200)
+    return () => clearTimeout(t2)
   }, [query])
 
-  // Server-side search. Critical because there are thousands of members
-  // across the stake — a client-side filter over a single LIMIT-capped fetch
-  // misses anyone whose name sorts past the cutoff.
   useEffect(() => {
     if (!debouncedQuery) {
       setMatches([])
       setSearching(false)
       return
     }
-    // Strip PostgREST .or() syntax characters that would break the query.
     const safe = debouncedQuery.replace(/[%,()]/g, ' ').trim()
     if (!safe) {
       setMatches([])
@@ -167,12 +166,15 @@ export default function AdminInvitations() {
       if (!res.ok || !body?.ok) {
         setOutcome({
           kind: 'err',
-          text: body?.error ?? `Send failed (${res.status})`,
+          text: body?.error ?? t('invitations.send_failed', { status: res.status }),
         })
       } else {
         setOutcome({
           kind: 'ok',
-          text: `Texted ${memberDisplayName(selected)} at ${body.recipient ?? selected.phone}`,
+          text: t('invitations.texted_at', {
+            name: memberDisplayName(selected, t('dash')),
+            recipient: body.recipient ?? selected.phone,
+          }),
         })
         await loadHistory()
       }
@@ -186,10 +188,9 @@ export default function AdminInvitations() {
   if (!allowed) {
     return (
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-gray-900">Invitations</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('invitations.page_title')}</h1>
         <p className="text-sm text-gray-600">
-          You don't have permission to send Knit invitations. Ask your stake president, stake clerk, the high
-          councilor over missionary work, or a ward mission leader.
+          {t('invitations.no_permission')}
         </p>
       </div>
     )
@@ -198,16 +199,15 @@ export default function AdminInvitations() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Invitations</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('invitations.page_title')}</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Send a member the Knit availability survey by text. Search by name or phone, pick the member, and Knit
-          texts the personalized link — no copy-paste needed.
+          {t('invitations.subtitle')}
         </p>
       </div>
 
       <section className="rounded-md border border-gray-200 bg-white p-5 space-y-4">
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Search members</span>
+          <span className="text-sm font-medium text-gray-700">{t('invitations.search_members')}</span>
           <input
             type="text"
             value={query}
@@ -216,7 +216,7 @@ export default function AdminInvitations() {
               setSelected(null)
               setOutcome(null)
             }}
-            placeholder="Start typing a name or phone"
+            placeholder={t('invitations.search_placeholder')}
             className="form-input mt-1"
             autoFocus
           />
@@ -225,9 +225,9 @@ export default function AdminInvitations() {
         {query && !selected ? (
           <div className="rounded-md border border-gray-200 overflow-hidden">
             {searching ? (
-              <div className="p-4 text-sm text-gray-500">Searching…</div>
+              <div className="p-4 text-sm text-gray-500">{t('invitations.searching')}</div>
             ) : matches.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500">No matching members.</div>
+              <div className="p-4 text-sm text-gray-500">{t('invitations.no_matches')}</div>
             ) : (
               <ul className="divide-y divide-gray-100">
                 {matches.map((m) => (
@@ -235,17 +235,17 @@ export default function AdminInvitations() {
                     <button
                       onClick={() => {
                         setSelected(m)
-                        setQuery(memberDisplayName(m))
+                        setQuery(memberDisplayName(m, t('dash')))
                       }}
                       className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center justify-between gap-3"
                     >
                       <div>
-                        <div className="text-sm text-gray-900">{memberDisplayName(m)}</div>
+                        <div className="text-sm text-gray-900">{memberDisplayName(m, t('dash'))}</div>
                         <div className="text-xs text-gray-500">
-                          {m.ward?.name ?? '—'} · {m.phone ?? 'no phone'}
+                          {m.ward?.name ?? t('dash')} · {m.phone ?? t('invitations.no_phone')}
                         </div>
                       </div>
-                      <span className="text-xs text-knit-primary">Choose</span>
+                      <span className="text-xs text-knit-primary">{t('invitations.choose')}</span>
                     </button>
                   </li>
                 ))}
@@ -258,9 +258,9 @@ export default function AdminInvitations() {
           <div className="rounded-md border-[1.5px] border-knit-primary/30 bg-knit-primary/5 p-4 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-gray-900">{memberDisplayName(selected)}</div>
+                <div className="text-sm font-semibold text-gray-900">{memberDisplayName(selected, t('dash'))}</div>
                 <div className="text-xs text-gray-600">
-                  {selected.ward?.name ?? '—'} · {selected.phone ?? 'no phone'}
+                  {selected.ward?.name ?? t('dash')} · {selected.phone ?? t('invitations.no_phone')}
                 </div>
               </div>
               <button
@@ -271,7 +271,7 @@ export default function AdminInvitations() {
                 }}
                 className="text-xs text-gray-600 hover:text-gray-900"
               >
-                Change
+                {t('invitations.change')}
               </button>
             </div>
             <button
@@ -280,10 +280,10 @@ export default function AdminInvitations() {
               className="w-full sm:w-auto rounded-md border-[1.5px] border-knit-primary text-knit-primary px-4 py-2 text-sm font-medium hover:bg-knit-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {sending === 'sms'
-                ? 'Sending text…'
+                ? t('invitations.sending_text')
                 : selected.phone
-                  ? 'Send by text'
-                  : 'Send by text (no phone)'}
+                  ? t('invitations.send_text')
+                  : t('invitations.send_text_no_phone')}
             </button>
             {outcome ? (
               <div
@@ -298,29 +298,29 @@ export default function AdminInvitations() {
 
       <section className="rounded-md border border-gray-200 bg-white overflow-hidden">
         <header className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">Recent invitations</h2>
-          <span className="text-xs text-gray-500">Last 100 across your scope</span>
+          <h2 className="text-sm font-semibold text-gray-900">{t('invitations.recent_title')}</h2>
+          <span className="text-xs text-gray-500">{t('invitations.recent_subtitle')}</span>
         </header>
         {loading ? (
-          <div className="p-6 text-sm text-gray-500">Loading…</div>
+          <div className="p-6 text-sm text-gray-500">{t('invitations.loading')}</div>
         ) : error ? (
           <div className="p-6 text-sm text-error">{error}</div>
         ) : history.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
-            No invitations yet. Send the first above.
+            {t('invitations.empty')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-gray-50 text-left text-gray-600">
                 <tr>
-                  <th className="px-4 py-2 font-medium">When</th>
-                  <th className="px-4 py-2 font-medium">Member</th>
-                  <th className="px-4 py-2 font-medium hidden sm:table-cell">Ward</th>
-                  <th className="px-4 py-2 font-medium hidden md:table-cell">Sent by</th>
-                  <th className="px-4 py-2 font-medium">Channel</th>
-                  <th className="px-4 py-2 font-medium hidden md:table-cell">Recipient</th>
-                  <th className="px-4 py-2 font-medium">Outcome</th>
+                  <th className="px-4 py-2 font-medium">{t('invitations.col_when')}</th>
+                  <th className="px-4 py-2 font-medium">{t('invitations.col_member')}</th>
+                  <th className="px-4 py-2 font-medium hidden sm:table-cell">{t('invitations.col_ward')}</th>
+                  <th className="px-4 py-2 font-medium hidden md:table-cell">{t('invitations.col_sent_by')}</th>
+                  <th className="px-4 py-2 font-medium">{t('invitations.col_channel')}</th>
+                  <th className="px-4 py-2 font-medium hidden md:table-cell">{t('invitations.col_recipient')}</th>
+                  <th className="px-4 py-2 font-medium">{t('invitations.col_outcome')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -330,24 +330,22 @@ export default function AdminInvitations() {
                       {new Date(row.created_at).toLocaleString()}
                     </td>
                     <td className="px-4 py-2 text-gray-900">
-                      {row.member ? memberDisplayName(row.member) : '—'}
+                      {row.member ? memberDisplayName(row.member, t('dash')) : t('dash')}
                     </td>
                     <td className="px-4 py-2 text-gray-600 hidden sm:table-cell">
-                      {row.ward?.name ?? '—'}
+                      {row.ward?.name ?? t('dash')}
                     </td>
                     <td className="px-4 py-2 text-gray-600 hidden md:table-cell">
                       {row.source === 'missionary_sheet'
-                        ? 'Missionary sheet'
-                        : row.sent_by_label ?? '—'}
+                        ? t('invitations.missionary_sheet')
+                        : row.sent_by_label ?? t('dash')}
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{row.channel === 'sms' ? 'Text' : 'Email'}</td>
+                    <td className="px-4 py-2 text-gray-600">
+                      {row.channel === 'sms' ? t('invitations.channel_text') : t('invitations.channel_email')}
+                    </td>
                     <td className="px-4 py-2 text-gray-600 hidden md:table-cell">{row.recipient}</td>
                     <td className="px-4 py-2">
                       {(() => {
-                        // If the member completed the survey AFTER this
-                        // invitation went out, the invitation effectively
-                        // succeeded — show "Complete" regardless of the
-                        // stored send outcome.
                         const onboardedAt = row.member?.onboarding_completed_at
                         if (
                           onboardedAt &&
@@ -355,14 +353,14 @@ export default function AdminInvitations() {
                         ) {
                           return (
                             <span className="inline-flex items-center rounded-full bg-knit-primary/15 text-knit-primary px-2 py-0.5 text-xs font-medium">
-                              Complete
+                              {t('invitations.complete')}
                             </span>
                           )
                         }
                         if (row.outcome === 'sent') {
                           return (
                             <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-xs font-medium">
-                              Sent
+                              {t('invitations.sent')}
                             </span>
                           )
                         }
@@ -371,7 +369,7 @@ export default function AdminInvitations() {
                             className="inline-flex items-center rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-xs font-medium"
                             title={row.outcome_detail ?? ''}
                           >
-                            Failed
+                            {t('invitations.failed')}
                           </span>
                         )
                       })()}
