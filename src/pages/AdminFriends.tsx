@@ -33,14 +33,17 @@ export default function AdminFriends() {
   const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [showRemoved, setShowRemoved] = useState(false)
 
   async function refresh() {
     setLoading(true)
     setError(null)
-    const { data, error } = await supabase
+    let q = supabase
       .from('knit_friends')
       .select('*, ward:knit_wards(id, name)')
       .order('added_at', { ascending: false })
+    if (!showRemoved) q = q.is('removed_at', null)
+    const { data, error } = await q
     if (error) setError(error.message)
     else setFriends((data as FriendWithWard[]) ?? [])
     setLoading(false)
@@ -48,11 +51,26 @@ export default function AdminFriends() {
 
   useEffect(() => {
     void refresh()
-  }, [])
+  }, [showRemoved])
 
   async function remove(id: string) {
-    if (!confirm('Remove this friend?')) return
-    const { error } = await supabase.from('knit_friends').delete().eq('id', id)
+    if (!confirm('Remove this friend? Past outings stay; the friend will be hidden from the roster and the missionary sheet.')) return
+    const { error } = await supabase
+      .from('knit_friends')
+      .update({ removed_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) {
+      alert(error.message)
+      return
+    }
+    await refresh()
+  }
+
+  async function restore(id: string) {
+    const { error } = await supabase
+      .from('knit_friends')
+      .update({ removed_at: null, removed_reason: null })
+      .eq('id', id)
     if (error) {
       alert(error.message)
       return
@@ -79,14 +97,25 @@ export default function AdminFriends() {
             People the missionaries are currently teaching.
           </p>
         </div>
-        {editor ? (
-          <button
-            onClick={() => setShowForm((v) => !v)}
-            className="btn-primary text-sm py-2 px-4"
-          >
-            {showForm ? 'Cancel' : 'Add friend'}
-          </button>
-        ) : null}
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showRemoved}
+              onChange={(e) => setShowRemoved(e.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Show removed
+          </label>
+          {editor ? (
+            <button
+              onClick={() => setShowForm((v) => !v)}
+              className="btn-primary text-sm py-2 px-4"
+            >
+              {showForm ? 'Cancel' : 'Add friend'}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {showForm && editor ? (
@@ -137,13 +166,21 @@ export default function AdminFriends() {
                     onSave={(patch) => void saveFriend(f.id, patch)}
                   />
                 ) : (
-                  <tr key={f.id}>
+                  <tr key={f.id} className={f.removed_at ? 'opacity-60' : ''}>
                     <td className="px-4 py-3 text-gray-900">
                       {[f.first_name, f.last_name].filter(Boolean).join(' ')}
                       {f.nickname ? (
                         <span className="text-gray-500"> "{f.nickname}"</span>
                       ) : null}
                       <DemoBadge when={f.is_demo} />
+                      {f.removed_at ? (
+                        <span
+                          className="ml-2 inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-700"
+                          title={f.removed_reason ?? undefined}
+                        >
+                          Removed
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {STATUS_LABELS[f.teaching_status]}
@@ -159,20 +196,29 @@ export default function AdminFriends() {
                     </td>
                     <td className="px-4 py-3 text-right whitespace-nowrap">
                       {editor ? (
-                        <>
+                        f.removed_at ? (
                           <button
-                            onClick={() => setEditingId(f.id)}
-                            className="text-sm text-gray-700 hover:text-gray-900 mr-4"
+                            onClick={() => void restore(f.id)}
+                            className="text-sm text-gray-700 hover:text-gray-900"
                           >
-                            Edit
+                            Restore
                           </button>
-                          <button
-                            onClick={() => void remove(f.id)}
-                            className="text-sm text-error hover:opacity-80"
-                          >
-                            Remove
-                          </button>
-                        </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingId(f.id)}
+                              className="text-sm text-gray-700 hover:text-gray-900 mr-4"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => void remove(f.id)}
+                              className="text-sm text-error hover:opacity-80"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )
                       ) : (
                         <span className="text-xs text-gray-400">View-only</span>
                       )}

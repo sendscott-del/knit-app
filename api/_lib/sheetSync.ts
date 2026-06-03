@@ -107,6 +107,8 @@ const HEADERS: Record<string, string[]> = {
     'Typical availability',
     'Total outings',
     'Days since last',
+    'Remove?',
+    'Reason',
   ],
   [TABS.SUGGESTIONS]: [
     'Friend name',
@@ -216,11 +218,21 @@ const PROTECTION_RULES: ProtectionRule[] = [
     warningOnly: false,
     range: 'whole-sheet',
   },
+  // Friends tab is mostly Knit-managed but cols H + I (Remove?, Reason) are
+  // missionary-editable. Lock everything except the two right-most data
+  // columns so missionaries can mark a friend for removal without being able
+  // to tamper with the auto-managed roster.
   {
     tab: TABS.FRIENDS,
-    description: `${KNIT_PROTECT_TAG} Auto-filled from Knit — edit friends in the Knit admin app`,
+    description: `${KNIT_PROTECT_TAG} Banner + header rows — do not change`,
     warningOnly: false,
-    range: 'whole-sheet',
+    range: { startRow: 0, endRow: 2, startCol: 0, endCol: 9 },
+  },
+  {
+    tab: TABS.FRIENDS,
+    description: `${KNIT_PROTECT_TAG} Friend data columns — edit in the Knit admin app`,
+    warningOnly: false,
+    range: { startRow: 2, startCol: 0, endCol: 7 },
   },
   {
     tab: TABS.RECENT,
@@ -520,6 +532,7 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     .from('knit_friends')
     .select('*')
     .eq('ward_id', wardId)
+    .is('removed_at', null)
     .neq('teaching_status', 'lost_contact')
     .order('added_at', { ascending: false })
 
@@ -577,13 +590,18 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
       f.typical_availability ?? '—',
       (stats?.total ?? 0).toString(),
       daysSince,
+      // Remove? + Reason: missionary-editable. Push rewrites them to empty
+      // every sync so a previous removal request doesn't reappear on the
+      // refreshed roster, and so the columns stay clean for the next ask.
+      '',
+      '',
     ]
   })
 
   await replaceDataRows(
     spreadsheetId,
     TABS.FRIENDS,
-    7,
+    9,
     friendRows,
     dataStartRow(TABS.FRIENDS),
   )
@@ -880,6 +898,28 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
         },
       },
     },
+
+    // Friends We are Teaching: Remove? checkbox in col H (index 7), rows 3–200
+    // (data rows; row 1 = banner, row 2 = header). Reason text col I has no
+    // validation — free-form.
+    {
+      setDataValidation: {
+        range: {
+          sheetId: friendsId,
+          startRowIndex: 2,
+          endRowIndex: 200,
+          startColumnIndex: 7,
+          endColumnIndex: 8,
+        },
+        rule: {
+          condition: { type: 'BOOLEAN' },
+          strict: true,
+          showCustomUi: true,
+          inputMessage:
+            'Check this box if the missionaries are no longer teaching this friend. Add a brief reason in the next column. Knit will remove the friend on the next sync.',
+        },
+      },
+    },
   ]
 
   await sheets.spreadsheets.batchUpdate({
@@ -1096,6 +1136,56 @@ export async function applyEntryAutoFormatting(spreadsheetId: string) {
     paint(addFriendId, 0, 5, ENTRY_BG)
     // Cols F-G are Knit-fill (Status, Synced at)
     paint(addFriendId, 5, 7, AUTO_BG)
+  }
+
+  // Friends We are Teaching: mostly Knit-fill, but Remove? + Reason are
+  // missionary entry. Row 0 is the red banner (left alone); row 1 is the
+  // header row (darker gray); row 2+ is data.
+  const friendsId = idFor(TABS.FRIENDS)
+  if (friendsId !== undefined) {
+    const repaintRange = (
+      startCol: number,
+      endCol: number,
+      bg: { red: number; green: number; blue: number },
+      startRow: number,
+      endRow: number,
+    ) => {
+      requests.push({
+        repeatCell: {
+          range: {
+            sheetId: friendsId,
+            startRowIndex: startRow,
+            endRowIndex: endRow,
+            startColumnIndex: startCol,
+            endColumnIndex: endCol,
+          },
+          cell: { userEnteredFormat: { backgroundColor: bg } },
+          fields: 'userEnteredFormat.backgroundColor',
+        },
+      })
+    }
+    // Header row (row 1) — darker gray + bold across all 9 cols.
+    requests.push({
+      repeatCell: {
+        range: {
+          sheetId: friendsId,
+          startRowIndex: 1,
+          endRowIndex: 2,
+          startColumnIndex: 0,
+          endColumnIndex: 9,
+        },
+        cell: {
+          userEnteredFormat: {
+            backgroundColor: HEADER_BG,
+            textFormat: { bold: true },
+          },
+        },
+        fields: 'userEnteredFormat(backgroundColor,textFormat.bold)',
+      },
+    })
+    // Data rows: cols A-G gray (Knit-fill), cols H-I yellow (missionary entry).
+    repaintRange(0, 7, AUTO_BG, 2, 500)
+    repaintRange(7, 9, ENTRY_BG, 2, 500)
   }
 
   if (requests.length === 0) return
