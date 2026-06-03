@@ -207,6 +207,8 @@ export default function AdminSheet() {
       feedbackErrors?: string[]
       friendsInserted?: number
       friendErrors?: string[]
+      friendsRemoved?: number
+      friendRemovalErrors?: string[]
       headersRepaired?: string[]
     }
 
@@ -222,6 +224,8 @@ export default function AdminSheet() {
     const parts: string[] = []
     if ((rep.friendsInserted ?? 0) > 0)
       parts.push(`${rep.friendsInserted} friend${rep.friendsInserted === 1 ? '' : 's'} added`)
+    if ((rep.friendsRemoved ?? 0) > 0)
+      parts.push(`${rep.friendsRemoved} friend${rep.friendsRemoved === 1 ? '' : 's'} removed`)
     if ((rep.suggestionsProcessed ?? 0) > 0)
       parts.push(`${rep.suggestionsProcessed} suggestion${rep.suggestionsProcessed === 1 ? '' : 's'} filled`)
     if ((rep.outingsInserted ?? 0) > 0)
@@ -236,6 +240,7 @@ export default function AdminSheet() {
       ...(rep.outingErrors ?? []),
       ...(rep.feedbackErrors ?? []),
       ...(rep.friendErrors ?? []),
+      ...(rep.friendRemovalErrors ?? []),
     ]
     if (errs.length > 0)
       parts.push(`${errs.length} issue${errs.length === 1 ? '' : 's'}: ${errs.slice(0, 3).join('; ')}`)

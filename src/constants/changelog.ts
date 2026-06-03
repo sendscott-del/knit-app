@@ -7,6 +7,19 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.45.0',
+    date: '2026-05-31',
+    summary: 'Missionaries can remove friends directly from the Google Sheet.',
+    details: [
+      "Friends We are Teaching tab gets two new editable columns: Remove? (checkbox) and Reason (text). Check the box, add a brief reason, next 5-min sync removes the friend. Past outings still reference them — soft delete via new knit_friends.removed_at column, no data loss.",
+      "Sheet protections updated: cols A-G stay hard-locked (Knit-managed roster + outing stats), cols H-I are yellow + editable. Header row and banner row stay locked so missionaries can't break the column layout. The new checkbox uses Google's BOOLEAN data validation, matching the Generate / Synced patterns from the rest of the sheet.",
+      "After a sync processes a removal, the Remove? + Reason cells are cleared automatically so the same request doesn't keep re-firing. The Friends tab is rewritten on every morning push so the removed friend's row disappears the next morning anyway.",
+      "/admin/friends gains a 'Show removed' toggle (hidden by default), a 'Removed' badge on each soft-deleted friend, and a Restore button. The existing WML 'Remove' action now soft-deletes too — clicking it sets removed_at instead of DELETE'ing the row, so we never lose the link from past outings. Reason from the sheet appended to notes with a [Removed via sheet] prefix so the WML can see the context.",
+      "Suggest, Outings, and the pull-side friend-name lookups all now filter `removed_at IS NULL` so a removed friend can't accidentally come back into the picker dropdowns or get matched against a stale missionary entry.",
+      "Schema: knit_friends.removed_at + removed_reason columns; partial index on (ward_id) WHERE removed_at IS NULL keeps the active-friend lookup fast.",
+    ],
+  },
+  {
     version: '0.44.6',
     date: '2026-05-31',
     summary: 'Tag Knit-invited admins so they stop leaking into Magnify as pending profiles.',

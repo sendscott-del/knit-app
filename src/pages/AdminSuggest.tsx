@@ -74,6 +74,7 @@ export default function AdminSuggest() {
           .from('knit_friends')
           .select('*')
           .eq('ward_id', wardId)
+          .is('removed_at', null)
           .neq('teaching_status', 'baptized')
           .neq('teaching_status', 'lost_contact')
           .order('first_name'),

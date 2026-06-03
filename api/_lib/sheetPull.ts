@@ -1,6 +1,12 @@
 import { google } from 'googleapis'
 import { supabaseAdmin } from './supabaseAdmin.js'
-import { TABS, TAB_ORDER, getExpectedHeaders, populateMemberRoster } from './sheetSync.js'
+import {
+  TABS,
+  TAB_ORDER,
+  getExpectedHeaders,
+  populateMemberRoster,
+  dataStartRow,
+} from './sheetSync.js'
 import { colLetter, ensureTabs } from './sheets.js'
 import {
   suggest,
@@ -45,6 +51,8 @@ export type PullReport = {
   feedbackErrors: string[]
   friendsInserted: number
   friendErrors: string[]
+  friendsRemoved: number
+  friendRemovalErrors: string[]
   /** Tabs whose header row was repaired during this pull (drift detected and rewritten). */
   headersRepaired: string[]
 }
@@ -105,6 +113,8 @@ export async function pullSheet(args: {
     feedbackErrors: [],
     friendsInserted: 0,
     friendErrors: [],
+    friendsRemoved: 0,
+    friendRemovalErrors: [],
     headersRepaired: [],
   }
 
@@ -192,6 +202,31 @@ export async function pullSheet(args: {
     }
   } catch (e) {
     report.friendErrors.push(errMsg(e))
+  }
+
+  /* ---------------- Friends We are Teaching tab (Remove?) ---------------- */
+  try {
+    const check = await verifyAndRestoreHeaders(
+      sheets,
+      args.spreadsheetId,
+      TABS.FRIENDS,
+    )
+    if (check.repaired) {
+      report.headersRepaired.push(TABS.FRIENDS)
+      report.friendRemovalErrors.push(
+        'Friends We are Teaching tab headers were missing or changed — restored. Skipping removal pass.',
+      )
+    } else {
+      await pullFriendRemovals({
+        sb,
+        sheets,
+        wardId: args.wardId,
+        spreadsheetId: args.spreadsheetId,
+        report,
+      })
+    }
+  } catch (e) {
+    report.friendRemovalErrors.push(errMsg(e))
   }
 
   /* ---------------- Send Feedback tab ---------------- */
@@ -395,6 +430,144 @@ async function pullAddFriend(args: {
   }
 }
 
+/**
+ * Reads the Friends We are Teaching tab for rows with Remove? checked.
+ * For each, finds the matching knit_friends row by name + ward, stamps
+ * removed_at = now(), and copies the missionary's Reason into
+ * removed_reason. The row will fall off the next morning push because
+ * populateDataTabs filters `removed_at IS NULL`.
+ *
+ * Dedup safety: shared_emails matching is by lowercased "First Last".
+ * If two friends share the same display name in the same ward, the most
+ * recently added wins — that's already how missionaries refer to them
+ * in conversation. If neither matches, we record a friendRemovalErrors
+ * line so the WML can investigate.
+ */
+async function pullFriendRemovals(args: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  sb: any
+  sheets: SheetsClient
+  wardId: string
+  spreadsheetId: string
+  report: PullReport
+}) {
+  const { sb, sheets, wardId, spreadsheetId, report } = args
+  const expected = getExpectedHeaders(TABS.FRIENDS) ?? []
+  const dataStart = dataStartRow(TABS.FRIENDS) // 1-indexed row of first data row
+  const range = `${TABS.FRIENDS}!A${dataStart}:${colLetter(expected.length)}500`
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  })
+  const rows = (res.data.values ?? []) as Array<Array<string | boolean | number>>
+  if (rows.length === 0) return
+
+  // Hydrate ward's active friends ONCE so we can match by display name.
+  const { data: activeFriends } = await sb
+    .from('knit_friends')
+    .select('id, first_name, last_name, added_at')
+    .eq('ward_id', wardId)
+    .is('removed_at', null)
+    .order('added_at', { ascending: false })
+  const byName = new Map<string, { id: string; addedAt: string }>()
+  for (const f of (activeFriends ?? []) as Array<{
+    id: string
+    first_name: string
+    last_name: string | null
+    added_at: string
+  }>) {
+    const key = [f.first_name, f.last_name].filter(Boolean).join(' ').toLowerCase().trim()
+    if (!key) continue
+    // Most recently added wins — already sorted DESC by added_at.
+    if (!byName.has(key)) byName.set(key, { id: f.id, addedAt: f.added_at })
+  }
+
+  // Column indexes match the HEADERS[TABS.FRIENDS] order: Friend (0),
+  // Language (1), Interests (2), Teaching status (3), Typical availability (4),
+  // Total outings (5), Days since last (6), Remove? (7), Reason (8).
+  const NAME_COL = 0
+  const REMOVE_COL = 7
+  const REASON_COL = 8
+
+  const rowsToClear: number[] = []
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const removeRaw = row[REMOVE_COL]
+    // Google returns the checkbox as a boolean when UNFORMATTED_VALUE.
+    const remove =
+      removeRaw === true ||
+      (typeof removeRaw === 'string' && removeRaw.toUpperCase() === 'TRUE')
+    if (!remove) continue
+
+    const sheetRowNum = dataStart + i // 1-indexed sheet row of this entry
+    const displayName = String(row[NAME_COL] ?? '').trim()
+    const reason = String(row[REASON_COL] ?? '').trim()
+    if (!displayName) {
+      report.friendRemovalErrors.push(
+        `Row ${sheetRowNum}: Remove? checked but no friend name in column A.`,
+      )
+      continue
+    }
+    const match = byName.get(displayName.toLowerCase())
+    if (!match) {
+      report.friendRemovalErrors.push(
+        `Row ${sheetRowNum}: couldn't find an active friend named "${displayName}" — already removed?`,
+      )
+      // Still queue the row for clearing so the missionary doesn't see the
+      // stale check next time.
+      rowsToClear.push(sheetRowNum)
+      continue
+    }
+
+    const { error: updErr } = await sb
+      .from('knit_friends')
+      .update({
+        removed_at: new Date().toISOString(),
+        removed_reason: reason || null,
+      })
+      .eq('id', match.id)
+      .is('removed_at', null) // race guard against concurrent admin-side removal
+    if (updErr) {
+      report.friendRemovalErrors.push(
+        `Row ${sheetRowNum} (${displayName}): ${updErr.message}`,
+      )
+      continue
+    }
+
+    // Append reason to notes for visibility on /admin/friends. Two-step is
+    // fine: this loop iterates a small number of rows per pull.
+    if (reason) {
+      const { data: f } = await sb
+        .from('knit_friends')
+        .select('notes')
+        .eq('id', match.id)
+        .single()
+      const stampedNote = `[Removed via sheet] ${reason}`
+      const merged = f?.notes ? `${f.notes}\n${stampedNote}` : stampedNote
+      await sb
+        .from('knit_friends')
+        .update({ notes: merged })
+        .eq('id', match.id)
+    }
+
+    report.friendsRemoved += 1
+    rowsToClear.push(sheetRowNum)
+  }
+
+  // Clear the Remove? + Reason cells we just processed so the same request
+  // doesn't keep firing on every 5-min pull. populateDataTabs would also
+  // wipe them on the next morning push, but the missionary may sync sooner.
+  for (const sheetRowNum of rowsToClear) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${TABS.FRIENDS}!H${sheetRowNum}:I${sheetRowNum}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[false, '']] },
+    })
+  }
+}
+
 async function pullSuggestions(args: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sb: any
@@ -419,6 +592,7 @@ async function pullSuggestions(args: {
     .from('knit_friends')
     .select('id, first_name, last_name, nickname, locale, interest_tag_ids')
     .eq('ward_id', wardId)
+    .is('removed_at', null)
   const { data: members } = await sb
     .from('knit_members')
     .select(
@@ -580,6 +754,7 @@ async function pullOutings(args: {
     .from('knit_friends')
     .select('id, first_name, last_name, nickname')
     .eq('ward_id', wardId)
+    .is('removed_at', null)
   const { data: members } = await sb
     .from('knit_members')
     .select('id, first_name, last_name, preferred_name')

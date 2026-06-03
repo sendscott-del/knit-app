@@ -36,6 +36,8 @@ export type Database = {
         Row: {
           app: string
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
           id: string
           implemented_at: string | null
           notes: string | null
@@ -50,6 +52,8 @@ export type Database = {
         Insert: {
           app: string
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
           id?: string
           implemented_at?: string | null
           notes?: string | null
@@ -64,6 +68,8 @@ export type Database = {
         Update: {
           app?: string
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
           id?: string
           implemented_at?: string | null
           notes?: string | null
@@ -75,7 +81,15 @@ export type Database = {
           suggestion?: string
           user_agent?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "app_suggestions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "gather_app_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       bloom_exercise_logs: {
         Row: {
@@ -2908,6 +2922,7 @@ export type Database = {
       }
       glean_notifications: {
         Row: {
+          actor_user_id: string | null
           created_at: string
           id: string
           member_id: string | null
@@ -2919,6 +2934,7 @@ export type Database = {
           ward_id: string | null
         }
         Insert: {
+          actor_user_id?: string | null
           created_at?: string
           id?: string
           member_id?: string | null
@@ -2930,6 +2946,7 @@ export type Database = {
           ward_id?: string | null
         }
         Update: {
+          actor_user_id?: string | null
           created_at?: string
           id?: string
           member_id?: string | null
@@ -3677,6 +3694,39 @@ export type Database = {
           },
         ]
       }
+      hc_member_wards: {
+        Row: {
+          created_at: string
+          hc_member_id: string
+          ward_id: string
+        }
+        Insert: {
+          created_at?: string
+          hc_member_id: string
+          ward_id: string
+        }
+        Update: {
+          created_at?: string
+          hc_member_id?: string
+          ward_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hc_member_wards_hc_member_id_fkey"
+            columns: ["hc_member_id"]
+            isOneToOne: false
+            referencedRelation: "high_council_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hc_member_wards_ward_id_fkey"
+            columns: ["ward_id"]
+            isOneToOne: false
+            referencedRelation: "wards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       high_council_members: {
         Row: {
           active: boolean
@@ -4017,6 +4067,8 @@ export type Database = {
           nickname: string | null
           notes: string | null
           phone: string | null
+          removed_at: string | null
+          removed_reason: string | null
           teaching_status: Database["public"]["Enums"]["knit_teaching_status"]
           typical_availability: string | null
           updated_at: string
@@ -4035,6 +4087,8 @@ export type Database = {
           nickname?: string | null
           notes?: string | null
           phone?: string | null
+          removed_at?: string | null
+          removed_reason?: string | null
           teaching_status?: Database["public"]["Enums"]["knit_teaching_status"]
           typical_availability?: string | null
           updated_at?: string
@@ -4053,6 +4107,8 @@ export type Database = {
           nickname?: string | null
           notes?: string | null
           phone?: string | null
+          removed_at?: string | null
+          removed_reason?: string | null
           teaching_status?: Database["public"]["Enums"]["knit_teaching_status"]
           typical_availability?: string | null
           updated_at?: string
@@ -6730,6 +6786,31 @@ export type Database = {
         Args: { p_email: string; p_role: string; p_ward?: string }
         Returns: boolean
       }
+      gather_set_suggestion_status: {
+        Args: { p_id: string; p_notes?: string; p_status: string }
+        Returns: {
+          app: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          implemented_at: string | null
+          notes: string | null
+          page_url: string | null
+          status: string
+          submitted_by_email: string | null
+          submitted_by_name: string | null
+          submitted_by_user_id: string | null
+          suggestion: string
+          user_agent: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "app_suggestions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       gather_user_has_role: {
         Args: { p_email: string; p_role: string }
         Returns: boolean
@@ -6778,12 +6859,21 @@ export type Database = {
       }
       glean_is_bishop_of_ward: { Args: { p_ward_id: string }; Returns: boolean }
       glean_is_member_self: { Args: { p_member: string }; Returns: boolean }
+      glean_is_plan_author: { Args: { p_plan_id: string }; Returns: boolean }
       glean_is_stake_admin: { Args: never; Returns: boolean }
       glean_is_stake_leader: { Args: { p_stake: string }; Returns: boolean }
       glean_is_ward_bishop: { Args: { p_ward: string }; Returns: boolean }
       glean_is_ward_leader: { Args: { p_ward: string }; Returns: boolean }
       glean_is_ward_leader_v2: { Args: { p_ward_id: string }; Returns: boolean }
       glean_is_welfare_super: { Args: never; Returns: boolean }
+      glean_member_active_plan_summary: {
+        Args: { p_member_ids: string[] }
+        Returns: {
+          member_id: string
+          plan_id: string
+          status: string
+        }[]
+      }
       glean_plans_roster: {
         Args: never
         Returns: {
@@ -6799,6 +6889,10 @@ export type Database = {
           ward_id: string
           ward_name: string
         }[]
+      }
+      glean_request_plan_access: {
+        Args: { p_plan_id: string }
+        Returns: number
       }
       glean_sweep_plan_status: { Args: never; Returns: undefined }
       is_admin: { Args: never; Returns: boolean }
@@ -6819,6 +6913,8 @@ export type Database = {
       knit_can_edit_ward: { Args: { p_ward: string }; Returns: boolean }
       knit_can_view_ward: { Args: { p_ward: string }; Returns: boolean }
       knit_clear_demo_data: { Args: { p_ward_id: string }; Returns: Json }
+      knit_cron_call_sheets_pull: { Args: never; Returns: number }
+      knit_cron_sync_tidings_members: { Args: never; Returns: number }
       knit_current_admin: {
         Args: never
         Returns: {
@@ -6888,8 +6984,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      reconcile_glean_leader: { Args: { p_email: string }; Returns: undefined }
       steward_caller_can_manage_interviews: { Args: never; Returns: boolean }
       steward_is_stake_exec_secretary: { Args: never; Returns: boolean }
+      sync_steward_stake_role: { Args: { p_email: string }; Returns: undefined }
       upsert_youtube_comments: { Args: { payload: Json }; Returns: number }
     }
     Enums: {
@@ -6908,6 +7006,8 @@ export type Database = {
         | "post_outing_checkin"
         | "urgent_need"
         | "thank_you"
+        | "availability_refresh"
+        | "self_recovery"
       knit_outing_status:
         | "scheduled"
         | "happened"
@@ -7073,6 +7173,8 @@ export const Constants = {
         "post_outing_checkin",
         "urgent_need",
         "thank_you",
+        "availability_refresh",
+        "self_recovery",
       ],
       knit_outing_status: [
         "scheduled",

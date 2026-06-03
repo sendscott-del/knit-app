@@ -270,6 +270,7 @@ function NewOutingForm({
           .from('knit_friends')
           .select('*')
           .eq('ward_id', wardId)
+          .is('removed_at', null)
           .order('first_name'),
         supabase
           .from('knit_members')
