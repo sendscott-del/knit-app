@@ -12,6 +12,7 @@ export default function AdminDashboard() {
   const scopeName = wardScope ? profile.ward?.name ?? t('dash') : profile.stake?.name ?? t('dash')
   const editor = canEdit(profile)
   const stakeAdmin = canManageStake(profile)
+  const showInsights = Boolean(profile.is_super_admin || profile.is_app_super_admin)
 
   return (
     <div className="space-y-8">
@@ -31,6 +32,13 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {showInsights ? (
+          <LinkCard
+            to="/admin/insights"
+            title={t('dashboard.card_insights_title')}
+            body={t('dashboard.card_insights_body')}
+          />
+        ) : null}
         <LinkCard
           to="/admin/members"
           title={t('dashboard.card_members_title')}

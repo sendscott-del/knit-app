@@ -10,6 +10,7 @@ import ResetPassword from '@/pages/ResetPassword'
 import AdminCallback from '@/pages/AdminCallback'
 import AdminLayout from '@/pages/AdminLayout'
 import AdminDashboard from '@/pages/AdminDashboard'
+import AdminInsights from '@/pages/AdminInsights'
 import AdminMembers from '@/pages/AdminMembers'
 import AdminInvitations from '@/pages/AdminInvitations'
 import AdminFriends from '@/pages/AdminFriends'
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/admin/callback" element={<AdminCallback />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="insights" element={<AdminInsights />} />
             <Route path="members" element={<AdminMembers />} />
             <Route path="invitations" element={<AdminInvitations />} />
             <Route path="friends" element={<AdminFriends />} />

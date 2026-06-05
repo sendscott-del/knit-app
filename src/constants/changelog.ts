@@ -7,6 +7,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.47.0',
+    date: '2026-06-04',
+    summary: 'Insights dashboard + error monitoring for the stake presidency.',
+    details: [
+      "New /admin/insights page, visible only to app super admins (stake presidency, stake clerk, HC missionary work, or is_super_admin). Answers 'how is Knit landing?' in one screen: per-ward adoption funnel (roster → invited → onboarded → profile complete → opted out), what members like (most-picked interests + participation styles as bar charts), a day×time availability heatmap, the in-app feedback inbox (status counts + recent suggestion text), and an operational-health panel (texts sent + replies over 30d, invitation outcomes, sheet-binding health per ward, and error counts).",
+      "All aggregation runs in a single SECURITY DEFINER Postgres function knit_admin_insights() that self-gates with knit_is_app_super_admin() and raises 42501 otherwise — so the browser never pulls thousands of roster rows and authz is enforced in the database. Migration: supabase/migrations/20260604080000_knit_events_and_insights.sql.",
+      "Error monitoring: new knit_events capture table (service-role write, app-super-admin read via RLS). A client telemetry helper (src/lib/telemetry.ts) plus an app-wide ErrorBoundary and window error/unhandledrejection handlers now report client-side JS errors — previously invisible, only in ephemeral Vercel logs — to /api/events, which scrubs and stores them. The three sheet/availability crons also log failures to knit_events via the new logServerEvent() helper. The Insights page shows a recent-errors feed and a 7-day error rollup.",
+      "Confidentiality (church lane): the events table is PII-safe by design — UUID references instead of names, the magic-link route is reduced to the /m/:memberId/:token pattern (the real token is never stored), query strings are dropped, and message/detail fields are length-capped. The feedback inbox returns suggestion text + status + date only, never the submitter's name or email. Only the stake presidency can read any of it.",
+      "i18n: every new string translated EN/ES; new guide section explaining the Insights tab. Nav link + dashboard card appear only for super admins, on both desktop sidebar and the mobile More sheet.",
+    ],
+  },
+  {
     version: '0.46.2',
     date: '2026-06-03',
     summary: 'Comprehensive audit fixes: data integrity, silent failures, UX bugs.',

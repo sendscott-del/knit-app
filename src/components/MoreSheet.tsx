@@ -8,6 +8,7 @@ type Props = {
   onSignOut: () => void
   /** Opens the existing SuggestionFAB modal — supplied by AdminLayout. */
   onSuggestEnhancement: () => void
+  showInsights: boolean
   showStakeAdminTabs: boolean
   showInvitations: boolean
 }
@@ -25,6 +26,7 @@ export default function MoreSheet({
   onClose,
   onSignOut,
   onSuggestEnhancement,
+  showInsights,
   showStakeAdminTabs,
   showInvitations,
 }: Props) {
@@ -71,6 +73,14 @@ export default function MoreSheet({
         <div className="mx-auto w-9 h-1 bg-gray-300 rounded-full mt-1 mb-2" />
 
         <SheetGroup title={t('more.workspace')}>
+          {showInsights && (
+            <SheetLink
+              to="/admin/insights"
+              icon="stats-chart-outline"
+              label={t('more.insights')}
+              onClose={onClose}
+            />
+          )}
           <SheetLink
             to="/admin/outings"
             icon="calendar-outline"

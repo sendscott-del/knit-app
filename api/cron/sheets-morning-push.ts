@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { populateDataTabs } from '../_lib/sheetSync.js'
 import { formatGoogleError, retryOn429 } from '../_lib/sheets.js'
 import { reconcileBindingAccess } from '../_lib/sheetAccess.js'
+import { logServerEvent } from '../_lib/logEvent.js'
 
 /**
  * Daily: refresh Available This Week, Friends We are Teaching, Recent Outings
@@ -67,6 +68,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('knit_google_sheet_bindings')
         .update({ status: 'error', last_error: msg })
         .eq('id', b.id)
+      await logServerEvent({
+        name: 'cron_sheets_push_failed',
+        message: msg,
+        route: '/api/cron/sheets-morning-push',
+        ward_id: b.ward_id,
+      })
       results.push({ ward_id: b.ward_id, ok: false, error: msg })
     }
   }

@@ -4053,6 +4053,79 @@ export type Database = {
           },
         ]
       }
+      knit_events: {
+        Row: {
+          admin_id: string | null
+          app_version: string | null
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          member_id: string | null
+          message: string | null
+          name: string
+          route: string | null
+          severity: string
+          source: string
+          user_agent: string | null
+          ward_id: string | null
+        }
+        Insert: {
+          admin_id?: string | null
+          app_version?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          member_id?: string | null
+          message?: string | null
+          name: string
+          route?: string | null
+          severity?: string
+          source: string
+          user_agent?: string | null
+          ward_id?: string | null
+        }
+        Update: {
+          admin_id?: string | null
+          app_version?: string | null
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          member_id?: string | null
+          message?: string | null
+          name?: string
+          route?: string | null
+          severity?: string
+          source?: string
+          user_agent?: string | null
+          ward_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knit_events_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "knit_admin_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knit_events_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "knit_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knit_events_ward_id_fkey"
+            columns: ["ward_id"]
+            isOneToOne: false
+            referencedRelation: "knit_wards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knit_friends: {
         Row: {
           added_at: string
@@ -6935,6 +7008,7 @@ export type Database = {
         Args: { p_member_id: string }
         Returns: string
       }
+      knit_admin_insights: { Args: never; Returns: Json }
       knit_google_oauth_status: { Args: never; Returns: Json }
       knit_is_app_super_admin: { Args: never; Returns: boolean }
       knit_is_ward_super_admin: {

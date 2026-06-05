@@ -3,6 +3,7 @@ import { verifyCron } from '../_lib/cronAuth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { pullSheet } from '../_lib/sheetPull.js'
 import { retryOn429 } from '../_lib/sheets.js'
+import { logServerEvent } from '../_lib/logEvent.js'
 
 /**
  * Every 5 minutes: scan every bound sheet's Suggestions, Log an Outing,
@@ -52,6 +53,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from('knit_google_sheet_bindings')
         .update({ status: 'error', last_error: `pull failed: ${msg}`.slice(0, 500) })
         .eq('id', b.id)
+      await logServerEvent({
+        name: 'cron_sheets_pull_failed',
+        message: msg,
+        route: '/api/cron/sheets-pull',
+        ward_id: b.ward_id,
+      })
       results.push({ ward_id: b.ward_id, error: msg })
     }
   }

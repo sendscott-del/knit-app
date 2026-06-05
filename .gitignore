@@ -29,3 +29,6 @@ dist-ssr
 *.sw?
 .vercel
 supabase/.temp/
+
+# Local Claude Code dev config
+.claude/

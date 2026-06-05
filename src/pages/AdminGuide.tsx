@@ -125,6 +125,10 @@ export default function AdminGuide() {
         </p>
       </Section>
 
+      <Section title={t('guide.insights_title')}>
+        <p>{t('guide.insights_body')}</p>
+      </Section>
+
       <Section title={t('guide.language_title')}>
         <p>{t('guide.language_body')}</p>
       </Section>

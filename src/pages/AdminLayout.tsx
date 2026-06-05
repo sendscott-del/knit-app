@@ -90,6 +90,7 @@ export default function AdminLayout() {
     : profile.stake?.name ?? t('layout.your_stake')
   const showStakeAdminTabs = canManageStake(profile)
   const showInvitations = canSendInvitations(profile)
+  const showInsights = Boolean(profile.is_super_admin || profile.is_app_super_admin)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -104,6 +105,7 @@ export default function AdminLayout() {
       />
       <div className="md:flex">
         <Sidebar
+          showInsights={showInsights}
           showStakeAdminTabs={showStakeAdminTabs}
           showInvitations={showInvitations}
         />
@@ -121,6 +123,7 @@ export default function AdminLayout() {
         onClose={() => setMoreOpen(false)}
         onSignOut={() => void signOut()}
         onSuggestEnhancement={() => setSuggestOpen(true)}
+        showInsights={showInsights}
         showStakeAdminTabs={showStakeAdminTabs}
         showInvitations={showInvitations}
       />
@@ -193,10 +196,11 @@ function SuiteTopBar({
 // redirect for stragglers, but the nav links straight out to skip the hop.
 const GATHER_CANONICAL_URL = 'https://gathered-admin-neon.vercel.app/gather'
 
-function useNavLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
+function useNavLinks(showStakeAdminTabs: boolean, showInvitations: boolean, showInsights: boolean) {
   const { t } = useTranslation('common')
   return [
     { to: '/admin', label: t('layout.nav_dashboard'), end: true },
+    ...(showInsights ? [{ to: '/admin/insights', label: t('layout.nav_insights') }] : []),
     { to: '/admin/members', label: t('layout.nav_members') },
     ...(showInvitations ? [{ to: '/admin/invitations', label: t('layout.nav_invitations') }] : []),
     { to: '/admin/friends', label: t('layout.nav_friends') },
@@ -210,14 +214,16 @@ function useNavLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
 }
 
 function Sidebar({
+  showInsights,
   showStakeAdminTabs,
   showInvitations,
 }: {
+  showInsights: boolean
   showStakeAdminTabs: boolean
   showInvitations: boolean
 }) {
   const { t } = useTranslation('common')
-  const links = useNavLinks(showStakeAdminTabs, showInvitations)
+  const links = useNavLinks(showStakeAdminTabs, showInvitations, showInsights)
   return (
     <aside
       className="hidden md:flex md:flex-col md:flex-shrink-0 sticky top-0 h-screen text-white"

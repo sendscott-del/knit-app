@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { verifyCron } from '../_lib/cronAuth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { memberInviteUrl, appOriginFromEnv } from '../_lib/inviteSend.js'
+import { logServerEvent } from '../_lib/logEvent.js'
 
 /**
  * Daily: text each active member whose last availability refresh was 90+
@@ -41,6 +42,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .order('created_at', { ascending: true })
     .limit(2000)
   if (candErr) {
+    await logServerEvent({
+      name: 'cron_availability_refresh_failed',
+      message: candErr.message,
+      route: '/api/cron/availability-refresh',
+    })
     return res.status(500).json({ error: candErr.message })
   }
 
