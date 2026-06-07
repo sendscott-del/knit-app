@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.3',
+    date: '2026-06-07',
+    summary: 'Admin Users: stop showing signups from other apps on the shared database.',
+    details: [
+      "Fixed a cross-app leak in /admin/users. The directory merges three sources; one of them (gather_app_users) is a database view over ALL of auth.users, which is shared across every app on this Supabase project — so a signup from an unrelated app (e.g. Sparkle Pro / Precious Home Help) appeared in Knit's user list as 'No Knit admin role'.",
+      "Root cause: gather_app_users was queried unfiltered. user_apps — the table that feeds its `apps` column — is the Gather church-suite registry that only magnify, glean, knit, steward, and tidings write to. Apps outside the suite land in auth.users with no user_apps row (apps:[]), and were being pulled in regardless.",
+      "Fix: AdminUsers now only merges gather_app_users rows that belong to a Gather-suite app (apps contains magnify/glean/knit/steward/tidings). People with a Knit role or a suite role still appear via the knit_admin_users and gather_user_roles sources, so no legitimate user is hidden. No database/schema change — fix is client-side in src/pages/AdminUsers.tsx.",
+    ],
+  },
+  {
     version: '0.46.2',
     date: '2026-06-03',
     summary: 'Comprehensive audit fixes: data integrity, silent failures, UX bugs.',

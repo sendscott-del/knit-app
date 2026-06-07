@@ -22,7 +22,19 @@ type RoleScope = 'stake' | 'ward'
 type SuiteRoleDef = { key: string; label: string; scope: RoleScope }
 type SuiteRoleRow = { email: string; role_key: string; ward: string | null }
 
-type GatherAppUser = { user_id: string; email: string | null }
+type GatherAppUser = {
+  user_id: string
+  email: string | null
+  apps: { app_name: string }[] | null
+}
+
+// `user_apps` (which feeds gather_app_users.apps) is the Gather church-suite
+// registry — only these apps write to it. The shared Supabase project also hosts
+// unrelated apps (e.g. Sparkle Pro) whose signups land in auth.users with no
+// user_apps row, surfacing as apps:[]. Filtering the directory to suite members
+// keeps those foreign accounts out of Knit's user list. People with a Knit role
+// or suite role still appear via the knit_admin_users / gather_user_roles sources.
+const GATHER_SUITE_APPS = new Set(['magnify', 'glean', 'knit', 'steward', 'tidings'])
 
 type PersonRow = {
   email: string
@@ -104,7 +116,7 @@ export default function AdminUsers() {
         .from('gather_user_roles')
         .select('email, role_key, ward')
         .is('revoked_at', null),
-      supabase.from('gather_app_users').select('user_id, email').order('email'),
+      supabase.from('gather_app_users').select('user_id, email, apps').order('email'),
       supabase.rpc('knit_is_app_super_admin'),
     ])
     // Surface any query failure — previously only knitRes was checked; silent
@@ -146,6 +158,8 @@ export default function AdminUsers() {
     }
     for (const u of appUsers) {
       if (!u.email) continue
+      const inSuite = (u.apps ?? []).some((a) => GATHER_SUITE_APPS.has(a.app_name))
+      if (!inSuite) continue
       const row = upsert(u.email)
       row.user_id = row.user_id ?? u.user_id
     }
