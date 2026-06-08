@@ -598,7 +598,10 @@
     "email_required": "Email *",
     "email_placeholder": "name@example.com",
     "invite_footer": "If they already have a Knit login, we'll add the role to their account. Otherwise, they get a magic-link email to finish signing in.",
-    "send_invite": "Send invite"
+    "send_invite": "Send invite",
+    "err_email_required": "Enter a valid email address.",
+    "err_pick_knit_ward": "Pick a ward for the Knit admin role.",
+    "err_pick_suite_ward": "Pick a ward for the \"{{role}}\" role."
   },
   "release_notes": {
     "title": "Release notes",

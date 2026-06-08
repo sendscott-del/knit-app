@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.4',
+    date: '2026-06-07',
+    summary: 'Invite User: show why the form won\'t submit instead of doing nothing.',
+    details: [
+      "Fixed the Invite User form in /admin/users silently doing nothing when a required field was missing. Clicking Send invite ran validation checks that returned with no message — most often a missing ward on a ward-scoped role — so the button appeared dead.",
+      "Now each failed check shows a red error banner above the button explaining exactly what to fix: enter a valid email, pick at least one role, pick a ward for the Knit admin role, or pick a ward for a specific ward-scoped suite role (e.g. Ward Mission Leader). The ward-scoped suite-role case was previously unvalidated entirely, so a suite role could be granted with no ward.",
+      "Strings translated EN/ES. No schema change — fix is in src/pages/AdminUsers.tsx.",
+    ],
+  },
+  {
     version: '0.46.3',
     date: '2026-06-07',
     summary: 'Admin Users: stop showing signups from other apps on the shared database.',

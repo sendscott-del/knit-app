@@ -598,7 +598,10 @@
     "email_required": "Correo *",
     "email_placeholder": "nombre@ejemplo.com",
     "invite_footer": "Si ya tienen una cuenta de Knit, añadiremos la función a su cuenta. De lo contrario, recibirán un correo con enlace mágico para terminar de iniciar sesión.",
-    "send_invite": "Enviar invitación"
+    "send_invite": "Enviar invitación",
+    "err_email_required": "Ingresa un correo electrónico válido.",
+    "err_pick_knit_ward": "Elige un barrio para la función de administrador de Knit.",
+    "err_pick_suite_ward": "Elige un barrio para la función «{{role}}»."
   },
   "release_notes": {
     "title": "Notas de versión",
