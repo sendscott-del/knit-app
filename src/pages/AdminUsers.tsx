@@ -22,7 +22,19 @@ type RoleScope = 'stake' | 'ward'
 type SuiteRoleDef = { key: string; label: string; scope: RoleScope }
 type SuiteRoleRow = { email: string; role_key: string; ward: string | null }
 
-type GatherAppUser = { user_id: string; email: string | null }
+type GatherAppUser = {
+  user_id: string
+  email: string | null
+  apps: { app_name: string }[] | null
+}
+
+// `user_apps` (which feeds gather_app_users.apps) is the Gather church-suite
+// registry — only these apps write to it. The shared Supabase project also hosts
+// unrelated apps (e.g. Sparkle Pro) whose signups land in auth.users with no
+// user_apps row, surfacing as apps:[]. Filtering the directory to suite members
+// keeps those foreign accounts out of Knit's user list. People with a Knit role
+// or suite role still appear via the knit_admin_users / gather_user_roles sources.
+const GATHER_SUITE_APPS = new Set(['magnify', 'glean', 'knit', 'steward', 'tidings'])
 
 type PersonRow = {
   email: string
@@ -104,7 +116,7 @@ export default function AdminUsers() {
         .from('gather_user_roles')
         .select('email, role_key, ward')
         .is('revoked_at', null),
-      supabase.from('gather_app_users').select('user_id, email').order('email'),
+      supabase.from('gather_app_users').select('user_id, email, apps').order('email'),
       supabase.rpc('knit_is_app_super_admin'),
     ])
     // Surface any query failure — previously only knitRes was checked; silent
@@ -146,6 +158,8 @@ export default function AdminUsers() {
     }
     for (const u of appUsers) {
       if (!u.email) continue
+      const inSuite = (u.apps ?? []).some((a) => GATHER_SUITE_APPS.has(a.app_name))
+      if (!inSuite) continue
       const row = upsert(u.email)
       row.user_id = row.user_id ?? u.user_id
     }
@@ -765,6 +779,7 @@ function InviteForm({
   const [suiteDraft, setSuiteDraft] = useState<
     { role_key: string; ward: string | null }[]
   >([])
+  const [formError, setFormError] = useState<string | null>(null)
   const knitWardRequired = knitRole !== '' && isWardScoped(knitRole as AdminRole)
 
   function toggleSuite(roleKey: string) {
@@ -782,12 +797,30 @@ function InviteForm({
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    if (!email.trim().includes('@')) return
-    if (knitWardRequired && !knitWardId) return
-    if (!knitRole && suiteDraft.length === 0) {
-      alert(t('users.pick_at_least_one'))
+    // Validate with a visible reason — previously every failed check returned
+    // silently, so the Send invite button looked like it did nothing.
+    if (!email.trim().includes('@')) {
+      setFormError(t('users.err_email_required'))
       return
     }
+    if (!knitRole && suiteDraft.length === 0) {
+      setFormError(t('users.pick_at_least_one'))
+      return
+    }
+    if (knitWardRequired && !knitWardId) {
+      setFormError(t('users.err_pick_knit_ward'))
+      return
+    }
+    const suiteMissingWard = suiteDraft.find((d) => {
+      const def = SUITE_ROLES.find((s) => s.key === d.role_key)
+      return def?.scope === 'ward' && !d.ward
+    })
+    if (suiteMissingWard) {
+      const def = SUITE_ROLES.find((s) => s.key === suiteMissingWard.role_key)
+      setFormError(t('users.err_pick_suite_ward', { role: def?.label ?? suiteMissingWard.role_key }))
+      return
+    }
+    setFormError(null)
     onSubmit({
       email: email.trim().toLowerCase(),
       name: name.trim(),
@@ -918,6 +951,12 @@ function InviteForm({
           })}
         </div>
       </fieldset>
+
+      {formError ? (
+        <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm font-medium text-error">
+          {formError}
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-between pt-1">
         <p className="text-xs text-gray-500">
