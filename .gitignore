@@ -29,3 +29,11 @@ dist-ssr
 *.sw?
 .vercel
 supabase/.temp/
+
+# Capacitor native build / fastlane
+fastlane/.env
+fastlane/report.xml
+fastlane/Preview.html
+build/
+ios/App/build/
+ios/App/DerivedData/
