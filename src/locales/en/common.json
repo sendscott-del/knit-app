@@ -104,7 +104,8 @@
     "forgot_password": "Forgot your password?",
     "no_access": "Don't have access yet?",
     "get_access": "Get access to Knit",
-    "members_no_signin": "Members — don't sign in here. Use the link we texted you."
+    "members_no_signin": "Members — don't sign in here. Use the link we texted you.",
+    "disclaimer": "Not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints."
   },
   "forgot_password": {
     "page_title": "Reset your password",

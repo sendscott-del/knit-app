@@ -7,6 +7,11 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.47.0',
+    date: '2026-06-09',
+    summary: 'Added the required disclaimer that Knit is not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints, to the sign-in screen.',
+  },
+  {
     version: '0.46.7',
     date: '2026-06-08',
     summary: 'Fix: app super admins (e.g. HC over Missionary Work) can now open Users & roles.',

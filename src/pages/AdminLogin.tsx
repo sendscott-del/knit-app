@@ -145,6 +145,9 @@ export default function AdminLogin() {
         <p className="text-xs text-gray-500 text-center pt-2">
           {t('login.members_no_signin')}
         </p>
+        <p className="text-xs text-gray-400 text-center pt-4">
+          {t('login.disclaimer')}
+        </p>
       </div>
     </main>
   )
