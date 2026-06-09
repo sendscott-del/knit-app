@@ -50,10 +50,12 @@ export function appOriginFromEnv(): string {
   // earlier "knit-app.vercel.app" guess was unclaimed and 404'd, breaking
   // every magic link sent before the env var was set. Set NEXT_PUBLIC_APP_URL
   // (or VITE_APP_URL) on Vercel to override if the alias changes.
+  // Use || (not ??) so an empty-string env value falls through to the fallback
+  // rather than producing a domain-less relative link.
   return (
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.VITE_APP_URL ??
-    'https://knit-together.vercel.app'
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.VITE_APP_URL ||
+    'https://knit.gatheredin.app'
   )
 }
 
