@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.5',
+    date: '2026-06-08',
+    summary: 'Knit moved to its new home: https://knit.gatheredin.app.',
+    details: [
+      'Domain migration to the new Gathered suite domain. The old knit-together.vercel.app URL keeps working and 301-redirects to knit.gatheredin.app — except /api/* paths, which are intentionally NOT redirected so the daily cron jobs (sheets-morning-push, availability-refresh) and serverless endpoints keep running on the old host.',
+      'The in-app App Switcher now links to the *.gatheredin.app addresses for all five Gathered apps. Sign-in, signup, password reset, and member invite links already build on window.location.origin, so they adapt to whichever domain is in use.',
+    ],
+  },
+  {
     version: '0.46.4',
     date: '2026-06-07',
     summary: 'Invite User: show why the form won\'t submit instead of doing nothing.',
