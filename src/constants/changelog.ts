@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.48.0',
+    date: '2026-06-09',
+    summary: 'Fix: the "Load demo data" admin action works again.',
+    details: [
+      'Loading or clearing demo data (Settings → Demo) failed with a database error for everyone: "invalid input value for enum knit_admin_role: \'stake_president\'".',
+      'Root cause: knit_load_demo_data() / knit_clear_demo_data() checked the caller role against two values (\'stake_president\', \'stake_missionary_hc\') that are not valid knit_admin_role enum members, so Postgres errored before any work was done. Corrected the check to the real stake-level roles (stake_presidency, high_councilor). See supabase/migrations/20260609120000_fix_demo_seed_role_enum.sql.',
+    ],
+  },
+  {
     version: '0.47.0',
     date: '2026-06-09',
     summary: 'Added the required disclaimer that Knit is not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints, to the sign-in screen.',
