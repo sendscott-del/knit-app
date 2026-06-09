@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.7',
+    date: '2026-06-08',
+    summary: 'Fix: app super admins (e.g. HC over Missionary Work) can now open Users & roles.',
+    details: [
+      'The HC over Missionary Work (and other Gathered app-super-admin roles: Stake President, Stake Clerk) was locked out of the Users & roles page, Settings, and the stake-admin nav tabs — seeing "Only stake presidency or super admins can manage users and roles" — even though the server already treats them as super admins.',
+      'Root cause: canManageStake() in src/lib/roles.ts was the only permission helper that checked the knit_admin_users.is_super_admin column alone and ignored the derived is_app_super_admin flag. canEdit() and canSendInvitations() already honored both. It now matches them, so app super admins can manage Knit admin access (invite, assign roles, remove) like a stake presidency.',
+      'Suite-role chips (e.g. Stake Executive Secretary) are still gated by suite-wide Gather super-admin (gather_super_admins) — that scope is unchanged. No schema change.',
+    ],
+  },
+  {
     version: '0.46.6',
     date: '2026-06-08',
     summary: 'Fix: server-generated invite links now include the full domain.',
