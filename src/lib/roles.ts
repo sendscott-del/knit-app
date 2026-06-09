@@ -65,11 +65,21 @@ export function canEdit(
   return WARD_EDIT_ROLES.includes(profile.role)
 }
 
-/** True if this admin manages the stake itself (admins, ward roster). */
+/**
+ * True if this admin manages the stake itself (admins, ward roster).
+ *
+ * Honors both the `knit_admin_users.is_super_admin` column AND the derived
+ * `is_app_super_admin` flag (true for the Knit-super-admin Gathered roles:
+ * stake_president, stake_clerk, hc_missionary_work). The column-only check
+ * locked app super admins (e.g. the HC over Missionary Work) out of the
+ * Users & roles page even though canEdit / canSendInvitations and the
+ * server-side requireAdmin overlay already treat them as super admins.
+ */
 export function canManageStake(
-  profile: Pick<AdminProfile, 'role' | 'is_super_admin'>,
+  profile: Pick<AdminProfile, 'role' | 'is_super_admin' | 'is_app_super_admin'>,
 ): boolean {
-  return profile.is_super_admin || profile.role === 'stake_presidency'
+  if (profile.is_super_admin || profile.is_app_super_admin) return true
+  return profile.role === 'stake_presidency'
 }
 
 /**
