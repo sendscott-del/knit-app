@@ -12,11 +12,11 @@ interface AppInfo {
 }
 
 const APP_CATALOG: AppInfo[] = [
-  { name: 'magnify', label: 'Magnify', url: 'https://magnify-eta.vercel.app', color: '#1B3A6B', blurbKey: 'blurb_magnify' },
-  { name: 'steward', label: 'Steward', url: 'https://stewards-indeed.vercel.app', color: '#2563EB', blurbKey: 'blurb_steward' },
-  { name: 'glean',   label: 'Glean',   url: 'https://glean-blue.vercel.app',     color: '#C9A84C', blurbKey: 'blurb_glean' },
-  { name: 'tidings', label: 'Tidings', url: 'https://glad-tidings.vercel.app',   color: '#F59E0B', blurbKey: 'blurb_tidings' },
-  { name: 'knit',    label: 'Knit',    url: 'https://knit-together.vercel.app',  color: '#E11D48', blurbKey: 'blurb_knit' },
+  { name: 'magnify', label: 'Magnify', url: 'https://magnify.gatheredin.app', color: '#1B3A6B', blurbKey: 'blurb_magnify' },
+  { name: 'steward', label: 'Steward', url: 'https://steward.gatheredin.app', color: '#2563EB', blurbKey: 'blurb_steward' },
+  { name: 'glean',   label: 'Glean',   url: 'https://glean.gatheredin.app',   color: '#C9A84C', blurbKey: 'blurb_glean' },
+  { name: 'tidings', label: 'Tidings', url: 'https://tidings.gatheredin.app', color: '#F59E0B', blurbKey: 'blurb_tidings' },
+  { name: 'knit',    label: 'Knit',    url: 'https://knit.gatheredin.app',    color: '#E11D48', blurbKey: 'blurb_knit' },
 ]
 
 const CURRENT_APP = 'knit'

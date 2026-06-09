@@ -1,4 +1,18 @@
 {
+  "redirects": [
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "knit-together.vercel.app" }],
+      "destination": "https://knit.gatheredin.app/",
+      "permanent": true
+    },
+    {
+      "source": "/((?!api/).*)",
+      "has": [{ "type": "host", "value": "knit-together.vercel.app" }],
+      "destination": "https://knit.gatheredin.app/$1",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/((?!api/|.*\\.).*)", "destination": "/index.html" }
   ],
