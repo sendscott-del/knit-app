@@ -356,9 +356,9 @@ export async function writeStartHere(spreadsheetId: string, wardName: string) {
 
 export async function writeInviteHowto(spreadsheetId: string) {
   const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    process.env.VITE_APP_URL ??
-    'https://knit-together.vercel.app'
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.VITE_APP_URL ||
+    'https://knit.gatheredin.app'
   const joinUrl = `${appUrl}/join`
   const lines: string[][] = [
     ['How to invite a member to Knit'],

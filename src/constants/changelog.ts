@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.46.6',
+    date: '2026-06-08',
+    summary: 'Fix: server-generated invite links now include the full domain.',
+    details: [
+      'The server-side invite helpers (SMS invites and the Google Sheet "how to invite" instructions) used `??` to read NEXT_PUBLIC_APP_URL, but that env var was set to an empty string in production — and `??` only falls through on null/undefined, so links were being built as domain-less relative paths (e.g. "/m/<id>/<token>" instead of "https://knit.gatheredin.app/m/<id>/<token>").',
+      'Set NEXT_PUBLIC_APP_URL and VITE_APP_URL to https://knit.gatheredin.app on Vercel, and switched the helpers to `||` with a knit.gatheredin.app fallback so an empty value can never again produce a link without a domain.',
+    ],
+  },
+  {
     version: '0.46.5',
     date: '2026-06-08',
     summary: 'Knit moved to its new home: https://knit.gatheredin.app.',
