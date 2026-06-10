@@ -7,6 +7,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.49.0',
+    date: '2026-06-10',
+    summary: 'User access is now managed in one place — the Gather hub.',
+    details: [
+      'Signed in without access? The screen now reflects the shared Gather request queue: a pending request says "your access request is pending — a stake leader will approve it in Gather," a denied request says so, and everyone else sees a clear note that a leader can grant access in Gather.',
+      'Users & roles is now a read-only directory with a link to Gather (https://gather.gatheredin.app/gather), where invites, role changes, and removals now happen. The Tidings member-directory sync stays on this page — that is data sync, not access.',
+    ],
+  },
+  {
     version: '0.48.1',
     date: '2026-06-09',
     summary: 'Security: updated dependencies to patched versions (React Router advisories). No feature changes.',

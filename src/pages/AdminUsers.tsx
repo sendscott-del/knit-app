@@ -1,20 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { AdminProfile } from '@/lib/useAdmin'
-import {
-  ROLE_LABELS,
-  WARD_EDIT_ROLES,
-  STAKE_VIEW_ROLES,
-  canManageStake,
-  isWardScoped,
-  type AdminRole,
-} from '@/lib/roles'
+import { ROLE_LABELS, canManageStake } from '@/lib/roles'
 import type { Database } from '@/lib/database.types'
 
 type AdminRow = Database['public']['Tables']['knit_admin_users']['Row']
-type WardRow = Database['public']['Tables']['knit_wards']['Row']
 type AdminWithWard = AdminRow & { ward: { id: string; name: string } | null }
 type Ctx = { profile: AdminProfile }
 
@@ -27,6 +19,12 @@ type GatherAppUser = {
   email: string | null
   apps: { app_name: string }[] | null
 }
+
+// User access (invites, role changes, removals) is managed centrally in
+// Gather — every signup lands in the shared gather_access_requests queue and
+// approval there provisions knit_admin_users. This page is now a read-only
+// directory; the banner up top links out to the one place writes happen.
+const GATHER_URL = 'https://gather.gatheredin.app/gather'
 
 // `user_apps` (which feeds gather_app_users.apps) is the Gather church-suite
 // registry — only these apps write to it. The shared Supabase project also hosts
@@ -65,29 +63,14 @@ const SUITE_ROLES: SuiteRoleDef[] = [
   { key: 'ward_member', label: 'Ward Member', scope: 'ward' },
 ]
 
-const ALL_KNIT_ROLES: AdminRole[] = [...STAKE_VIEW_ROLES, ...WARD_EDIT_ROLES]
-
-async function authorizedFetch(path: string, init: RequestInit = {}) {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
-  const headers = new Headers(init.headers)
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  headers.set('Content-Type', 'application/json')
-  return fetch(path, { ...init, headers })
-}
-
 export default function AdminUsers() {
   const { profile } = useOutletContext<Ctx>()
   const { t } = useTranslation('common')
   const stakeAdmin = canManageStake(profile)
 
   const [people, setPeople] = useState<PersonRow[]>([])
-  const [wards, setWards] = useState<WardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
-  const [showInvite, setShowInvite] = useState(false)
-  const [editingEmail, setEditingEmail] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
 
   const [syncing, setSyncing] = useState(false)
@@ -101,17 +84,12 @@ export default function AdminUsers() {
     }
     setLoading(true)
     setError(null)
-    const [knitRes, wardsRes, suiteRes, appUsersRes, superRes] = await Promise.all([
+    const [knitRes, suiteRes, appUsersRes, superRes] = await Promise.all([
       supabase
         .from('knit_admin_users')
         .select('*, ward:knit_wards(id, name)')
         .eq('stake_id', profile.stake_id)
         .order('email'),
-      supabase
-        .from('knit_wards')
-        .select('*')
-        .eq('stake_id', profile.stake_id)
-        .order('name'),
       supabase
         .from('gather_user_roles')
         .select('email, role_key, ward')
@@ -121,7 +99,7 @@ export default function AdminUsers() {
     ])
     // Surface any query failure — previously only knitRes was checked; silent
     // failures on the suite/app-users/super queries showed partial data.
-    const anyErr = knitRes.error ?? wardsRes.error ?? suiteRes.error ?? appUsersRes.error ?? superRes.error
+    const anyErr = knitRes.error ?? suiteRes.error ?? appUsersRes.error ?? superRes.error
     if (anyErr) {
       setError(anyErr.message)
       setLoading(false)
@@ -172,7 +150,6 @@ export default function AdminUsers() {
       (a.email ?? '').toLowerCase().localeCompare((b.email ?? '').toLowerCase()),
     )
     setPeople(list)
-    setWards((wardsRes.data ?? []) as WardRow[])
     setLoading(false)
   }
 
@@ -235,159 +212,28 @@ export default function AdminUsers() {
     )
   }
 
-  async function invitePerson(payload: InvitePayload) {
-    setError(null)
-    setNotice(null)
-    if (payload.knit_role) {
-      const r = await authorizedFetch('/api/admin/users', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'invite',
-          email: payload.email,
-          name: payload.name || null,
-          role: payload.knit_role,
-          ward_id: payload.knit_ward_id,
-          is_super_admin: payload.is_super_admin,
-        }),
-      })
-      const body = await r.json()
-      if (!r.ok) {
-        setError(body.error ?? `HTTP ${r.status}`)
-        return
-      }
-    }
-    for (const sr of payload.suite_roles) {
-      const { error } = await supabase.rpc('gather_grant_role', {
-        p_email: payload.email,
-        p_role: sr.role_key,
-        p_ward: sr.ward ?? undefined,
-        p_full_name: payload.name || undefined,
-      })
-      if (error) {
-        setError(`Grant ${sr.role_key}: ${error.message}`)
-        return
-      }
-    }
-    setNotice(t('users.invited', { email: payload.email }))
-    setShowInvite(false)
-    await refresh()
-  }
-
-  async function savePerson(person: PersonRow, patch: SavePatch) {
-    setError(null)
-    setNotice(null)
-    try {
-      if (person.knit) {
-        if (
-          patch.knit_role !== undefined ||
-          patch.knit_ward_id !== undefined ||
-          patch.name !== undefined ||
-          patch.is_super_admin !== undefined
-        ) {
-          const update: Partial<AdminRow> = {}
-          if (patch.knit_role !== undefined) update.role = patch.knit_role
-          if (patch.knit_ward_id !== undefined) update.ward_id = patch.knit_ward_id
-          if (patch.name !== undefined) update.name = patch.name.trim() || null
-          if (patch.is_super_admin !== undefined && profile.is_super_admin)
-            update.is_super_admin = patch.is_super_admin
-          const { error } = await supabase
-            .from('knit_admin_users')
-            .update(update)
-            .eq('id', person.knit.id)
-          if (error) throw new Error(error.message)
-        }
-      } else if (patch.knit_role) {
-        const r = await authorizedFetch('/api/admin/users', {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'invite',
-            email: person.email,
-            name: patch.name ?? null,
-            role: patch.knit_role,
-            ward_id: patch.knit_ward_id ?? null,
-            is_super_admin: profile.is_super_admin && (patch.is_super_admin ?? false),
-          }),
-        })
-        const body = await r.json()
-        if (!r.ok) throw new Error(body.error ?? `HTTP ${r.status}`)
-      }
-
-      if (patch.suite_roles) {
-        const current = person.suite
-        const sameKey = (
-          a: { role_key: string; ward: string | null },
-          b: { role_key: string; ward: string | null },
-        ) => a.role_key === b.role_key && (a.ward ?? null) === (b.ward ?? null)
-        const toAdd = patch.suite_roles.filter(
-          (d) => !current.some((c) => sameKey(c, d)),
-        )
-        const toRemove = current.filter(
-          (c) => !patch.suite_roles!.some((d) => sameKey(c, d)),
-        )
-        for (const r of toRemove) {
-          const { error } = await supabase.rpc('gather_revoke_role', {
-            p_email: person.email,
-            p_role: r.role_key,
-            p_ward: r.ward ?? undefined,
-          })
-          if (error) throw new Error(`Revoke ${r.role_key}: ${error.message}`)
-        }
-        for (const r of toAdd) {
-          const { error } = await supabase.rpc('gather_grant_role', {
-            p_email: person.email,
-            p_role: r.role_key,
-            p_ward: r.ward ?? undefined,
-            p_full_name: patch.name ?? undefined,
-          })
-          if (error) throw new Error(`Grant ${r.role_key}: ${error.message}`)
-        }
-      }
-
-      setNotice(t('users.saved'))
-      setEditingEmail(null)
-      await refresh()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  async function removePerson(person: PersonRow) {
-    if (!person.knit) return
-    if (person.knit.id === profile.id) {
-      alert(t('users.cant_remove_self'))
-      return
-    }
-    if (!confirm(t('users.remove_confirm', { email: person.email }))) return
-    setError(null)
-    setNotice(null)
-    const r = await authorizedFetch('/api/admin/users', {
-      method: 'POST',
-      body: JSON.stringify({ action: 'remove', userId: person.knit.id }),
-    })
-    const body = await r.json()
-    if (!r.ok) {
-      setError(body.error ?? `HTTP ${r.status}`)
-      return
-    }
-    setNotice(t('users.removed', { email: person.email }))
-    await refresh()
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{t('users.page_title_full')}</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {t('users.page_subtitle')}
-          </p>
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('users.page_title_full')}</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          {t('users.page_subtitle')}
+        </p>
+      </div>
+
+      <div className="rounded-md border border-knit-primary/30 bg-knit-primary/5 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">{t('users.managed_in_gather_title')}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{t('users.managed_in_gather_body')}</p>
         </div>
-        <button
-          onClick={() => setShowInvite((v) => !v)}
-          className="btn-primary text-sm py-2 px-4 whitespace-nowrap"
+        <a
+          href={GATHER_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-primary text-sm py-2 px-4 whitespace-nowrap text-center"
         >
-          {showInvite ? t('cancel') : t('users.invite_user')}
-        </button>
+          {t('users.open_gather')} ↗
+        </a>
       </div>
 
       {isAppSuper ? (
@@ -415,23 +261,10 @@ export default function AdminUsers() {
         </div>
       ) : null}
 
-      {notice ? (
-        <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm text-gray-900">
-          {notice}
-        </div>
-      ) : null}
       {error ? (
         <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm text-gray-900">
           {error}
         </div>
-      ) : null}
-
-      {showInvite ? (
-        <InviteForm
-          wards={wards}
-          callerIsSuper={profile.is_super_admin}
-          onSubmit={(payload) => void invitePerson(payload)}
-        />
       ) : null}
 
       <input
@@ -452,18 +285,7 @@ export default function AdminUsers() {
         ) : (
           <ul className="divide-y divide-gray-100">
             {visible.map((p) => (
-              <PersonItem
-                key={p.email.toLowerCase()}
-                person={p}
-                wards={wards}
-                callerIsSuper={profile.is_super_admin}
-                isSelf={p.knit?.id === profile.id}
-                editing={editingEmail === p.email.toLowerCase()}
-                onStartEdit={() => setEditingEmail(p.email.toLowerCase())}
-                onCancel={() => setEditingEmail(null)}
-                onSave={(patch) => void savePerson(p, patch)}
-                onRemove={() => void removePerson(p)}
-              />
+              <PersonItem key={p.email.toLowerCase()} person={p} />
             ))}
           </ul>
         )}
@@ -472,49 +294,8 @@ export default function AdminUsers() {
   )
 }
 
-type SavePatch = {
-  name?: string
-  knit_role?: AdminRole
-  knit_ward_id?: string | null
-  is_super_admin?: boolean
-  suite_roles?: { role_key: string; ward: string | null }[]
-}
-
-function PersonItem({
-  person,
-  wards,
-  callerIsSuper,
-  isSelf,
-  editing,
-  onStartEdit,
-  onCancel,
-  onSave,
-  onRemove,
-}: {
-  person: PersonRow
-  wards: WardRow[]
-  callerIsSuper: boolean
-  isSelf: boolean
-  editing: boolean
-  onStartEdit: () => void
-  onCancel: () => void
-  onSave: (patch: SavePatch) => void
-  onRemove: () => void
-}) {
+function PersonItem({ person }: { person: PersonRow }) {
   const { t } = useTranslation('common')
-  if (editing) {
-    return (
-      <li className="px-4 py-4 bg-gray-50/50">
-        <EditorForm
-          person={person}
-          wards={wards}
-          callerIsSuper={callerIsSuper}
-          onCancel={onCancel}
-          onSave={onSave}
-        />
-      </li>
-    )
-  }
   return (
     <li className="px-4 py-3 flex items-start gap-3">
       <div className="flex-1 min-w-0">
@@ -552,420 +333,6 @@ function PersonItem({
           })}
         </div>
       </div>
-      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 whitespace-nowrap pt-1">
-        <button
-          onClick={onStartEdit}
-          className="text-sm text-gray-700 hover:text-gray-900"
-        >
-          {t('edit')}
-        </button>
-        {person.knit ? (
-          isSelf ? (
-            <span className="text-xs text-gray-400">{t('users.you')}</span>
-          ) : person.knit.is_super_admin && !callerIsSuper ? (
-            <span className="text-xs text-gray-400">{t('users.protected')}</span>
-          ) : (
-            <button
-              onClick={onRemove}
-              className="text-sm text-error hover:opacity-80"
-            >
-              {t('remove')}
-            </button>
-          )
-        ) : null}
-      </div>
     </li>
-  )
-}
-
-function EditorForm({
-  person,
-  wards,
-  callerIsSuper,
-  onCancel,
-  onSave,
-}: {
-  person: PersonRow
-  wards: WardRow[]
-  callerIsSuper: boolean
-  onCancel: () => void
-  onSave: (patch: SavePatch) => void
-}) {
-  const { t } = useTranslation('common')
-  const [name, setName] = useState(person.knit?.name ?? '')
-  const [knitRole, setKnitRole] = useState<AdminRole | ''>(person.knit?.role ?? '')
-  const [knitWardId, setKnitWardId] = useState<string>(person.knit?.ward_id ?? '')
-  const [isSuper, setIsSuper] = useState(!!person.knit?.is_super_admin)
-  const [suiteDraft, setSuiteDraft] = useState<
-    { role_key: string; ward: string | null }[]
-  >(person.suite.map((s) => ({ role_key: s.role_key, ward: s.ward })))
-
-  const knitWardRequired = knitRole !== '' && isWardScoped(knitRole as AdminRole)
-
-  function toggleSuite(roleKey: string) {
-    setSuiteDraft((prev) => {
-      const has = prev.some((d) => d.role_key === roleKey)
-      if (has) return prev.filter((d) => d.role_key !== roleKey)
-      return [...prev, { role_key: roleKey, ward: null }]
-    })
-  }
-  function setWardForSuite(roleKey: string, ward: string | null) {
-    setSuiteDraft((prev) =>
-      prev.map((d) => (d.role_key === roleKey ? { ...d, ward } : d)),
-    )
-  }
-
-  function save() {
-    if (knitWardRequired && !knitWardId) {
-      alert(t('users.pick_ward_role'))
-      return
-    }
-    onSave({
-      name,
-      knit_role: knitRole === '' ? undefined : (knitRole as AdminRole),
-      knit_ward_id: knitRole === '' ? undefined : knitWardRequired ? knitWardId : null,
-      is_super_admin: callerIsSuper ? isSuper : undefined,
-      suite_roles: suiteDraft,
-    })
-  }
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <div className="text-sm font-semibold text-gray-900">{person.email}</div>
-      </div>
-
-      <fieldset className="space-y-3 rounded-md border border-gray-200 bg-white p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.knit_admin')}</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1.5">
-            <span className="text-xs text-gray-600">{t('users.display_name')}</span>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="form-input"
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-xs text-gray-600">{t('users.role_label')}</span>
-            <select
-              value={knitRole}
-              onChange={(e) => setKnitRole(e.target.value as AdminRole | '')}
-              className="form-input"
-            >
-              <option value="">{t('users.no_knit_role_option')}</option>
-              {ALL_KNIT_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {knitWardRequired ? (
-            <label className="block space-y-1.5 sm:col-span-2">
-              <span className="text-xs text-gray-600">{t('users.ward_label')}</span>
-              <select
-                value={knitWardId}
-                onChange={(e) => setKnitWardId(e.target.value)}
-                className="form-input"
-              >
-                <option value="">{t('users.pick_a_ward')}</option>
-                {wards.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {callerIsSuper ? (
-            <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={isSuper}
-                onChange={(e) => setIsSuper(e.target.checked)}
-              />
-              {t('users.grant_super')}
-            </label>
-          ) : null}
-        </div>
-      </fieldset>
-
-      <fieldset className="space-y-2 rounded-md border border-gray-200 bg-white p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.suite_roles')}</legend>
-        <p className="text-xs text-gray-500 -mt-1">
-          {t('users.suite_roles_explain')}
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {SUITE_ROLES.map((role) => {
-            const sel = suiteDraft.find((d) => d.role_key === role.key)
-            const selected = !!sel
-            return (
-              <div
-                key={role.key}
-                className={`rounded border px-3 py-2 ${selected ? 'border-rose-300 bg-rose-50' : 'border-gray-200'}`}
-              >
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() => toggleSuite(role.key)}
-                  />
-                  <span className="flex-1">{role.label}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                    {role.scope === 'stake' ? t('users.scope_stake') : t('users.scope_ward')}
-                  </span>
-                </label>
-                {selected && role.scope === 'ward' ? (
-                  <select
-                    value={sel?.ward ?? ''}
-                    onChange={(e) => setWardForSuite(role.key, e.target.value || null)}
-                    className="mt-2 w-full text-xs px-2 py-1 border border-gray-300 rounded"
-                  >
-                    <option value="">{t('users.pick_ward_dash')}</option>
-                    {wards.map((w) => (
-                      <option key={w.id} value={w.name}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-      </fieldset>
-
-      <div className="flex items-center gap-2">
-        <button onClick={save} className="btn-primary text-sm py-2 px-4">
-          {t('save')}
-        </button>
-        <button
-          onClick={onCancel}
-          className="rounded-md border-[1.5px] border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-        >
-          {t('cancel')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-type InvitePayload = {
-  email: string
-  name: string
-  knit_role: AdminRole | null
-  knit_ward_id: string | null
-  is_super_admin: boolean
-  suite_roles: { role_key: string; ward: string | null }[]
-}
-
-function InviteForm({
-  wards,
-  callerIsSuper,
-  onSubmit,
-}: {
-  wards: WardRow[]
-  callerIsSuper: boolean
-  onSubmit: (payload: InvitePayload) => void
-}) {
-  const { t } = useTranslation('common')
-  const [email, setEmail] = useState('')
-  const [name, setName] = useState('')
-  const [knitRole, setKnitRole] = useState<AdminRole | ''>('')
-  const [knitWardId, setKnitWardId] = useState<string>('')
-  const [isSuper, setIsSuper] = useState(false)
-  const [suiteDraft, setSuiteDraft] = useState<
-    { role_key: string; ward: string | null }[]
-  >([])
-  const [formError, setFormError] = useState<string | null>(null)
-  const knitWardRequired = knitRole !== '' && isWardScoped(knitRole as AdminRole)
-
-  function toggleSuite(roleKey: string) {
-    setSuiteDraft((prev) => {
-      const has = prev.some((d) => d.role_key === roleKey)
-      if (has) return prev.filter((d) => d.role_key !== roleKey)
-      return [...prev, { role_key: roleKey, ward: null }]
-    })
-  }
-  function setWardForSuite(roleKey: string, ward: string | null) {
-    setSuiteDraft((prev) =>
-      prev.map((d) => (d.role_key === roleKey ? { ...d, ward } : d)),
-    )
-  }
-
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    // Validate with a visible reason — previously every failed check returned
-    // silently, so the Send invite button looked like it did nothing.
-    if (!email.trim().includes('@')) {
-      setFormError(t('users.err_email_required'))
-      return
-    }
-    if (!knitRole && suiteDraft.length === 0) {
-      setFormError(t('users.pick_at_least_one'))
-      return
-    }
-    if (knitWardRequired && !knitWardId) {
-      setFormError(t('users.err_pick_knit_ward'))
-      return
-    }
-    const suiteMissingWard = suiteDraft.find((d) => {
-      const def = SUITE_ROLES.find((s) => s.key === d.role_key)
-      return def?.scope === 'ward' && !d.ward
-    })
-    if (suiteMissingWard) {
-      const def = SUITE_ROLES.find((s) => s.key === suiteMissingWard.role_key)
-      setFormError(t('users.err_pick_suite_ward', { role: def?.label ?? suiteMissingWard.role_key }))
-      return
-    }
-    setFormError(null)
-    onSubmit({
-      email: email.trim().toLowerCase(),
-      name: name.trim(),
-      knit_role: knitRole === '' ? null : (knitRole as AdminRole),
-      knit_ward_id: knitRole === '' ? null : knitWardRequired ? knitWardId : null,
-      is_super_admin: callerIsSuper && isSuper,
-      suite_roles: suiteDraft,
-    })
-  }
-
-  return (
-    <form
-      onSubmit={submit}
-      className="rounded-md border border-gray-200 bg-white p-5 space-y-5"
-    >
-      <fieldset className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">{t('users.email_required')}</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="form-input"
-            placeholder={t('users.email_placeholder')}
-          />
-        </label>
-        <label className="block space-y-1.5">
-          <span className="text-sm font-medium text-gray-700">{t('users.display_name')}</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="form-input"
-          />
-        </label>
-      </fieldset>
-
-      <fieldset className="space-y-3 rounded-md border border-gray-200 p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.knit_admin_optional')}</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block space-y-1.5">
-            <span className="text-xs text-gray-600">{t('users.role_label')}</span>
-            <select
-              value={knitRole}
-              onChange={(e) => setKnitRole(e.target.value as AdminRole | '')}
-              className="form-input"
-            >
-              <option value="">{t('users.no_knit_role_option')}</option>
-              {ALL_KNIT_ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {knitWardRequired ? (
-            <label className="block space-y-1.5">
-              <span className="text-xs text-gray-600">{t('users.ward_label')}</span>
-              <select
-                value={knitWardId}
-                onChange={(e) => setKnitWardId(e.target.value)}
-                className="form-input"
-              >
-                <option value="">{t('users.pick_a_ward')}</option>
-                {wards.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          {callerIsSuper ? (
-            <label className="flex items-center gap-2 text-sm text-gray-700 sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={isSuper}
-                onChange={(e) => setIsSuper(e.target.checked)}
-              />
-              {t('users.grant_super_long')}
-            </label>
-          ) : null}
-        </div>
-      </fieldset>
-
-      <fieldset className="space-y-2 rounded-md border border-gray-200 p-4">
-        <legend className="text-sm font-medium text-gray-700 px-1">{t('users.suite_roles_optional')}</legend>
-        <p className="text-xs text-gray-500 -mt-1">
-          {t('users.suite_roles_short')}
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {SUITE_ROLES.map((role) => {
-            const sel = suiteDraft.find((d) => d.role_key === role.key)
-            const selected = !!sel
-            return (
-              <div
-                key={role.key}
-                className={`rounded border px-3 py-2 ${selected ? 'border-rose-300 bg-rose-50' : 'border-gray-200'}`}
-              >
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selected}
-                    onChange={() => toggleSuite(role.key)}
-                  />
-                  <span className="flex-1">{role.label}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-gray-400">
-                    {role.scope === 'stake' ? t('users.scope_stake') : t('users.scope_ward')}
-                  </span>
-                </label>
-                {selected && role.scope === 'ward' ? (
-                  <select
-                    value={sel?.ward ?? ''}
-                    onChange={(e) => setWardForSuite(role.key, e.target.value || null)}
-                    className="mt-2 w-full text-xs px-2 py-1 border border-gray-300 rounded"
-                  >
-                    <option value="">{t('users.pick_ward_dash')}</option>
-                    {wards.map((w) => (
-                      <option key={w.id} value={w.name}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
-      </fieldset>
-
-      {formError ? (
-        <div className="rounded-md border border-error/30 bg-error/5 p-3 text-sm font-medium text-error">
-          {formError}
-        </div>
-      ) : null}
-
-      <div className="flex items-center justify-between pt-1">
-        <p className="text-xs text-gray-500">
-          {t('users.invite_footer')}
-        </p>
-        <button type="submit" className="btn-primary text-sm py-2 px-4">
-          {t('users.send_invite')}
-        </button>
-      </div>
-    </form>
   )
 }

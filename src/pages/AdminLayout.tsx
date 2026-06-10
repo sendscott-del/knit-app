@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Navigate, Outlet } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { useAuth } from '@/lib/auth'
 import { useAdmin } from '@/lib/useAdmin'
 import { supabase } from '@/lib/supabase'
@@ -41,6 +42,12 @@ export default function AdminLayout() {
   const readyAdminId = admin.status === 'ready' ? admin.profile.id : null
   useSheetAccessOnce(readyAdminId)
 
+  // Signed in but no knit_admin_users row: look up this user's shared Gather
+  // access request (RLS scopes the table to the caller's own rows) so the
+  // lock-out screen reflects the real queue state instead of a dead end.
+  // Unconditional hook (stable hook order); it only fires when enabled.
+  const accessRequest = useAccessRequestStatus(admin.status === 'no_admin_row')
+
   if (authLoading) return <FullPage>{t('loading')}</FullPage>
   if (!session) return <Navigate to="/admin/login" replace />
 
@@ -58,18 +65,33 @@ export default function AdminLayout() {
   }
 
   if (admin.status === 'no_admin_row') {
+    if (accessRequest === 'loading') return <FullPage>{t('loading')}</FullPage>
     return (
       <FullPage>
         <div className="max-w-md space-y-4 text-center">
-          <h1 className="text-xl font-semibold text-gray-900">{t('layout.not_provisioned_title')}</h1>
-          <p className="text-base text-gray-600">
-            <Trans
-              i18nKey="layout.not_provisioned_body"
-              ns="common"
-              values={{ email: admin.email }}
-              components={{ strong: <strong /> }}
-            />
-          </p>
+          {accessRequest === 'pending' ? (
+            <>
+              <h1 className="text-xl font-semibold text-gray-900">{t('layout.access_pending_title')}</h1>
+              <p className="text-base text-gray-600">{t('layout.access_pending_body')}</p>
+            </>
+          ) : accessRequest === 'denied' ? (
+            <>
+              <h1 className="text-xl font-semibold text-gray-900">{t('layout.access_denied_title')}</h1>
+              <p className="text-base text-gray-600">{t('layout.access_denied_body')}</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-xl font-semibold text-gray-900">{t('layout.no_access_title')}</h1>
+              <p className="text-base text-gray-600">
+                <Trans
+                  i18nKey="layout.no_access_body"
+                  ns="common"
+                  values={{ email: admin.email }}
+                  components={{ strong: <strong /> }}
+                />
+              </p>
+            </>
+          )}
           <button onClick={() => void signOut()} className="btn-outline">
             {t('sign_out')}
           </button>
@@ -191,7 +213,7 @@ function SuiteTopBar({
 // Gather is hosted in Glean now — one canonical place to manage user access
 // across all five apps. The Knit /admin/gather route still exists as a
 // redirect for stragglers, but the nav links straight out to skip the hop.
-const GATHER_CANONICAL_URL = 'https://gathered-admin-neon.vercel.app/gather'
+const GATHER_CANONICAL_URL = 'https://gather.gatheredin.app/gather'
 
 function useNavLinks(showStakeAdminTabs: boolean, showInvitations: boolean) {
   const { t } = useTranslation('common')
@@ -327,4 +349,42 @@ function useSheetAccessOnce(adminId: string | null) {
       }
     })()
   }, [adminId])
+}
+
+type AccessRequestStatus = 'loading' | 'pending' | 'denied' | 'none'
+
+/**
+ * For signed-in users with no knit_admin_users row: check the shared
+ * gather_access_requests table (RLS: each user sees only their own rows)
+ * for a Knit request, so the lock-out screen can mirror the Gather queue.
+ * The table is suite-shared and not in Knit's generated DB types, hence
+ * the untyped-client cast. Any error — including a missing table — and an
+ * empty result both degrade to 'none', the neutral no-access message.
+ */
+function useAccessRequestStatus(enabled: boolean): AccessRequestStatus {
+  const [status, setStatus] = useState<AccessRequestStatus>('loading')
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const sb = supabase as unknown as SupabaseClient
+        const { data, error } = await sb
+          .from('gather_access_requests')
+          .select('status')
+          .eq('app_name', 'knit')
+        if (cancelled) return
+        const rows = (error ? [] : (data ?? [])) as { status: string }[]
+        if (rows.some((r) => r.status === 'pending')) setStatus('pending')
+        else if (rows.some((r) => r.status === 'denied')) setStatus('denied')
+        else setStatus('none')
+      } catch {
+        if (!cancelled) setStatus('none')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [enabled])
+  return status
 }
