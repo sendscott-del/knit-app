@@ -7,6 +7,11 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.48.1',
+    date: '2026-06-09',
+    summary: 'Security: updated dependencies to patched versions (React Router advisories). No feature changes.',
+  },
+  {
     version: '0.48.0',
     date: '2026-06-09',
     summary: 'Fix: the "Load demo data" admin action works again.',
