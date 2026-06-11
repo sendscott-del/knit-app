@@ -18,11 +18,15 @@
    ============================================================ */
 
 @theme {
-  /* ---- Brand (suite) ---- */
-  --color-brand-primary:        #1B3A6B;
-  --color-brand-primary-light:  #2A5298;
-  --color-brand-primary-dark:   #0F2347;
-  --color-brand-primary-fade:   #E8EEF8;
+  /* ---- Brand (suite) ----
+     Knit re-skin: the suite navy chrome is replaced by a deep shade of Knit's
+     own rose, so the brand rose runs throughout (hero headers, sidebar,
+     selected states, outline buttons) — tonal pair with the brighter rose-600
+     action color. */
+  --color-brand-primary:        #9F1239;  /* deep rose chrome (was navy #1B3A6B) */
+  --color-brand-primary-light:  #E11D48;
+  --color-brand-primary-dark:   #881337;  /* rose-900 — scrims, hero gradient end */
+  --color-brand-primary-fade:   #FFF1F2;  /* rose-50 — selected-pill bg */
   --color-brand-accent:         #C9A84C;
   --color-brand-accent-light:   #FFF8E7;
 
@@ -42,7 +46,7 @@
   --color-knit-primary-dark:    #BE123C;   /* rose-700 — hover */
   --color-knit-primary-light:   #FB7185;   /* rose-400 — light accents */
   --color-knit-primary-fade:    #FFF1F2;   /* rose-50 — soft tint backgrounds */
-  --color-knit-chrome:          #1B3A6B;   /* navy — header / nav (suite default) */
+  --color-knit-chrome:          #9F1239;   /* deep rose — header / nav (re-skin) */
 
   /* ---- Gathered AppSwitcher chrome ---- */
   --color-switcher-chrome:      #1e1b4b;

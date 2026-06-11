@@ -7,6 +7,11 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.51.0',
+    date: '2026-06-11',
+    summary: 'Refreshed the look so Knit’s rose runs throughout the app — headers, the admin sidebar, and selected states now carry the brand rose from the app icon instead of the old navy suite chrome.',
+  },
+  {
     version: '0.50.0',
     date: '2026-06-10',
     summary: 'Conduct (sacrament-meeting agendas) now appears in the Gathered app switcher — Knit matches the rest of the suite.',

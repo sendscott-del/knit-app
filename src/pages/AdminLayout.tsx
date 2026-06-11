@@ -243,7 +243,7 @@ function Sidebar({
   return (
     <aside
       className="hidden md:flex md:flex-col md:flex-shrink-0 sticky top-0 h-screen text-white"
-      style={{ width: 224, background: '#1B3A6B' }}
+      style={{ width: 224, background: '#9F1239' }}
     >
       <div className="px-5 pt-6 pb-8 flex items-center gap-2.5">
         <KnitMark size={28} />
