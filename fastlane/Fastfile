@@ -1,0 +1,129 @@
+# Homefront — fastlane Fastfile
+# =============================================================================
+# Reusable release pipeline for a Capacitor app (iOS + Google Play).
+#
+# This file is the TEMPLATE for the rest of the portfolio: copy it into any
+# other app repo and it works as long as that app sets the same env vars
+# (see fastlane/.env.example) and has an ios/App project (and, for Play, an
+# android/ project).
+#
+# Auth uses an App Store Connect API key (.p8) — no 2FA prompts, CI-friendly.
+# Nothing here ever signs the Paid Applications Agreement, accepts legal terms,
+# or auto-submits without you asking — those gates stay manual on purpose.
+# =============================================================================
+
+# --- App Store Connect API key, loaded once and shared by every iOS lane ------
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV.fetch("ASC_KEY_ID"),
+    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    # Provide EITHER a path to the .p8 OR its base64 content (CI-friendly).
+    key_filepath: ENV["ASC_KEY_PATH"],
+    key_content: ENV["ASC_KEY_CONTENT"],
+    is_key_content_base64: !ENV["ASC_KEY_CONTENT"].nil?,
+    in_house: false
+  )
+end
+
+# Capacitor 8 uses Swift Package Manager, so we build the .xcodeproj directly
+# (there is no .xcworkspace). Scheme name matches the Capacitor "App" target.
+IOS_PROJECT = "ios/App/App.xcodeproj"
+IOS_SCHEME  = "App"
+
+platform :ios do
+  desc "Sync the web build into the native shell, bump build number, compile a signed .ipa"
+  private_lane :build_ios do
+    # On CI runners, create a throwaway keychain so the imported signing cert
+    # is usable for this job only. No-op locally.
+    setup_ci if ENV["CI"]
+
+    # Push the latest web assets / config into the native project.
+    sh("cd .. && npx cap sync ios")
+
+    # Monotonic build number from CI run, else timestamp — App Store requires it to climb.
+    build_no = ENV["BUILD_NUMBER"] || Time.now.strftime("%Y%m%d%H%M")
+    increment_build_number(xcodeproj: IOS_PROJECT, build_number: build_no)
+
+    # On CI, fetch + install the App Store provisioning profile via the API key
+    # (the distribution cert itself is imported by the workflow before this runs).
+    profile_name = nil
+    if ENV["CI"]
+      get_provisioning_profile(
+        api_key: asc_api_key,
+        app_identifier: ENV.fetch("APP_BUNDLE_ID"),
+        readonly: false
+      )
+      profile_name = lane_context[SharedValues::SIGH_NAME]
+    end
+
+    build_app(
+      project: IOS_PROJECT,
+      scheme: IOS_SCHEME,
+      export_method: "app-store",
+      output_directory: "build/ios",
+      clean: true,
+      export_options: profile_name ? { provisioningProfiles: { ENV.fetch("APP_BUNDLE_ID") => profile_name } } : nil
+    )
+  end
+
+  desc "Catch common App Store rejection reasons BEFORE submitting"
+  lane :precheck_ios do
+    precheck(api_key: asc_api_key)
+  end
+
+  desc "Build and upload to TestFlight (no public release)"
+  lane :beta do
+    build_ios
+    upload_to_testflight(
+      api_key: asc_api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+
+  desc "Build, push metadata + screenshots, and submit for App Store review"
+  lane :release do
+    build_ios
+    deliver(
+      api_key: asc_api_key,
+      submit_for_review: false,   # flip to true once you trust the flow
+      force: true,                # skip the HTML preview/confirmation prompt
+      precheck_include_in_app_purchases: false,
+      automatic_release: false,   # you press the final "release" button
+      skip_screenshots: true,     # set false once screenshots live in fastlane/screenshots
+      run_precheck_before_submit: true
+    )
+  end
+end
+
+platform :android do
+  # NOTE: these lanes are stubbed until Homefront has an android/ project.
+  # Create it first:  npx cap add android   (then build a signed AAB once).
+  desc "Build a signed Android App Bundle (.aab)"
+  private_lane :build_android do
+    sh("cd .. && npx cap sync android")
+    UI.user_error!("No android/ project yet — run `npx cap add android` first.") unless Dir.exist?("../android")
+    gradle(task: "bundle", build_type: "Release", project_dir: "android/")
+  end
+
+  desc "Upload to the Google Play internal testing track"
+  lane :beta do
+    build_android
+    upload_to_play_store(
+      track: "internal",
+      json_key: ENV.fetch("PLAY_JSON_KEY_PATH"),
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Promote to the Play production track (manual rollout)"
+  lane :release do
+    build_android
+    upload_to_play_store(
+      track: "production",
+      json_key: ENV.fetch("PLAY_JSON_KEY_PATH"),
+      release_status: "draft"     # you press publish in the Play Console
+    )
+  end
+end

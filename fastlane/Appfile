@@ -1,0 +1,8 @@
+# Knit — fastlane Appfile. Identity/secrets come from fastlane/.env (gitignored).
+app_identifier(ENV["APP_BUNDLE_ID"] || "app.gatheredin.knit")
+apple_id(ENV["APPLE_ID"])
+team_id(ENV["APPLE_TEAM_ID"])
+
+for_platform :android do
+  package_name(ENV["ANDROID_PACKAGE_NAME"] || "app.gatheredin.knit")
+end
