@@ -81,7 +81,14 @@ export default function AppSwitcher() {
         type="button"
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-1.5"
-        style={{ backgroundColor: 'var(--color-switcher-chrome)' }}
+        style={{
+          backgroundColor: 'var(--color-switcher-chrome)',
+          // Top safe-area inset so the bar's colored background fills behind
+          // the iOS status bar / Dynamic Island when installed as a native app.
+          // py-1.5 = 6px top+bottom; this overrides only padding-top, leaving
+          // padding-bottom at 6px.
+          paddingTop: 'calc(env(safe-area-inset-top) + 6px)',
+        }}
         aria-haspopup="menu"
         aria-expanded={expanded}
       >
