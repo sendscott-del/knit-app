@@ -785,7 +785,8 @@
     "blurb_steward": "Trabajo estándar para líderes",
     "blurb_glean": "Bienestar y autosuficiencia",
     "blurb_tidings": "Mensajería bidireccional",
-    "blurb_knit": "Hermanamiento"
+    "blurb_knit": "Hermanamiento",
+    "blurb_conduct": "Agendas de reuniones"
   },
   "onboarding_inline": {
     "back": "← Atrás",
