@@ -7,6 +7,11 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.50.0',
+    date: '2026-06-10',
+    summary: 'Conduct (sacrament-meeting agendas) now appears in the Gathered app switcher — Knit matches the rest of the suite.',
+  },
+  {
     version: '0.49.1',
     date: '2026-06-10',
     summary: 'Fixed the top suite bar overlapping the iOS status bar / Dynamic Island when installed as a native app (added safe-area top inset).',

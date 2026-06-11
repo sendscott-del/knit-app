@@ -792,7 +792,8 @@
     "blurb_steward": "Leader standard work",
     "blurb_glean": "Welfare & self-reliance",
     "blurb_tidings": "Two-way SMS",
-    "blurb_knit": "Fellowship matching"
+    "blurb_knit": "Fellowship matching",
+    "blurb_conduct": "Meeting agendas"
   },
   "onboarding_inline": {
     "back": "← Back",
