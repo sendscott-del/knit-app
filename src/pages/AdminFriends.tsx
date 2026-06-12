@@ -39,6 +39,7 @@ export default function AdminFriends() {
       .from('knit_friends')
       .select('*, ward:knit_wards(id, name)')
       .order('added_at', { ascending: false })
+      .limit(500)
     if (!showRemoved) q = q.is('removed_at', null)
     const { data, error } = await q
     if (error) setError(error.message)

@@ -54,11 +54,15 @@ export default function AdminMembers() {
   async function refresh() {
     setLoading(true)
     setError(null)
+    // count: 'planned' (Postgres planner estimate) instead of 'exact' — the
+    // exact count re-evaluated the RLS policy on every member row visible or
+    // not, on every page load, on the shared suite DB. The count only feeds
+    // the "N members" label, where an estimate is fine.
     let q = supabase
       .from('knit_members')
       .select(
         '*, ward:knit_wards(id, name), availability:knit_availability_baselines(day_of_week, time_slot)',
-        { count: 'exact' },
+        { count: 'planned' },
       )
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true })

@@ -16,6 +16,10 @@
   "rewrites": [
     { "source": "/((?!api/|.*\\.).*)", "destination": "/index.html" }
   ],
+  "functions": {
+    "api/cron/*.ts": { "maxDuration": 300 },
+    "api/admin/sheet.ts": { "maxDuration": 120 }
+  },
   "crons": [
     { "path": "/api/cron/sheets-morning-push", "schedule": "0 12 * * *" },
     { "path": "/api/cron/availability-refresh", "schedule": "0 16 * * *" }

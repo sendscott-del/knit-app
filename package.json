@@ -1,7 +1,7 @@
 {
   "name": "knit-app",
   "private": true,
-  "version": "0.51.1",
+  "version": "0.52.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,7 +22,6 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "google-auth-library": "^10.7.0",
-    "googleapis": "^171.4.0",
     "i18next": "^26.0.6",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^1.8.0",

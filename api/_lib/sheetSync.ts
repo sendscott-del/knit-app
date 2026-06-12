@@ -1,4 +1,5 @@
-import { google, type sheets_v4 } from 'googleapis'
+import type { sheets_v4 } from '@googleapis/sheets'
+import { createHash } from 'node:crypto'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import {
   replaceDataRows,
@@ -6,12 +7,13 @@ import {
   colLetter,
   applyProtectedRanges,
   ensureTabs,
-  getAuth,
+  getSheets,
   getSheetMeta,
+  retryOn429,
   KNIT_PROTECT_TAG,
-  type CreatedSheet,
   type ProtectionRule,
 } from './sheets.js'
+import { chicagoLastNDays } from './chicagoTime.js'
 
 /**
  * Defines the ordered tabs that every ward's sheet has, and the header row
@@ -166,8 +168,7 @@ export async function writeAllHeaders(spreadsheetId: string) {
   // One batchUpdate instead of N sequential values.update calls. Each header
   // row counts as a write request in Sheets' quota; before this every sync
   // burned ~9 of the 60 writes/min/SA budget on headers alone.
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
   const data = Object.entries(HEADERS).map(([tab, headers]) => {
     const row = headerRow(tab)
     return {
@@ -175,10 +176,12 @@ export async function writeAllHeaders(spreadsheetId: string) {
       values: [headers],
     }
   })
-  await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId,
-    requestBody: { valueInputOption: 'USER_ENTERED', data },
-  })
+  await retryOn429(() =>
+    sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId,
+      requestBody: { valueInputOption: 'USER_ENTERED', data },
+    }),
+  )
 }
 
 /** Public read-only access to the canonical headers for a tab. */
@@ -417,11 +420,12 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   await writeInviteHowto(spreadsheetId)
   // Re-write Start Here too so the layout shift (banner row 1 + content
   // starting row 2) reaches existing sheets.
-  const { data: wardRow } = await sb
+  const { data: wardRow, error: wardErr } = await sb
     .from('knit_wards')
     .select('name')
     .eq('id', wardId)
     .maybeSingle()
+  if (wardErr) throw new Error(`ward lookup failed: ${wardErr.message}`)
   await writeStartHere(spreadsheetId, (wardRow as { name?: string } | null)?.name ?? 'your ward')
   // Banner row 1 on the read-only tabs. Done last so the banner overwrites
   // any old row-1 content (e.g. the old header from before we shifted to
@@ -435,7 +439,11 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   await protectSpreadsheet(spreadsheetId)
 
   /* ---- Available This Week ---- */
-  const { data: members } = await sb
+  // IMPORTANT: every query below must throw on error. A swallowed error left
+  // the data null, and replaceDataRows then cleared the whole tab and wrote
+  // nothing — a transient DB hiccup looked like an empty ward, and the
+  // binding was still marked healthy.
+  const { data: members, error: membersErr } = await sb
     .from('knit_members')
     .select(
       `
@@ -447,14 +455,21 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
       `,
     )
     .eq('ward_id', wardId)
+  if (membersErr) throw new Error(`members query failed: ${membersErr.message}`)
 
   const now = Date.now()
+  const yearAgo = new Date(now - 365 * 86400000).toISOString()
 
-  // Preload last outing timestamps for every member in the ward
-  const { data: outings } = await sb
+  // Preload last outing timestamps for every member in the ward. Bounded to
+  // the last year — "last outing"/"days since" beyond that renders the same,
+  // and the unbounded scan grows forever on the shared DB.
+  const { data: outings, error: outingsErr } = await sb
     .from('knit_outings')
     .select('member_id, status, scheduled_at')
     .eq('ward_id', wardId)
+    .gte('scheduled_at', yearAgo)
+    .limit(5000)
+  if (outingsErr) throw new Error(`outings query failed: ${outingsErr.message}`)
 
   const lastOutingByMember = new Map<string, string>()
   for (const o of outings ?? []) {
@@ -528,15 +543,16 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
   )
 
   /* ---- Friends We are Teaching ---- */
-  const { data: friends } = await sb
+  const { data: friends, error: friendsErr } = await sb
     .from('knit_friends')
     .select('*')
     .eq('ward_id', wardId)
     .is('removed_at', null)
     .neq('teaching_status', 'lost_contact')
     .order('added_at', { ascending: false })
+  if (friendsErr) throw new Error(`friends query failed: ${friendsErr.message}`)
 
-  const { data: friendInterestTags } = friends && friends.length > 0
+  const { data: friendInterestTags, error: friendTagsErr } = friends && friends.length > 0
     ? await sb
         .from('knit_interest_tags')
         .select('id, name_en')
@@ -546,16 +562,22 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
             new Set((friends ?? []).flatMap((f) => f.interest_tag_ids ?? [])),
           ),
         )
-    : { data: [] as { id: string; name_en: string }[] }
+    : { data: [] as { id: string; name_en: string }[], error: null }
+  if (friendTagsErr) throw new Error(`interest tags query failed: ${friendTagsErr.message}`)
 
   const interestNameById = new Map<string, string>()
   for (const t of friendInterestTags ?? []) interestNameById.set(t.id, t.name_en)
 
-  // Friend outing stats
-  const { data: friendOutings } = await sb
+  // Friend outing stats (bounded like the member stats above; "Total
+  // outings" becomes a rolling 12-month count once a ward has that much
+  // history).
+  const { data: friendOutings, error: friendOutingsErr } = await sb
     .from('knit_outings')
     .select('friend_id, status, scheduled_at')
     .eq('ward_id', wardId)
+    .gte('scheduled_at', yearAgo)
+    .limit(5000)
+  if (friendOutingsErr) throw new Error(`friend outings query failed: ${friendOutingsErr.message}`)
 
   const friendStats = new Map<
     string,
@@ -574,8 +596,8 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
 
   const friendRows: string[][] = (friends ?? []).map((f) => {
     const fullName = [f.first_name, f.last_name].filter(Boolean).join(' ')
-    const interests = (f.interest_tag_ids ?? [])
-      .map((id) => interestNameById.get(id))
+    const interests = ((f.interest_tag_ids ?? []) as string[])
+      .map((id: string) => interestNameById.get(id))
       .filter(Boolean)
       .join(', ')
     const stats = friendStats.get(f.id)
@@ -608,7 +630,7 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
 
   /* ---- Recent Outings (last 90 days) ---- */
   const ninetyAgo = new Date(now - 90 * 86400000).toISOString()
-  const { data: recent } = await sb
+  const { data: recent, error: recentErr } = await sb
     .from('knit_outings')
     .select(
       `
@@ -620,6 +642,8 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     .eq('ward_id', wardId)
     .gte('scheduled_at', ninetyAgo)
     .order('scheduled_at', { ascending: false })
+    .limit(900)
+  if (recentErr) throw new Error(`recent outings query failed: ${recentErr.message}`)
 
   const recentRows: string[][] = (recent ?? []).map((o) => {
     const rawFriend = (o as unknown as { friend: unknown }).friend
@@ -652,9 +676,11 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
     dataStartRow(TABS.RECENT),
   )
 
-  // Member Roster + dropdowns. Extracted so the hourly pull-cron can also
-  // refresh this without doing the full Available/Friends/Recent rewrite.
-  await populateMemberRoster({ spreadsheetId, wardId })
+  // Member Roster + dropdowns. Extracted so the pull-cron can also refresh
+  // this without doing the full Available/Friends/Recent rewrite. force:
+  // the daily push always rewrites + re-installs dropdowns (repair pass and
+  // the rolling date dropdown), even when the roster content is unchanged.
+  await populateMemberRoster({ spreadsheetId, wardId, force: true })
 
   // Color-code entry cells (yellow) vs Knit-fill cells (gray). Combined with
   // the protection rules this makes the workspace much harder to break.
@@ -676,12 +702,15 @@ export async function populateDataTabs({ spreadsheetId, wardId }: PopulateArgs) 
 export async function populateMemberRoster({
   spreadsheetId,
   wardId,
+  force = false,
 }: {
   spreadsheetId: string
   wardId: string
+  /** Rewrite + reinstall dropdowns even when the roster content is unchanged. */
+  force?: boolean
 }) {
   const sb = supabaseAdmin()
-  const { data: rosterRows } = await sb
+  const { data: rosterRows, error: rosterErr } = await sb
     .from('knit_members')
     .select(
       'id, first_name, last_name, preferred_name, phone, opted_out_at, onboarding_completed_at',
@@ -692,6 +721,7 @@ export async function populateMemberRoster({
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true })
     .limit(5000)
+  if (rosterErr) throw new Error(`roster query failed: ${rosterErr.message}`)
 
   const rosterValues: string[][] = (rosterRows ?? []).map((m) => {
     const name =
@@ -700,8 +730,30 @@ export async function populateMemberRoster({
       '—'
     return [m.id, name, m.phone ?? '']
   })
+
+  // Change detection: the 5-minute pull used to rewrite the roster and
+  // re-install every dropdown on every run — 3 writes + 2 reads per ward per
+  // run (~8,600 Sheets writes/day at idle). Skip when the roster hasn't
+  // changed since the last write; the daily morning push passes force=true
+  // so the repair pass and the rolling date dropdown still refresh daily.
+  const rosterHash = createHash('sha256')
+    .update(JSON.stringify(rosterValues))
+    .digest('hex')
+  if (!force) {
+    const { data: binding } = await sb
+      .from('knit_google_sheet_bindings')
+      .select('id, roster_hash')
+      .eq('sheet_id', spreadsheetId)
+      .maybeSingle()
+    if (binding?.roster_hash === rosterHash) return
+  }
+
   await replaceDataRows(spreadsheetId, TABS.ROSTER, 3, rosterValues)
   await ensureRosterHiddenAndDropdowns(spreadsheetId)
+  await sb
+    .from('knit_google_sheet_bindings')
+    .update({ roster_hash: rosterHash })
+    .eq('sheet_id', spreadsheetId)
 }
 
 /**
@@ -724,8 +776,7 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     return
   }
 
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
 
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const TIME_SLOTS = ['morning', 'afternoon', 'evening']
@@ -749,16 +800,11 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     'paused',
     'lost_contact',
   ]
-  // Rolling window: the seven most recent dates (today and the six days
-  // before). Recomputed every sync so the dropdown always reflects the
-  // current week.
-  const TODAY = new Date()
-  const LAST_7_DAYS: string[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(TODAY)
-    d.setDate(d.getDate() - i)
-    LAST_7_DAYS.push(d.toISOString().slice(0, 10))
-  }
+  // Rolling window: the seven most recent CHICAGO dates (today and the six
+  // days before). Computed in the stake's timezone — UTC dates put
+  // "tomorrow" at the top of the dropdown from ~6pm Chicago onward, so an
+  // evening outing logged that night got the wrong date.
+  const LAST_7_DAYS = chicagoLastNDays(7)
 
   const oneOfList = (
     sheetId: number,
@@ -922,10 +968,12 @@ export async function ensureRosterHiddenAndDropdowns(spreadsheetId: string) {
     },
   ]
 
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests },
-  })
+  await retryOn429(() =>
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests },
+    }),
+  )
 }
 
 /**
@@ -941,8 +989,7 @@ const BANNER_MERGE_WIDTH = 8
 
 export async function writeReadOnlyBanners(spreadsheetId: string) {
   const meta = await getSheetMeta(spreadsheetId)
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
 
   const requests: sheets_v4.Schema$Request[] = []
   for (const tabName of READ_ONLY_BANNER_TABS) {
@@ -986,10 +1033,12 @@ export async function writeReadOnlyBanners(spreadsheetId: string) {
     })
   }
   if (requests.length > 0) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests },
-    })
+    await retryOn429(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+      }),
+    )
   }
 }
 
@@ -1012,9 +1061,10 @@ export async function enforceTabOrder(spreadsheetId: string) {
     })
   })
   if (requests.length === 0) return
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } })
+  const sheets = getSheets()
+  await retryOn429(() =>
+    sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } }),
+  )
 }
 
 /**
@@ -1029,14 +1079,15 @@ export async function removeObsoleteKnitTabs(spreadsheetId: string) {
     (OBSOLETE_TABS as readonly string[]).includes(t.title),
   )
   if (targets.length === 0) return
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: targets.map((t) => ({ deleteSheet: { sheetId: t.id } })),
-    },
-  })
+  const sheets = getSheets()
+  await retryOn429(() =>
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: targets.map((t) => ({ deleteSheet: { sheetId: t.id } })),
+      },
+    }),
+  )
 }
 
 /**
@@ -1058,8 +1109,7 @@ export async function applyEntryAutoFormatting(spreadsheetId: string) {
   const suggestionsId = idFor(TABS.SUGGESTIONS)
   const logOutingId = idFor(TABS.LOG_OUTING)
   const feedbackId = idFor(TABS.FEEDBACK)
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
   const requests: sheets_v4.Schema$Request[] = []
 
   const paint = (
@@ -1189,21 +1239,12 @@ export async function applyEntryAutoFormatting(spreadsheetId: string) {
   }
 
   if (requests.length === 0) return
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests },
-  })
-}
-
-export async function provisionSpreadsheet(
-  sheet: CreatedSheet,
-  _wardName: string,
-  wardId: string,
-) {
-  // populateDataTabs already runs writeAllHeaders, writeStartHere, and
-  // protectSpreadsheet. Calling them again here doubled the per-ward write
-  // count and burned the 60/min service-account quota.
-  await populateDataTabs({ spreadsheetId: sheet.spreadsheetId, wardId })
+  await retryOn429(() =>
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests },
+    }),
+  )
 }
 
 /** Run the full provisioning flow against an existing sheet (user-created,

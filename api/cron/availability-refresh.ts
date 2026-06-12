@@ -71,8 +71,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   for (const m of candidates ?? []) {
     if (processed >= MAX_PER_RUN) break
 
-    // Skip paused members until paused_until is in the past.
-    if (m.paused_until && m.paused_until >= todayIso) {
+    // Skip paused members until paused_until arrives. Strict > matches the
+    // SQL helpers (knit_member_is_active: paused_until <= CURRENT_DATE is
+    // active again) — a member paused "until today" is back today.
+    // paused_until is a DATE column, so this is a YYYY-MM-DD string compare.
+    if (m.paused_until && m.paused_until > todayIso) {
       skipped += 1
       continue
     }

@@ -23,11 +23,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Ordering guard: if an auth event (e.g. SIGNED_OUT in another tab) fires
+    // before the initial getSession() resolves, the stale resolved session
+    // must not overwrite the newer event's state.
+    let sawAuthEvent = false
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
+      if (!sawAuthEvent) setSession(data.session)
       setLoading(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      sawAuthEvent = true
       setSession(next)
     })
     return () => {

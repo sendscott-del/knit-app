@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { google } from 'googleapis'
+import { drive as driveApi } from '@googleapis/drive'
 import {
   requireAdmin,
   adminCanActOnWard,
@@ -17,7 +17,6 @@ import {
 import {
   bindSpreadsheet,
   populateDataTabs,
-  protectSpreadsheet,
   TAB_ORDER,
 } from '../_lib/sheetSync.js'
 import { pullSheet } from '../_lib/sheetPull.js'
@@ -34,7 +33,7 @@ import { getAuth as getServiceAccountAuth } from '../_lib/sheets.js'
  * OAuth because those operate inside the user's Drive.
  */
 function driveAsServiceAccount() {
-  return google.drive({ version: 'v3', auth: getServiceAccountAuth() })
+  return driveApi({ version: 'v3', auth: getServiceAccountAuth() })
 }
 
 /**
@@ -116,8 +115,12 @@ async function refreshSheet(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
   try {
+    // Bank pending missionary entries first — the rewrite below clears
+    // Remove? checkboxes and stamps, destroying anything not yet pulled.
+    await pullSheet({ wardId: guard.wardId, spreadsheetId: binding.sheet_id })
+    // populateDataTabs re-applies protections itself; the extra
+    // protectSpreadsheet call doubled the protection writes.
     await populateDataTabs({ spreadsheetId: binding.sheet_id, wardId: guard.wardId })
-    await protectSpreadsheet(binding.sheet_id)
     const nowIso = new Date().toISOString()
     await sb
       .from('knit_google_sheet_bindings')
@@ -150,6 +153,20 @@ async function syncNow(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'No sheet bound for this ward' })
   }
   try {
+    // Claim the binding so a manual sync can't race the 5-minute cron pull
+    // (two concurrent pulls both see unsynced rows → duplicate inserts).
+    const { data: claimed } = await sb
+      .from('knit_google_sheet_bindings')
+      .update({ last_pull_started_at: new Date().toISOString() })
+      .eq('id', binding.id)
+      .or(`last_pull_started_at.is.null,last_pull_started_at.lt.${new Date(Date.now() - 4 * 60_000).toISOString()}`)
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      return res.status(200).json({
+        report: null,
+        message: 'A sync is already running for this ward — it picks up the same rows. Try again in a few minutes if something looks missed.',
+      })
+    }
     const report = await pullSheet({
       wardId: guard.wardId,
       spreadsheetId: binding.sheet_id,

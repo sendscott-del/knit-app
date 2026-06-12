@@ -1,4 +1,6 @@
-import { google, type sheets_v4 } from 'googleapis'
+import { sheets as sheetsApi, type sheets_v4 } from '@googleapis/sheets'
+import { drive as driveApi } from '@googleapis/drive'
+import { JWT } from 'google-auth-library'
 
 /**
  * Returns true if the given googleapis error is a rate-limit / quota response
@@ -23,6 +25,12 @@ export function isRateLimitError(e: unknown): boolean {
  * Retry an async Sheets/Drive call on rate-limit errors with exponential
  * backoff + jitter. Defaults: 5 tries, base 1.1s, cap 30s. Non-rate-limit
  * errors throw immediately.
+ *
+ * Granularity: every helper in this file already wraps its own API calls, so
+ * callers should NOT wrap whole multi-call routines (pullSheet,
+ * populateDataTabs) in retryOn429 — that re-runs every previous read/write
+ * when one late call hits quota, which multiplies API usage exactly when
+ * quota is exhausted.
  */
 export async function retryOn429<T>(
   fn: () => Promise<T>,
@@ -72,9 +80,17 @@ export function formatGoogleError(e: unknown): string {
  * Env vars required:
  *   GOOGLE_SERVICE_ACCOUNT_EMAIL
  *   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY  (newlines can be escaped as \n)
+ *
+ * The JWT client and the Sheets/Drive clients are cached at module level —
+ * a fresh JWT per call meant a fresh OAuth token exchange per helper call
+ * (~15 extra round-trips per ward per morning push).
  */
 
-export function getAuth() {
+let cachedJwt: JWT | null = null
+let cachedSheets: sheets_v4.Sheets | null = null
+
+export function getAuth(): JWT {
+  if (cachedJwt) return cachedJwt
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
   const keyRaw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
   if (!email || !keyRaw) {
@@ -83,7 +99,7 @@ export function getAuth() {
     )
   }
   const privateKey = keyRaw.replace(/\\n/g, '\n')
-  return new google.auth.JWT({
+  cachedJwt = new JWT({
     email,
     key: privateKey,
     scopes: [
@@ -91,6 +107,14 @@ export function getAuth() {
       'https://www.googleapis.com/auth/drive',
     ],
   })
+  return cachedJwt
+}
+
+/** Shared, cached Sheets client (service account). */
+export function getSheets(): sheets_v4.Sheets {
+  if (cachedSheets) return cachedSheets
+  cachedSheets = sheetsApi({ version: 'v4', auth: getAuth() })
+  return cachedSheets
 }
 
 export type CreatedSheet = {
@@ -108,41 +132,56 @@ export function extractSpreadsheetId(url: string): string | null {
   return null
 }
 
-export async function getSheetMeta(spreadsheetId: string) {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  const res = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'properties(title),sheets(properties(sheetId,title))',
-  })
+export type SheetMeta = {
+  title: string
+  tabs: { id: number; title: string; rowCount: number }[]
+  spreadsheetUrl: string
+}
+
+export async function getSheetMeta(spreadsheetId: string): Promise<SheetMeta> {
+  const sheets = getSheets()
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.get({
+      spreadsheetId,
+      fields:
+        'properties(title),sheets(properties(sheetId,title,gridProperties(rowCount)))',
+    }),
+  )
   return {
     title: res.data.properties?.title ?? '',
     tabs: (res.data.sheets ?? []).map((s) => ({
       id: s.properties?.sheetId ?? 0,
       title: s.properties?.title ?? '',
+      rowCount: s.properties?.gridProperties?.rowCount ?? 0,
     })),
     spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
   }
 }
 
+/** Knit-managed tabs are kept at (at least) this many rows so data writes and
+ *  formatting ranges never hit "exceeds grid limits". */
+export const MIN_TAB_ROWS = 1000
+
 /**
  * Idempotent. For each tab in `required` that isn't already present, creates
- * it. If a default "Sheet1" is still hanging around, deletes it at the end.
- * Leaves any other non-required tabs alone (doesn't wipe user content).
+ * it. Existing required tabs smaller than MIN_TAB_ROWS are expanded — tabs
+ * used to be created at 200 rows, which made roster/formatting writes fail
+ * once a ward crossed ~200 members. If a default "Sheet1" is still hanging
+ * around, deletes it at the end. Leaves any other non-required tabs alone
+ * (doesn't wipe user content).
  */
 export async function ensureTabs(
   spreadsheetId: string,
   required: string[],
 ) {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
   const meta = await getSheetMeta(spreadsheetId)
-  const existingTitles = new Map<string, number>()
-  for (const t of meta.tabs) existingTitles.set(t.title, t.id)
+  const existing = new Map<string, { id: number; rowCount: number }>()
+  for (const t of meta.tabs) existing.set(t.title, { id: t.id, rowCount: t.rowCount })
 
-  const toAdd = required.filter((t) => !existingTitles.has(t))
-  const sheet1Id = existingTitles.get('Sheet1')
-  const sheet1IsExtra = sheet1Id !== undefined && !required.includes('Sheet1')
+  const toAdd = required.filter((t) => !existing.has(t))
+  const sheet1 = existing.get('Sheet1')
+  const sheet1IsExtra = sheet1 !== undefined && !required.includes('Sheet1')
 
   const requests: sheets_v4.Schema$Request[] = []
   toAdd.forEach((title, idx) => {
@@ -151,32 +190,47 @@ export async function ensureTabs(
         properties: {
           title,
           index: idx,
-          gridProperties: { rowCount: 200, columnCount: 16 },
+          gridProperties: { rowCount: MIN_TAB_ROWS, columnCount: 16 },
         },
       },
     })
   })
+  // Expand undersized existing required tabs.
+  for (const title of required) {
+    const t = existing.get(title)
+    if (t && t.rowCount > 0 && t.rowCount < MIN_TAB_ROWS) {
+      requests.push({
+        updateSheetProperties: {
+          properties: { sheetId: t.id, gridProperties: { rowCount: MIN_TAB_ROWS } },
+          fields: 'gridProperties.rowCount',
+        },
+      })
+    }
+  }
   // Only delete Sheet1 if we've added at least one tab (so we don't leave the
   // spreadsheet empty), or if other tabs already exist beyond Sheet1.
   const otherTabsRemain = meta.tabs.length > (sheet1IsExtra ? 1 : 0)
   if (sheet1IsExtra && (toAdd.length > 0 || otherTabsRemain)) {
-    requests.push({ deleteSheet: { sheetId: sheet1Id! } })
+    requests.push({ deleteSheet: { sheetId: sheet1!.id } })
   }
 
   if (requests.length > 0) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId,
-      requestBody: { requests },
-    })
+    await retryOn429(() =>
+      sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests },
+      }),
+    )
   }
 }
 
 export async function createSpreadsheet(title: string): Promise<CreatedSheet> {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  const res = await sheets.spreadsheets.create({
-    requestBody: { properties: { title } },
-  })
+  const sheets = getSheets()
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.create({
+      requestBody: { properties: { title } },
+    }),
+  )
   const spreadsheetId = res.data.spreadsheetId
   const spreadsheetUrl = res.data.spreadsheetUrl
   const defaultSheetId = res.data.sheets?.[0]?.properties?.sheetId ?? 0
@@ -196,7 +250,7 @@ export async function createSpreadsheetAsUser(
   oauthClient: any,
   title: string,
 ): Promise<CreatedSheet> {
-  const sheets = google.sheets({ version: 'v4', auth: oauthClient })
+  const sheets = sheetsApi({ version: 'v4', auth: oauthClient })
   const res = await sheets.spreadsheets.create({
     requestBody: { properties: { title } },
   })
@@ -221,7 +275,7 @@ export async function shareFileAsUser(
   { sendNotificationEmail = false } = {},
 ) {
   if (emails.length === 0) return
-  const drive = google.drive({ version: 'v3', auth: oauthClient })
+  const drive = driveApi({ version: 'v3', auth: oauthClient })
   // Per-email try/catch: a single bad address (non-existent Google account,
   // invalid email format) no longer aborts the whole share batch. Errors are
   // logged; other recipients still get access.
@@ -244,73 +298,25 @@ export async function shareFileAsUser(
   }
 }
 
-export async function shareWithEmails(fileId: string, emails: string[]) {
-  if (emails.length === 0) return
-  const auth = getAuth()
-  const drive = google.drive({ version: 'v3', auth })
-  for (const email of emails) {
-    const trimmed = email.trim()
-    if (!trimmed) continue
-    await drive.permissions.create({
-      fileId,
-      requestBody: {
-        role: 'writer',
-        type: 'user',
-        emailAddress: trimmed,
-      },
-      sendNotificationEmail: true,
-    })
-  }
-}
-
-/**
- * Replaces the spreadsheet's tabs with the given ordered list and removes
- * the default tab. Each tab gets created empty; write headers + data
- * separately via `writeRange`.
- */
-export async function setupTabs(
-  spreadsheetId: string,
-  tabTitles: string[],
-  defaultSheetIdToDelete: number,
-) {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-
-  const requests: sheets_v4.Schema$Request[] = tabTitles.map((title, index) => ({
-    addSheet: {
-      properties: {
-        title,
-        index,
-        gridProperties: { rowCount: 200, columnCount: 14 },
-      },
-    },
-  }))
-  requests.push({ deleteSheet: { sheetId: defaultSheetIdToDelete } })
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests },
-  })
-}
-
 export async function writeRange(
   spreadsheetId: string,
   range: string,
   values: (string | number | boolean | null)[][],
 ) {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values },
-  })
+  const sheets = getSheets()
+  await retryOn429(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values },
+    }),
+  )
 }
 
 /**
  * Clear all rows from `startRow` (default 2 — leaves the header alone) down
- * to a large row count, then write fresh data starting at `startRow`. Pass
+ * to MIN_TAB_ROWS, then write fresh data starting at `startRow`. Pass
  * startRow=3 for tabs that have a banner row in row 1 + headers in row 2.
  */
 export async function replaceDataRows(
@@ -320,20 +326,27 @@ export async function replaceDataRows(
   rows: (string | number | boolean | null)[][],
   startRow: number = 2,
 ) {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
   const endCol = colLetter(headerColumnCount)
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${tab}!A${startRow}:${endCol}1000`,
-  })
-  if (rows.length > 0) {
-    await sheets.spreadsheets.values.update({
+  // Clamp to the managed grid size so the write can't exceed grid limits
+  // (ensureTabs keeps Knit tabs at MIN_TAB_ROWS).
+  const maxRows = MIN_TAB_ROWS - startRow
+  const boundedRows = rows.length > maxRows ? rows.slice(0, maxRows) : rows
+  await retryOn429(() =>
+    sheets.spreadsheets.values.clear({
       spreadsheetId,
-      range: `${tab}!A${startRow}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: rows },
-    })
+      range: `${tab}!A${startRow}:${endCol}${MIN_TAB_ROWS}`,
+    }),
+  )
+  if (boundedRows.length > 0) {
+    await retryOn429(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${tab}!A${startRow}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: boundedRows },
+      }),
+    )
   }
 }
 
@@ -394,13 +407,14 @@ export async function applyProtectedRanges(
   spreadsheetId: string,
   rules: ProtectionRule[],
 ) {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
+  const sheets = getSheets()
 
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId,
-    fields: 'sheets(properties(sheetId,title),protectedRanges(protectedRangeId,description))',
-  })
+  const meta = await retryOn429(() =>
+    sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets(properties(sheetId,title),protectedRanges(protectedRangeId,description))',
+    }),
+  )
 
   // Resolve title -> sheetId
   const sheetIdByTitle = new Map<string, number>()
@@ -467,26 +481,10 @@ export async function applyProtectedRanges(
 
   const requests = [...removals, ...additions]
   if (requests.length === 0) return
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: { requests },
-  })
-}
-
-/** Read row 1 of a tab. Returns the cell values as strings. */
-export async function readHeaderRow(
-  spreadsheetId: string,
-  tab: string,
-  expectedColumnCount: number,
-): Promise<string[]> {
-  const auth = getAuth()
-  const sheets = google.sheets({ version: 'v4', auth })
-  const range = `${tab}!A1:${colLetter(expectedColumnCount)}1`
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'FORMATTED_VALUE',
-  })
-  const row = (res.data.values?.[0] ?? []) as string[]
-  return row
+  await retryOn429(() =>
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests },
+    }),
+  )
 }

@@ -7,6 +7,25 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.52.0',
+    date: '2026-06-12',
+    summary:
+      'Security + reliability release from a full code review: stake directory reads locked down, the missionary-sheet sync made duplicate-proof, and the database load cut sharply.',
+    details: [
+      'Privacy: the shared suite role catalog (gather_user_roles) was readable by ANY signed-in account across the Gathered suite. Reads are now limited to your own entry, suite role holders, and admins.',
+      'View-only roles (stake presidency, high council) can no longer edit member availability, interests, or notification logs — they keep full read access. The notifications log is now server-write-only.',
+      'Sheet sync no longer wipes tabs on a transient database error — every query is checked before any tab is cleared, and per-tab sync problems now show on /admin/sheet instead of silently reporting healthy.',
+      'Duplicate-proof missionary entries: logged outings, new friends, and feedback are deduplicated even when a sync is interrupted or two syncs overlap (the 5-minute sync and Sync-now now take turns instead of racing).',
+      'Suggestions tab: the Generate checkbox is now honored — rows are processed only when checked (matching the Start Here instructions), and a request with no matches is marked "— no matches —" instead of re-running every 5 minutes.',
+      'Morning push now pulls pending entries (including Remove? requests) BEFORE rewriting tabs, so nothing checked right before noon UTC is lost.',
+      'Chicago time everywhere: the Log-an-Outing date dropdown and outing timestamps now use stake-local dates (they were UTC, which drifted after ~6pm).',
+      'Opt-out is now two-way safe: opting back in via Tidings re-activates the member in Knit, and the /join recovery page can text a rejoin link to opted-out members (it previously dropped them silently).',
+      'Pause dates fixed: a member paused into the future was counted as ACTIVE by the database helpers (matching engine + roster). Inverted comparison corrected.',
+      'Performance: roster rewrites now skip when nothing changed (~90% fewer Sheets writes at idle), member-list queries evaluate ward access once per query instead of once per member row (3,300×), googleapis replaced with slim scoped packages (faster cold starts), and the suggestion engine is now one shared module instead of two drifting copies.',
+      'Hardening: timing-safe cron secrets, magic-link RPC revoked from anonymous callers, Google connect/disconnect restricted to edit-level admins, recovery texting gets a daily cap, and ward-name role grants are now stake-scoped.',
+    ],
+  },
+  {
     version: '0.51.1',
     date: '2026-06-12',
     summary: 'Liken (your gospel library, ready to speak) now appears in the Gathered app switcher.',

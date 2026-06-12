@@ -20,6 +20,7 @@ import { memberInviteUrl, appOriginFromEnv } from '../_lib/inviteSend.js'
  */
 
 const THROTTLE_MINUTES = 5
+const DAILY_CAP = 5
 const GENERIC_OK = {
   ok: true,
   message:
@@ -59,22 +60,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sb = supabaseAdmin()
 
   // Match strategy:
-  //   1) Pull candidate members in the ward roster whose phone (digits only)
-  //      contains the last 10 digits of what the user typed. We can't use
-  //      ilike on a normalized phone server-side without a generated column,
-  //      so we fetch a small superset by last_name match and filter in JS.
-  //   2) Of those, require case-insensitive first_name (or preferred_name)
-  //      and last_name match.
+  //   1) Pull candidates by exact case-insensitive last name AND first name
+  //      (or preferred name) server-side — the JS filter below requires exact
+  //      equality anyway, so wildcards only inflated the candidate set; with
+  //      a common last name the real member could fall outside the 50-row cap
+  //      and the caller got a silent miss.
+  //   2) Phone match happens in JS (no normalized phone column server-side).
+  //
+  // Opted-out members are matched on purpose: the dashboard their link opens
+  // has a Rejoin button, and excluding them left anyone whose link expired
+  // permanently stuck ("we texted you" + nothing arrives).
   const last10 = phoneDigits.slice(-10)
-  const lastIlike = `%${lastName.replace(/[%,()]/g, ' ')}%`
+  const escapePattern = (s: string) => s.replace(/[%_\\]/g, ' ').replace(/,/g, ' ')
 
   const { data: candidates, error: candErr } = await sb
     .from('knit_members')
     .select(
       'id, ward_id, first_name, last_name, preferred_name, phone, opted_out_at, paused_until, onboarding_completed_at, created_at',
     )
-    .ilike('last_name', lastIlike)
-    .is('opted_out_at', null)
+    .ilike('last_name', escapePattern(lastName))
+    .or(
+      `first_name.ilike.${escapePattern(firstName)},preferred_name.ilike.${escapePattern(firstName)}`,
+    )
     .limit(50)
   if (candErr) {
     return res.status(500).json({ ok: false, error: candErr.message })
@@ -89,8 +96,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const pn = (m.preferred_name ?? '').toLowerCase()
     if (fn !== firstNeedle && pn !== firstNeedle) return false
     const memberPhone = (m.phone ?? '').replace(/\D+/g, '')
-    if (!memberPhone) return false
-    return memberPhone.endsWith(last10) || last10.endsWith(memberPhone.slice(-10))
+    // Require a full 10-digit suffix match. The old fallback
+    // (last10.endsWith(memberPhone.slice(-10))) let a 7-digit legacy number
+    // match any input ending in those 7 digits — which could text member A's
+    // magic link to a stranger's number that happens to share a name.
+    if (memberPhone.length < 10) return false
+    return memberPhone.endsWith(last10)
   })
 
   // Tie-break: prefer the row that has already completed onboarding (so a
@@ -141,6 +152,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(GENERIC_OK)
   }
 
+  // Daily cap: each send rotates the member's token (invalidating their
+  // previous link), so someone who knows a name+phone shouldn't be able to
+  // churn it every 5 minutes forever — that's Twilio cost plus a permanently
+  // unstable link for the member.
+  const dayCutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+  const { count: sentToday } = await sb
+    .from('knit_notifications_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('member_id', match.id)
+    .eq('type', 'self_recovery')
+    .gte('sent_at', dayCutoff)
+  if ((sentToday ?? 0) >= DAILY_CAP) {
+    await sb.from('knit_notifications_log').insert({
+      member_id: match.id,
+      type: 'self_recovery',
+      context: { outcome: 'daily_cap', phone_last4: phoneDigits.slice(-4) },
+    })
+    return res.status(200).json(GENERIC_OK)
+  }
+
   // Rotate token + text the link.
   const { data: tokenValue, error: tokenErr } = await sb.rpc(
     'knit_generate_member_magic_link',
@@ -167,7 +198,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!smsUrl || !secret) {
     sendError = 'TIDINGS_SMS_URL / TIDINGS_INTERNAL_FN_SECRET not set'
   } else {
-    const body = `Hi ${firstNameOut} — here's your Knit availability survey link. Tap to open or update: ${url}`
+    const body = match.opted_out_at
+      ? `Hi ${firstNameOut} — here's your Knit link. You're currently opted out; tap it if you'd like to rejoin: ${url}`
+      : `Hi ${firstNameOut} — here's your Knit availability survey link. Tap to open or update: ${url}`
     try {
       const resp = await fetch(smsUrl, {
         method: 'POST',

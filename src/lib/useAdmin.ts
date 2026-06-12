@@ -62,6 +62,11 @@ export function useAdmin(): AdminState {
         setState({ status: 'no_admin_row', email: user.email ?? '' })
         return
       }
+      // Don't silently downgrade: if the super-admin RPC errors, the stake
+      // president quietly loses Users & roles for the session with no signal.
+      if (appSuperRes.error) {
+        console.warn('knit_is_app_super_admin failed:', appSuperRes.error.message)
+      }
       const isAppSuper =
         Boolean(adminRes.data.is_super_admin) || Boolean(appSuperRes.data)
       setState({

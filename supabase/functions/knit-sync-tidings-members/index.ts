@@ -31,6 +31,24 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Constant-time secret check: compare SHA-256 digests instead of the raw
+// strings — a direct === short-circuits on the first differing byte, which
+// leaks prefix-match timing. Digest bytes are unpredictable, so even a
+// non-constant-time compare of digests reveals nothing about the secret.
+async function secretMatches(provided: string, expected: string): Promise<boolean> {
+  if (!expected) return false;
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(provided)),
+    crypto.subtle.digest("SHA-256", enc.encode(expected)),
+  ]);
+  const av = new Uint8Array(a);
+  const bv = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < av.length; i++) diff |= av[i] ^ bv[i];
+  return diff === 0;
+}
+
 interface TidingsContact {
   id: string;
   full_name: string;
@@ -56,7 +74,11 @@ Deno.serve(async (req: Request) => {
   const auth = req.headers.get("authorization") ?? "";
   let authorized = false;
 
-  if (INTERNAL_SYNC_SECRET && auth === `Bearer ${INTERNAL_SYNC_SECRET}`) {
+  if (
+    INTERNAL_SYNC_SECRET &&
+    auth.startsWith("Bearer ") &&
+    (await secretMatches(auth.slice("Bearer ".length), INTERNAL_SYNC_SECRET))
+  ) {
     authorized = true;
   } else if (auth.startsWith("Bearer ")) {
     const token = auth.slice("Bearer ".length);

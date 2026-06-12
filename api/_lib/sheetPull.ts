@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from './supabaseAdmin.js'
 import {
   TABS,
@@ -8,7 +8,8 @@ import {
   dataStartRow,
   headerRow,
 } from './sheetSync.js'
-import { colLetter, ensureTabs } from './sheets.js'
+import { colLetter, ensureTabs, getSheets, retryOn429 } from './sheets.js'
+import { chicagoTimeToUtcIso } from './chicagoTime.js'
 import {
   suggest,
   memberDisplayName,
@@ -22,26 +23,7 @@ import {
  * Uses the service account (which has Editor access on the sheet by design).
  */
 
-type SheetsClient = ReturnType<typeof google.sheets>
-
-function getSheetsClient(): SheetsClient {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
-  const keyRaw = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
-  if (!email || !keyRaw) {
-    throw new Error(
-      'GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY is not set',
-    )
-  }
-  const jwt = new google.auth.JWT({
-    email,
-    key: keyRaw.replace(/\\n/g, '\n'),
-    scopes: [
-      'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/drive',
-    ],
-  })
-  return google.sheets({ version: 'v4', auth: jwt })
-}
+type SheetsClient = ReturnType<typeof getSheets>
 
 export type PullReport = {
   suggestionsProcessed: number
@@ -81,11 +63,13 @@ async function verifyAndRestoreHeaders(
   // friend-removal pass entirely and clobbered the banner on repair.
   const row = headerRow(tab)
   const range = `${tab}!A${row}:${colLetter(expected.length)}${row}`
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'FORMATTED_VALUE',
-  })
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      valueRenderOption: 'FORMATTED_VALUE',
+    }),
+  )
   const actual = (res.data.values?.[0] ?? []) as string[]
 
   const matches =
@@ -96,12 +80,14 @@ async function verifyAndRestoreHeaders(
 
   // Rewrite headers. We don't try to interpret data rows that may be misaligned;
   // we restore the contract and let the next cycle proceed.
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range,
-    valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [expected] },
-  })
+  await retryOn429(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [expected] },
+    }),
+  )
   return { ok: false, repaired: true }
 }
 
@@ -110,7 +96,7 @@ export async function pullSheet(args: {
   spreadsheetId: string
 }): Promise<PullReport> {
   const sb = supabaseAdmin()
-  const sheets = getSheetsClient()
+  const sheets = getSheets()
   const report: PullReport = {
     suggestionsProcessed: 0,
     suggestionErrors: [],
@@ -284,8 +270,7 @@ export async function pullSheet(args: {
  * self-service /join page; this block is now pullFeedback().)
  */
 async function pullFeedback(args: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: any
+  sb: SupabaseClient
   sheets: SheetsClient
   wardId: string
   spreadsheetId: string
@@ -295,11 +280,13 @@ async function pullFeedback(args: {
   const expected = getExpectedHeaders(TABS.FEEDBACK) ?? []
   const range = `${TABS.FEEDBACK}!A2:${colLetter(expected.length)}500`
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'FORMATTED_VALUE',
-  })
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      valueRenderOption: 'FORMATTED_VALUE',
+    }),
+  )
   const rows = (res.data.values ?? []) as string[][]
   if (rows.length === 0) return
 
@@ -331,31 +318,54 @@ async function pullFeedback(args: {
     const ward = await wardLookup()
     const stamp = new Date().toISOString()
     const submittedLabel = name || 'Missionary (sheet)'
+    const pageUrl = `sheet:${ward}:${TABS.FEEDBACK}`
 
-    const { error: insertErr } = await sb.from('app_suggestions').insert({
-      app: 'knit',
-      suggestion: body,
-      submitted_by_name: submittedLabel,
-      submitted_by_email: null,
-      submitted_by_user_id: null,
-      page_url: `sheet:${ward}:${TABS.FEEDBACK}`,
-      user_agent: 'knit-sheet-feedback',
-      status: 'open',
-    })
-    if (insertErr) {
-      report.feedbackErrors.push(`Row ${rowNum}: ${insertErr.message}`)
+    // Idempotency: insert-then-stamp means a failed stamp (or a concurrent
+    // pull) re-inserts the same feedback on the next run. If an identical
+    // recent submission exists, skip the insert but still stamp the row.
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+    const { data: dupe, error: dupeErr } = await sb
+      .from('app_suggestions')
+      .select('id')
+      .eq('app', 'knit')
+      .eq('suggestion', body)
+      .eq('page_url', pageUrl)
+      .gte('created_at', weekAgo)
+      .limit(1)
+      .maybeSingle()
+    if (dupeErr) {
+      report.feedbackErrors.push(`Row ${rowNum}: dedupe check failed: ${dupeErr.message}`)
       continue
     }
 
+    if (!dupe) {
+      const { error: insertErr } = await sb.from('app_suggestions').insert({
+        app: 'knit',
+        suggestion: body,
+        submitted_by_name: submittedLabel,
+        submitted_by_email: null,
+        submitted_by_user_id: null,
+        page_url: pageUrl,
+        user_agent: 'knit-sheet-feedback',
+        status: 'open',
+      })
+      if (insertErr) {
+        report.feedbackErrors.push(`Row ${rowNum}: ${insertErr.message}`)
+        continue
+      }
+    }
+
     // Stamp Status + Submitted at (cols C, D) so the missionary sees it landed.
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${TABS.FEEDBACK}!C${rowNum}:D${rowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: {
-        values: [['Received ✓', stamp.slice(0, 10)]],
-      },
-    })
+    await retryOn429(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${TABS.FEEDBACK}!C${rowNum}:D${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [['Received ✓', stamp.slice(0, 10)]],
+        },
+      }),
+    )
     report.feedbackProcessed += 1
   }
 }
@@ -368,8 +378,7 @@ async function pullFeedback(args: {
  * on this tab for their reference until they choose to delete it.
  */
 async function pullAddFriend(args: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: any
+  sb: SupabaseClient
   sheets: SheetsClient
   wardId: string
   spreadsheetId: string
@@ -378,11 +387,13 @@ async function pullAddFriend(args: {
   const { sb, sheets, wardId, spreadsheetId, report } = args
   const expected = getExpectedHeaders(TABS.ADD_FRIEND) ?? []
   const range = `${TABS.ADD_FRIEND}!A2:${colLetter(expected.length)}500`
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'FORMATTED_VALUE',
-  })
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      valueRenderOption: 'FORMATTED_VALUE',
+    }),
+  )
   const rows = (res.data.values ?? []) as string[][]
   if (rows.length === 0) return
 
@@ -413,27 +424,49 @@ async function pullAddFriend(args: {
       ? teachingStatus
       : 'investigating'
 
-    const { error: insertErr } = await sb.from('knit_friends').insert({
-      ward_id: wardId,
-      first_name: firstName,
-      last_name: lastName || null,
-      locale,
-      teaching_status: ts,
-      notes: notes || null,
-      added_by: 'Missionary sheet',
-    })
-    if (insertErr) {
-      report.friendErrors.push(`Row ${rowNum}: ${insertErr.message}`)
+    // Idempotency: a failed stamp-back (or a concurrent pull) used to
+    // re-insert the same friend on the next run. If an active friend with
+    // this exact name already exists, skip the insert but still stamp.
+    let existQuery = sb
+      .from('knit_friends')
+      .select('id')
+      .eq('ward_id', wardId)
+      .is('removed_at', null)
+      .ilike('first_name', firstName)
+    existQuery = lastName
+      ? existQuery.ilike('last_name', lastName)
+      : existQuery.is('last_name', null)
+    const { data: existing, error: existErr } = await existQuery.limit(1).maybeSingle()
+    if (existErr) {
+      report.friendErrors.push(`Row ${rowNum}: dedupe check failed: ${existErr.message}`)
       continue
     }
+
+    if (!existing) {
+      const { error: insertErr } = await sb.from('knit_friends').insert({
+        ward_id: wardId,
+        first_name: firstName,
+        last_name: lastName || null,
+        locale,
+        teaching_status: ts,
+        notes: notes || null,
+        added_by: 'Missionary sheet',
+      })
+      if (insertErr) {
+        report.friendErrors.push(`Row ${rowNum}: ${insertErr.message}`)
+        continue
+      }
+      report.friendsInserted += 1
+    }
     const stamp = new Date().toISOString().slice(0, 10)
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${TABS.ADD_FRIEND}!F${rowNum}:G${rowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [['Added ✓', stamp]] },
-    })
-    report.friendsInserted += 1
+    await retryOn429(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${TABS.ADD_FRIEND}!F${rowNum}:G${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[existing ? 'Already added ✓' : 'Added ✓', stamp]] },
+      }),
+    )
   }
 }
 
@@ -451,8 +484,7 @@ async function pullAddFriend(args: {
  * line so the WML can investigate.
  */
 async function pullFriendRemovals(args: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: any
+  sb: SupabaseClient
   sheets: SheetsClient
   wardId: string
   spreadsheetId: string
@@ -462,11 +494,13 @@ async function pullFriendRemovals(args: {
   const expected = getExpectedHeaders(TABS.FRIENDS) ?? []
   const dataStart = dataStartRow(TABS.FRIENDS) // 1-indexed row of first data row
   const range = `${TABS.FRIENDS}!A${dataStart}:${colLetter(expected.length)}500`
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'UNFORMATTED_VALUE',
-  })
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    }),
+  )
   const rows = (res.data.values ?? []) as Array<Array<string | boolean | number>>
   if (rows.length === 0) return
 
@@ -563,21 +597,26 @@ async function pullFriendRemovals(args: {
   }
 
   // Clear the Remove? + Reason cells we just processed so the same request
-  // doesn't keep firing on every 5-min pull. populateDataTabs would also
-  // wipe them on the next morning push, but the missionary may sync sooner.
-  for (const sheetRowNum of rowsToClear) {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${TABS.FRIENDS}!H${sheetRowNum}:I${sheetRowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [[false, '']] },
-    })
+  // doesn't keep firing on every 5-min pull. One batchUpdate instead of a
+  // write per row — each values.update counted against the 60/min quota.
+  if (rowsToClear.length > 0) {
+    await retryOn429(() =>
+      sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          valueInputOption: 'USER_ENTERED',
+          data: rowsToClear.map((sheetRowNum) => ({
+            range: `${TABS.FRIENDS}!H${sheetRowNum}:I${sheetRowNum}`,
+            values: [[false, '']],
+          })),
+        },
+      }),
+    )
   }
 }
 
 async function pullSuggestions(args: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: any
+  sb: SupabaseClient
   sheets: SheetsClient
   wardId: string
   spreadsheetId: string
@@ -586,13 +625,28 @@ async function pullSuggestions(args: {
   const { sb, sheets, wardId, spreadsheetId, report } = args
   const range = `${TABS.SUGGESTIONS}!A2:O200`
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'FORMATTED_VALUE',
-  })
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      valueRenderOption: 'FORMATTED_VALUE',
+    }),
+  )
   const rows = (res.data.values ?? []) as string[][]
   if (rows.length === 0) return
+
+  // The Generate checkbox (col E): Start Here tells missionaries to check it
+  // when the row is ready. The parser previously ignored it and processed any
+  // row with friend+day+slot — including rows still being typed.
+  const isGenerateChecked = (row: string[]) =>
+    String(row[4] ?? '').trim().toUpperCase() === 'TRUE'
+  const isPending = (row: string[]) =>
+    isGenerateChecked(row) && !(row[5] ?? '').trim()
+
+  // Only pay for the member/friend/outing preloads when at least one row is
+  // actually pending — previously any non-empty Suggestions tab (including
+  // fully processed rows) triggered the full ward preload every 5 minutes.
+  if (!rows.some(isPending)) return
 
   // Preload data we'll reuse across rows
   const { data: friends } = await sb
@@ -610,6 +664,8 @@ async function pullSuggestions(args: {
        styles:knit_member_participation_styles(style_key)`,
     )
     .eq('ward_id', wardId)
+    .not('onboarding_completed_at', 'is', null)
+    .limit(2000)
   const ninetyAgo = new Date(Date.now() - 90 * 86400000).toISOString()
   const { data: outings } = await sb
     .from('knit_outings')
@@ -646,6 +702,8 @@ async function pullSuggestions(args: {
 
     if (!friendName && !dayRaw && !slotRaw) continue // empty row
     if (alreadyFilled) continue // already processed (col F non-empty)
+    // Respect the Generate checkbox: a half-typed row isn't a request yet.
+    if (!isGenerateChecked(row)) continue
     if (!friendName || !dayRaw || !slotRaw) {
       report.suggestionErrors.push(
         `Row ${rowNum}: need friend + day + time to generate suggestions`,
@@ -712,17 +770,23 @@ async function pullSuggestions(args: {
       }
     }
     if (result.hint && !result.top.length) {
-      // Put the hint in the #1 "why" cell so missionaries see something
-      topCells[0] = ''
+      // No matches: col F (the "already processed" marker) MUST still get a
+      // value — leaving it empty meant the row was re-processed (and a fresh
+      // audit row inserted) on every 5-minute pull, forever.
+      topCells[0] = '— no matches —'
       topCells[1] = result.hint
     }
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${TABS.SUGGESTIONS}!F${rowNum}:O${rowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [topCells] },
-    })
+    // Write E:O — uncheck Generate alongside the fill so the checkbox state
+    // reads as "done" and the row can't re-trigger.
+    await retryOn429(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${TABS.SUGGESTIONS}!E${rowNum}:O${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[false, ...topCells]] },
+      }),
+    )
 
     // Log the audit row (useful for analytics later)
     await sb.from('knit_outing_suggestions').insert({
@@ -739,8 +803,7 @@ async function pullSuggestions(args: {
 }
 
 async function pullOutings(args: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sb: any
+  sb: SupabaseClient
   sheets: SheetsClient
   wardId: string
   spreadsheetId: string
@@ -749,11 +812,13 @@ async function pullOutings(args: {
   const { sb, sheets, wardId, spreadsheetId, report } = args
   const range = `${TABS.LOG_OUTING}!A2:G500`
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range,
-    valueRenderOption: 'FORMATTED_VALUE',
-  })
+  const res = await retryOn429(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+      valueRenderOption: 'FORMATTED_VALUE',
+    }),
+  )
   const rows = (res.data.values ?? []) as string[][]
   if (rows.length === 0) return
 
@@ -832,20 +897,28 @@ async function pullOutings(args: {
       logged_at: new Date().toISOString(),
     })
 
-    if (error) {
+    // 23505 = the knit_outings_sheet_dedupe_idx unique index caught a
+    // duplicate (a previous run inserted this outing but its ✓ stamp-back
+    // failed, or a concurrent pull won the race). The outing is in the DB —
+    // treat as success so the row finally gets its checkmark instead of
+    // re-inserting forever.
+    const isDupe = error?.code === '23505'
+    if (error && !isDupe) {
       report.outingErrors.push(`Row ${rowNum}: ${error.message}`)
       continue
     }
 
     // Write checkmark in Synced column
-    await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${TABS.LOG_OUTING}!G${rowNum}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [['✓']] },
-    })
+    await retryOn429(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${TABS.LOG_OUTING}!G${rowNum}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [['✓']] },
+      }),
+    )
 
-    report.outingsInserted += 1
+    if (!isDupe) report.outingsInserted += 1
   }
 }
 
@@ -892,14 +965,14 @@ type FriendLookup = {
   first_name: string
   last_name: string | null
   nickname: string | null
-  locale: 'en' | 'es'
-  interest_tag_ids: string[] | null
 }
 
-function matchFriend(
+// Generic over the row shape: pullSuggestions passes rows with locale +
+// interest_tag_ids, pullOutings only the name columns.
+function matchFriend<T extends FriendLookup>(
   name: string,
-  friends: FriendLookup[],
-): FriendLookup | null {
+  friends: T[],
+): T | null {
   const s = name.toLowerCase().trim()
   const exactFullMatches = friends.filter((f) => {
     const full = [f.first_name, f.last_name].filter(Boolean).join(' ').toLowerCase()
@@ -960,10 +1033,17 @@ function parseDate(raw: string): Date | null {
 }
 
 function composeScheduledAt(date: Date, slot: TimeSlot): string {
+  // The slot hour is CHICAGO wall-clock time. setHours() on a UTC server put
+  // "evening" at 19:00 UTC = 1–2pm Chicago, shifting every days-since-last
+  // calculation by 5–6 hours. parseDate anchors the date in UTC (midnight or
+  // noon), so the UTC Y/M/D fields are the calendar date the missionary picked.
   const hour = slot === 'morning' ? 9 : slot === 'afternoon' ? 14 : 19
-  const d = new Date(date)
-  d.setHours(hour, 0, 0, 0)
-  return d.toISOString()
+  return chicagoTimeToUtcIso(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    hour,
+  )
 }
 
 function parseOutingStatus(raw: string): string | null {

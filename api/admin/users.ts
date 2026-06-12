@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { google } from 'googleapis'
+import { drive as driveApi } from '@googleapis/drive'
 import { requireAdmin } from '../_lib/auth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import type { AdminRole } from '../_lib/types.js'
@@ -224,7 +224,7 @@ async function shareSheetsWithAdmin({
   }
 
   // Service account — see api/_lib/sheetAccess.ts comment for why.
-  const drive = google.drive({ version: 'v3', auth: getServiceAccountAuth() })
+  const drive = driveApi({ version: 'v3', auth: getServiceAccountAuth() })
   const normalized = email.toLowerCase()
 
   for (const b of bindings as Array<{

@@ -152,7 +152,9 @@ export default function AdminSuggest() {
     const m = new Map<string, string>()
     for (const s of styles) m.set(s.key, localizedStyleLabel(s, i18n.language))
     return m
-  }, [styles])
+    // i18n.language is read inside: labels went stale after a language
+    // switch until styles happened to refetch.
+  }, [styles, i18n.language])
 
   async function run(e: FormEvent) {
     e.preventDefault()
@@ -171,6 +173,9 @@ export default function AdminSuggest() {
       return
     }
 
+    // Only plausibly-eligible members: the engine can't suggest anyone who
+    // hasn't onboarded or has opted out, so don't pull (and RLS-evaluate)
+    // the full synced roster with three embeds per row.
     const { data: members, error: membersErr } = await supabase
       .from('knit_members')
       .select(
@@ -183,6 +188,9 @@ export default function AdminSuggest() {
         `,
       )
       .eq('ward_id', wardId)
+      .not('onboarding_completed_at', 'is', null)
+      .is('opted_out_at', null)
+      .limit(2000)
 
     if (membersErr) {
       setRunning(false)

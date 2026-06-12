@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import { OAuth2Client } from 'google-auth-library'
 
 export const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
@@ -21,7 +21,7 @@ export function getOAuthConfig() {
 
 export function newOAuthClient() {
   const { clientId, clientSecret, redirectUri } = getOAuthConfig()
-  return new google.auth.OAuth2(clientId, clientSecret, redirectUri)
+  return new OAuth2Client(clientId, clientSecret, redirectUri)
 }
 
 export function authUrlFor(state: string) {

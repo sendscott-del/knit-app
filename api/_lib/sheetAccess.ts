@@ -1,4 +1,4 @@
-import { google } from 'googleapis'
+import { drive as driveApi } from '@googleapis/drive'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getAuth as getServiceAccountAuth } from './sheets.js'
 
@@ -15,7 +15,7 @@ const STAKE_VIEW_ROLES = new Set(['stake_presidency', 'high_councilor'])
  * of sync with reality.
  */
 function driveAsServiceAccount() {
-  return google.drive({ version: 'v3', auth: getServiceAccountAuth() })
+  return driveApi({ version: 'v3', auth: getServiceAccountAuth() })
 }
 
 export type BindingReconcileReport = {

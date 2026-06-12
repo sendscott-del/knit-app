@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { randomBytes } from 'node:crypto'
-import { requireAdmin } from '../_lib/auth.js'
+import { requireAdmin, adminCanWrite } from '../_lib/auth.js'
 import { supabaseAdmin } from '../_lib/supabaseAdmin.js'
 import { authUrlFor } from '../_lib/googleOAuth.js'
 import { setCookie } from '../_lib/cookies.js'
@@ -43,6 +43,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 async function authorize(req: VercelRequest, res: VercelResponse) {
   const auth = await requireAdmin(req)
   if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  // View-only roles (stake presidency, high councilors) could previously
+  // re-point the stake's Google connection. status stays readable for them.
+  if (!adminCanWrite(auth.admin)) {
+    return res.status(403).json({ error: 'View-only admins cannot change the Google connection.' })
+  }
   if (!auth.admin.stake_id) {
     return res.status(400).json({ error: 'Your admin account has no stake.' })
   }
@@ -60,6 +65,11 @@ async function authorize(req: VercelRequest, res: VercelResponse) {
 async function disconnect(req: VercelRequest, res: VercelResponse) {
   const auth = await requireAdmin(req)
   if (!auth) return res.status(401).json({ error: 'Unauthorized' })
+  // Deleting the stake's OAuth row breaks sheet creation/push for every
+  // ward — not something a view-only admin should be able to do.
+  if (!adminCanWrite(auth.admin)) {
+    return res.status(403).json({ error: 'View-only admins cannot change the Google connection.' })
+  }
   if (!auth.admin.stake_id) return res.status(400).json({ error: 'No stake' })
 
   const sb = supabaseAdmin()
