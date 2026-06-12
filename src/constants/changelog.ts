@@ -7,6 +7,11 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.51.1',
+    date: '2026-06-12',
+    summary: 'Liken (your gospel library, ready to speak) now appears in the Gathered app switcher.',
+  },
+  {
     version: '0.51.0',
     date: '2026-06-11',
     summary: 'Refreshed the look so Knit’s rose runs throughout the app — headers, the admin sidebar, and selected states now carry the brand rose from the app icon instead of the old navy suite chrome.',

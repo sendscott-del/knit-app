@@ -18,6 +18,7 @@ const APP_CATALOG: AppInfo[] = [
   { name: 'tidings', label: 'Tidings', url: 'https://tidings.gatheredin.app', color: '#F59E0B', blurbKey: 'blurb_tidings' },
   { name: 'knit',    label: 'Knit',    url: 'https://knit.gatheredin.app',    color: '#E11D48', blurbKey: 'blurb_knit' },
   { name: 'conduct', label: 'Conduct', url: 'https://conduct.gatheredin.app', color: '#0D9488', blurbKey: 'blurb_conduct' },
+  { name: 'liken',   label: 'Liken',   url: 'https://liken.gatheredin.app',   color: '#6D5BA6', blurbKey: 'blurb_liken' },
 ]
 
 const CURRENT_APP = 'knit'
