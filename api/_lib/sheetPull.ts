@@ -25,6 +25,77 @@ import {
 
 type SheetsClient = ReturnType<typeof getSheets>
 
+/** The five missionary-entry tabs the pull scans, in prefetch order. */
+const PULL_TABS = [
+  TABS.SUGGESTIONS,
+  TABS.LOG_OUTING,
+  TABS.ADD_FRIEND,
+  TABS.FRIENDS,
+  TABS.FEEDBACK,
+] as const
+
+type TabPrefetch = { header: string[]; rows: string[][] }
+
+function headerRange(tab: string): string {
+  const expected = getExpectedHeaders(tab) ?? []
+  const row = headerRow(tab)
+  return `${tab}!A${row}:${colLetter(expected.length)}${row}`
+}
+
+function dataRange(tab: string): string {
+  const expected = getExpectedHeaders(tab) ?? []
+  const start = dataStartRow(tab)
+  const end = tab === TABS.SUGGESTIONS ? 200 : 500
+  return `${tab}!A${start}:${colLetter(expected.length)}${end}`
+}
+
+/**
+ * ONE values.batchGet per spreadsheet for all 5 header rows + all 5 data
+ * ranges. Each pass used to issue its own values.get (plus an unconditional
+ * getSheetMeta via ensureTabs) — ~11 reads per ward per 5-minute cycle, which
+ * brushed Google's 60 reads/min/user quota across 10 bindings and logged
+ * intermittent "Quota exceeded" noise on the bindings.
+ *
+ * ensureTabs is repair-only, so it no longer runs up front: a missing tab
+ * makes the batchGet fail with "Unable to parse range", and only then do we
+ * repair and retry. The morning push still runs the full ensureTabs
+ * reconciliation daily via populateDataTabs.
+ *
+ * FORMATTED_VALUE for everything: checkboxes render as 'TRUE'/'FALSE'
+ * strings, which every consumer already handles.
+ */
+async function prefetchPullTabs(
+  sheets: SheetsClient,
+  spreadsheetId: string,
+): Promise<Map<string, TabPrefetch>> {
+  const ranges = PULL_TABS.flatMap((t) => [headerRange(t), dataRange(t)])
+  const doFetch = () =>
+    retryOn429(() =>
+      sheets.spreadsheets.values.batchGet({
+        spreadsheetId,
+        ranges,
+        valueRenderOption: 'FORMATTED_VALUE',
+      }),
+    )
+  let res
+  try {
+    res = await doFetch()
+  } catch (e) {
+    if (!errMsg(e).includes('Unable to parse range')) throw e
+    await ensureTabs(spreadsheetId, TAB_ORDER)
+    res = await doFetch()
+  }
+  const out = new Map<string, TabPrefetch>()
+  const vrs = res.data.valueRanges ?? []
+  PULL_TABS.forEach((tab, i) => {
+    out.set(tab, {
+      header: (vrs[i * 2]?.values?.[0] ?? []) as string[],
+      rows: (vrs[i * 2 + 1]?.values ?? []) as string[][],
+    })
+  })
+  return out
+}
+
 export type PullReport = {
   suggestionsProcessed: number
   suggestionErrors: string[]
@@ -41,36 +112,27 @@ export type PullReport = {
 }
 
 /**
- * Reads row 1 of a tab and compares to the canonical header set. If they don't
- * match (missing, reordered, renamed), rewrites the header row in place and
- * returns true. Hard-protected ranges still allow service-account writes.
+ * Compares a tab's (prefetched) header row to the canonical header set. If
+ * they don't match (missing, reordered, renamed), rewrites the header row in
+ * place and returns repaired=true. Hard-protected ranges still allow
+ * service-account writes.
  *
- * Returning true means the parser should still skip this run (data may be in
- * the wrong columns) and let the next cron pull pick up cleanly.
+ * The header row itself comes from prefetchPullTabs — which already accounts
+ * for the READ ONLY banner offset via headerRow() (banner-prefixed tabs,
+ * notably FRIENDS, keep headers in row 2; comparing against row 1's banner
+ * text used to flag drift on every pull).
+ *
+ * repaired=true means the parser should skip this run (data may be in the
+ * wrong columns) and let the next cron pull pick up cleanly.
  */
 async function verifyAndRestoreHeaders(
   sheets: SheetsClient,
   spreadsheetId: string,
   tab: string,
+  actual: string[],
 ): Promise<{ ok: boolean; repaired: boolean }> {
   const expected = getExpectedHeaders(tab)
   if (!expected) return { ok: true, repaired: false }
-
-  // Headers live on different rows depending on whether the tab has the
-  // READ ONLY banner (row 1) — without this, banner-prefixed tabs (notably
-  // FRIENDS) get "drift detected" on every pull because we're comparing the
-  // banner text against the expected column names. That bug skipped the
-  // friend-removal pass entirely and clobbered the banner on repair.
-  const row = headerRow(tab)
-  const range = `${tab}!A${row}:${colLetter(expected.length)}${row}`
-  const res = await retryOn429(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-      valueRenderOption: 'FORMATTED_VALUE',
-    }),
-  )
-  const actual = (res.data.values?.[0] ?? []) as string[]
 
   const matches =
     actual.length === expected.length &&
@@ -83,7 +145,7 @@ async function verifyAndRestoreHeaders(
   await retryOn429(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId,
-      range,
+      range: headerRange(tab),
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [expected] },
     }),
@@ -111,16 +173,12 @@ export async function pullSheet(args: {
     headersRepaired: [],
   }
 
-  // Make sure every expected tab exists before we try to read from it.
-  // Sheets bound before v0.31.0 don't have the "Members to Invite" tab, and
-  // a `values.get` against a missing tab returns "Unable to parse range",
-  // which previously surfaced as a generic "1 issue" on the Sync from sheet
-  // now button. ensureTabs is idempotent and only adds missing tabs.
-  try {
-    await ensureTabs(args.spreadsheetId, TAB_ORDER)
-  } catch (e) {
-    report.feedbackErrors.push(`ensureTabs failed: ${errMsg(e)}`)
-  }
+  // One batched read for every tab's header + data rows (sees the lazy
+  // ensureTabs repair inside). If even the repaired fetch fails, the whole
+  // pull fails and the cron marks the binding error — same as before.
+  const prefetch = await prefetchPullTabs(sheets, args.spreadsheetId)
+  const tabData = (tab: string): TabPrefetch =>
+    prefetch.get(tab) ?? { header: [], rows: [] }
 
   /* ---------------- Suggestions tab ---------------- */
   try {
@@ -128,6 +186,7 @@ export async function pullSheet(args: {
       sheets,
       args.spreadsheetId,
       TABS.SUGGESTIONS,
+      tabData(TABS.SUGGESTIONS).header,
     )
     if (check.repaired) {
       report.headersRepaired.push(TABS.SUGGESTIONS)
@@ -141,6 +200,7 @@ export async function pullSheet(args: {
         wardId: args.wardId,
         spreadsheetId: args.spreadsheetId,
         report,
+        rows: tabData(TABS.SUGGESTIONS).rows,
       })
     }
   } catch (e) {
@@ -153,6 +213,7 @@ export async function pullSheet(args: {
       sheets,
       args.spreadsheetId,
       TABS.LOG_OUTING,
+      tabData(TABS.LOG_OUTING).header,
     )
     if (check.repaired) {
       report.headersRepaired.push(TABS.LOG_OUTING)
@@ -166,6 +227,7 @@ export async function pullSheet(args: {
         wardId: args.wardId,
         spreadsheetId: args.spreadsheetId,
         report,
+        rows: tabData(TABS.LOG_OUTING).rows,
       })
     }
   } catch (e) {
@@ -178,6 +240,7 @@ export async function pullSheet(args: {
       sheets,
       args.spreadsheetId,
       TABS.ADD_FRIEND,
+      tabData(TABS.ADD_FRIEND).header,
     )
     if (check.repaired) {
       report.headersRepaired.push(TABS.ADD_FRIEND)
@@ -191,6 +254,7 @@ export async function pullSheet(args: {
         wardId: args.wardId,
         spreadsheetId: args.spreadsheetId,
         report,
+        rows: tabData(TABS.ADD_FRIEND).rows,
       })
     }
   } catch (e) {
@@ -203,6 +267,7 @@ export async function pullSheet(args: {
       sheets,
       args.spreadsheetId,
       TABS.FRIENDS,
+      tabData(TABS.FRIENDS).header,
     )
     if (check.repaired) {
       report.headersRepaired.push(TABS.FRIENDS)
@@ -216,6 +281,7 @@ export async function pullSheet(args: {
         wardId: args.wardId,
         spreadsheetId: args.spreadsheetId,
         report,
+        rows: tabData(TABS.FRIENDS).rows,
       })
     }
   } catch (e) {
@@ -228,6 +294,7 @@ export async function pullSheet(args: {
       sheets,
       args.spreadsheetId,
       TABS.FEEDBACK,
+      tabData(TABS.FEEDBACK).header,
     )
     if (check.repaired) {
       report.headersRepaired.push(TABS.FEEDBACK)
@@ -241,6 +308,7 @@ export async function pullSheet(args: {
         wardId: args.wardId,
         spreadsheetId: args.spreadsheetId,
         report,
+        rows: tabData(TABS.FEEDBACK).rows,
       })
     }
   } catch (e) {
@@ -275,19 +343,10 @@ async function pullFeedback(args: {
   wardId: string
   spreadsheetId: string
   report: PullReport
+  /** Prefetched data rows (see prefetchPullTabs). */
+  rows: string[][]
 }) {
-  const { sb, sheets, wardId, spreadsheetId, report } = args
-  const expected = getExpectedHeaders(TABS.FEEDBACK) ?? []
-  const range = `${TABS.FEEDBACK}!A2:${colLetter(expected.length)}500`
-
-  const res = await retryOn429(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-      valueRenderOption: 'FORMATTED_VALUE',
-    }),
-  )
-  const rows = (res.data.values ?? []) as string[][]
+  const { sb, sheets, wardId, spreadsheetId, report, rows } = args
   if (rows.length === 0) return
 
   // Lazy-load ward name for the suggestion context.
@@ -383,18 +442,10 @@ async function pullAddFriend(args: {
   wardId: string
   spreadsheetId: string
   report: PullReport
+  /** Prefetched data rows (see prefetchPullTabs). */
+  rows: string[][]
 }) {
-  const { sb, sheets, wardId, spreadsheetId, report } = args
-  const expected = getExpectedHeaders(TABS.ADD_FRIEND) ?? []
-  const range = `${TABS.ADD_FRIEND}!A2:${colLetter(expected.length)}500`
-  const res = await retryOn429(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-      valueRenderOption: 'FORMATTED_VALUE',
-    }),
-  )
-  const rows = (res.data.values ?? []) as string[][]
+  const { sb, sheets, wardId, spreadsheetId, report, rows } = args
   if (rows.length === 0) return
 
   const VALID_TEACHING_STATUSES = new Set([
@@ -489,19 +540,14 @@ async function pullFriendRemovals(args: {
   wardId: string
   spreadsheetId: string
   report: PullReport
+  /** Prefetched data rows (see prefetchPullTabs). FORMATTED_VALUE, so the
+   *  Remove? checkbox arrives as the string 'TRUE'/'FALSE' rather than the
+   *  boolean the old UNFORMATTED_VALUE read returned — the check below
+   *  handles both. */
+  rows: string[][]
 }) {
-  const { sb, sheets, wardId, spreadsheetId, report } = args
-  const expected = getExpectedHeaders(TABS.FRIENDS) ?? []
+  const { sb, sheets, wardId, spreadsheetId, report, rows } = args
   const dataStart = dataStartRow(TABS.FRIENDS) // 1-indexed row of first data row
-  const range = `${TABS.FRIENDS}!A${dataStart}:${colLetter(expected.length)}500`
-  const res = await retryOn429(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-      valueRenderOption: 'UNFORMATTED_VALUE',
-    }),
-  )
-  const rows = (res.data.values ?? []) as Array<Array<string | boolean | number>>
   if (rows.length === 0) return
 
   // Hydrate ward's active friends ONCE so we can match by display name.
@@ -534,11 +580,8 @@ async function pullFriendRemovals(args: {
   const rowsToClear: number[] = []
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
-    const removeRaw = row[REMOVE_COL]
-    // Google returns the checkbox as a boolean when UNFORMATTED_VALUE.
-    const remove =
-      removeRaw === true ||
-      (typeof removeRaw === 'string' && removeRaw.toUpperCase() === 'TRUE')
+    // FORMATTED_VALUE renders the checkbox as 'TRUE'/'FALSE'.
+    const remove = String(row[REMOVE_COL] ?? '').toUpperCase() === 'TRUE'
     if (!remove) continue
 
     const sheetRowNum = dataStart + i // 1-indexed sheet row of this entry
@@ -621,18 +664,10 @@ async function pullSuggestions(args: {
   wardId: string
   spreadsheetId: string
   report: PullReport
+  /** Prefetched data rows (see prefetchPullTabs). */
+  rows: string[][]
 }) {
-  const { sb, sheets, wardId, spreadsheetId, report } = args
-  const range = `${TABS.SUGGESTIONS}!A2:O200`
-
-  const res = await retryOn429(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-      valueRenderOption: 'FORMATTED_VALUE',
-    }),
-  )
-  const rows = (res.data.values ?? []) as string[][]
+  const { sb, sheets, wardId, spreadsheetId, report, rows } = args
   if (rows.length === 0) return
 
   // The Generate checkbox (col E): Start Here tells missionaries to check it
@@ -808,18 +843,10 @@ async function pullOutings(args: {
   wardId: string
   spreadsheetId: string
   report: PullReport
+  /** Prefetched data rows (see prefetchPullTabs). */
+  rows: string[][]
 }) {
-  const { sb, sheets, wardId, spreadsheetId, report } = args
-  const range = `${TABS.LOG_OUTING}!A2:G500`
-
-  const res = await retryOn429(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-      valueRenderOption: 'FORMATTED_VALUE',
-    }),
-  )
-  const rows = (res.data.values ?? []) as string[][]
+  const { sb, sheets, wardId, spreadsheetId, report, rows } = args
   if (rows.length === 0) return
 
   const { data: friends } = await sb

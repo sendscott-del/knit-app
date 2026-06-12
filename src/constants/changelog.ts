@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.52.1',
+    date: '2026-06-12',
+    summary:
+      'Sheet sync now reads each ward\'s entire workspace in one batched Google call (was ~11 separate reads), eliminating the occasional rate-limit blips on the 5-minute sync.',
+    details: [
+      'All five entry tabs (headers + data) come back in a single values.batchGet per spreadsheet.',
+      'The tab-repair pass (ensureTabs) no longer runs on every pull — it kicks in only when a read fails because a tab is missing, and still runs in full on the daily morning push.',
+    ],
+  },
+  {
     version: '0.52.0',
     date: '2026-06-12',
     summary:
