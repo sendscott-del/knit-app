@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.53.0',
+    date: '2026-06-15',
+    summary:
+      'Added a "Try the demo" button on the leader sign-in screen — anyone can explore a fully-functional sample ward with no account, and it only ever shows fictional demo data.',
+    details: [
+      'One tap signs the visitor into an isolated "Demo Ward" (fictional members tagged DEMO) with no real member data, via the RLS-scoped demo account.',
+      'Built for Google Play closed testing (testers must be able to use the app without seeing real members) and doubles as a self-serve product demo for other stakes.',
+    ],
+  },
+  {
     version: '0.52.1',
     date: '2026-06-12',
     summary:

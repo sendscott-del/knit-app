@@ -5,6 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import KnitMark from '@/components/KnitMark'
 
+// Shared demo account — RLS-scoped to an isolated "Demo Ward" of fictional
+// members (is_demo=true), zero real data. Powers the no-credentials demo button
+// so Google Play / new-stake testers can fully use the app safely.
+const DEMO_EMAIL = 'applereview@gatheredin.app'
+const DEMO_PASSWORD = 'MagnifyReview!2026'
+
 type Mode = 'link' | 'password'
 
 type Status =
@@ -21,6 +27,7 @@ export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
+  const [demoBusy, setDemoBusy] = useState(false)
 
   if (loading) return <CenteredNote>{t('loading')}</CenteredNote>
   if (session) return <Navigate to="/admin" replace />
@@ -40,6 +47,21 @@ export default function AdminLogin() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setStatus({ kind: 'error', message: error.message })
       else navigate('/admin', { replace: true })
+    }
+  }
+
+  const tryDemo = async () => {
+    setStatus({ kind: 'idle' })
+    setDemoBusy(true)
+    const { error } = await supabase.auth.signInWithPassword({
+      email: DEMO_EMAIL,
+      password: DEMO_PASSWORD,
+    })
+    if (error) {
+      setDemoBusy(false)
+      setStatus({ kind: 'error', message: t('login.demo_error') })
+    } else {
+      navigate('/admin', { replace: true })
     }
   }
 
@@ -134,6 +156,18 @@ export default function AdminLogin() {
               ) : null}
             </form>
           )}
+
+          <div className="pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={tryDemo}
+              disabled={demoBusy}
+              className="w-full rounded-md border border-knit-primary bg-white py-2.5 font-semibold text-knit-primary hover:bg-knit-primary/5 disabled:opacity-60"
+            >
+              {demoBusy ? t('login.working') : t('login.try_demo')}
+            </button>
+            <p className="text-xs text-gray-500 text-center mt-2">{t('login.try_demo_sub')}</p>
+          </div>
         </div>
 
         <p className="text-sm text-gray-600 text-center pt-6">

@@ -105,7 +105,10 @@
     "no_access": "Don't have access yet?",
     "get_access": "Get access to Knit",
     "members_no_signin": "Members — don't sign in here. Use the link we texted you.",
-    "disclaimer": "Not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints."
+    "disclaimer": "Not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints.",
+    "try_demo": "Try the demo",
+    "try_demo_sub": "Explore a sample ward — no sign-in needed",
+    "demo_error": "Couldn't start the demo. Please try again."
   },
   "forgot_password": {
     "page_title": "Reset your password",

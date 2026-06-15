@@ -105,7 +105,10 @@
     "no_access": "¿Aún no tienes acceso?",
     "get_access": "Obtener acceso a Knit",
     "members_no_signin": "Miembros — no inicien sesión aquí. Usen el enlace que les enviamos por mensaje.",
-    "disclaimer": "Not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints."
+    "disclaimer": "Not an official product of, and is not endorsed by, The Church of Jesus Christ of Latter-day Saints.",
+    "try_demo": "Probar la demostración",
+    "try_demo_sub": "Explora un barrio de muestra — sin iniciar sesión",
+    "demo_error": "No se pudo iniciar la demostración. Inténtalo de nuevo."
   },
   "forgot_password": {
     "page_title": "Restablecer tu contraseña",
