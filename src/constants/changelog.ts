@@ -7,6 +7,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.54.0',
+    date: '2026-07-06',
+    changes: [
+      'Added an Install page (/install.html) with one-tap, per-device instructions to add Knit to your home screen on iPhone, iPad, or Android — no app store needed. Share this link with people you invite.',
+    ],
+  },
+  {
     version: '0.53.0',
     date: '2026-06-15',
     summary:

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Install Knit</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#E11D48" />
+<link rel="apple-touch-icon" href="/icon-512.png" />
+<style>
+  :root { --brand: #E11D48; --bg: #F7F7FB; --ink: #1c1a24; --muted: #6b6676; --card:#ffffff; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body { margin:0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--brand) 16%, var(--bg)) 0%, var(--bg) 60%);
+    color: var(--ink); min-height: 100dvh; display:flex; align-items:flex-start; justify-content:center;
+    padding: 28px 18px calc(28px + env(safe-area-inset-bottom));
+  }
+  .card { width: 100%; max-width: 440px; background: var(--card); border-radius: 22px; padding: 30px 24px 26px;
+    box-shadow: 0 12px 40px rgba(20,16,40,.10), 0 2px 8px rgba(20,16,40,.05); }
+  .icon { width: 84px; height: 84px; border-radius: 20px; display:block; margin: 2px auto 16px; box-shadow: 0 6px 18px rgba(20,16,40,.18); }
+  h1 { font-size: 26px; line-height:1.15; text-align:center; margin: 0 0 6px; letter-spacing:-.01em; }
+  .tag { text-align:center; color: var(--muted); font-size: 15px; margin: 0 auto 22px; max-width: 34ch; }
+  .steps { list-style:none; margin: 0 0 4px; padding: 0; }
+  .steps li { display:flex; gap: 12px; align-items:flex-start; padding: 11px 0; border-top: 1px solid #eceaf1; font-size: 15.5px; }
+  .steps li:first-child { border-top: 0; }
+  .n { flex: 0 0 26px; height:26px; border-radius: 50%; background: color-mix(in srgb, var(--brand) 14%, #fff);
+    color: var(--brand); font-weight: 700; font-size: 14px; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .n svg { width: 15px; height: 15px; }
+  .btn { display:block; width:100%; text-align:center; text-decoration:none; border:0; cursor:pointer;
+    font-size: 16px; font-weight: 650; padding: 15px 18px; border-radius: 14px; margin-top: 8px; }
+  .btn-primary { background: var(--brand); color:#fff; }
+  .btn-primary:active { filter: brightness(.94); }
+  .btn-ghost { background: transparent; color: var(--brand); font-weight:600; }
+  .hint { text-align:center; color: var(--muted); font-size: 12.5px; margin: 14px 4px 0; line-height:1.5; }
+  .hide { display: none !important; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 2px 2px; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <img class="icon" src="/icon-512.png" alt="Knit app icon" />
+    <h1>Install Knit</h1>
+    <p class="tag">Fellowship the people the missionaries teach — from your home screen.</p>
+
+    <button id="installBtn" class="btn btn-primary hide">Install app</button>
+
+    <section id="ios" class="hide">
+      <h2>Add to your Home Screen</h2>
+      <ol class="steps">
+        <li><span class="n"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></span><div>Tap the <b>Share</b> button in Safari's toolbar.</div></li>
+        <li><span class="n">2</span><div>Choose <b>Add to Home Screen</b>.</div></li>
+        <li><span class="n">3</span><div>Tap <b>Add</b> — Knit appears with your other apps.</div></li>
+      </ol>
+    </section>
+
+    <section id="android" class="hide">
+      <h2>Add to your Home Screen</h2>
+      <ol class="steps">
+        <li><span class="n">1</span><div>Tap the <b>⋮</b> menu (top-right in Chrome).</div></li>
+        <li><span class="n">2</span><div>Choose <b>Install app</b> or <b>Add to Home screen</b>.</div></li>
+        <li><span class="n">3</span><div>Confirm — Knit appears with your other apps.</div></li>
+      </ol>
+    </section>
+
+    <section id="desktop" class="hide">
+      <h2>Install on this computer</h2>
+      <ol class="steps">
+        <li><span class="n">1</span><div>Click the <b>install</b> icon in your browser's address bar.</div></li>
+        <li><span class="n">2</span><div>Choose <b>Install</b> — Knit opens in its own window.</div></li>
+      </ol>
+    </section>
+
+    <a class="btn btn-ghost" href="/">Open Knit in the browser</a>
+    <p class="hint">Works on iPhone, iPad, and Android. Installing just adds an icon — it always stays up to date.</p>
+  </main>
+
+<script>
+  (function () {
+    var ua = navigator.userAgent || "";
+    var isIOS = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var isAndroid = /android/i.test(ua);
+    var show = function (id) { var el = document.getElementById(id); if (el) el.classList.remove("hide"); };
+    var hide = function (id) { var el = document.getElementById(id); if (el) el.classList.add("hide"); };
+    if (isIOS) show("ios"); else if (isAndroid) show("android"); else show("desktop");
+    var deferred = null;
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault(); deferred = e;
+      hide("ios"); hide("android"); hide("desktop"); show("installBtn");
+    });
+    var btn = document.getElementById("installBtn");
+    btn.addEventListener("click", function () {
+      if (!deferred) return;
+      deferred.prompt();
+      deferred.userChoice.finally(function () { deferred = null; btn.classList.add("hide"); if (isAndroid) show("android"); else show("desktop"); });
+    });
+    window.addEventListener("appinstalled", function () {
+      btn.classList.add("hide");
+      document.querySelector(".tag").textContent = "Installed! Find Knit on your home screen.";
+    });
+  })();
+</script>
+</body>
+</html>
