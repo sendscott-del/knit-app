@@ -1,3 +1,52 @@
+# Knit — current state
+
+> Read this before touching the app. Update it the MOMENT an infra fact changes (database, domain, auth) — don't wait for session end. Append an entry to docs/SESSIONS.md at the end of every working session. (This system exists because on 2026-07-14 a session wrote hours of content to the wrong Supabase project — the move was documented nowhere.)
+
+## What this is
+
+Knit is a fellowship-matching app in the Gathered suite: it pairs LDS ward members with the people the missionaries are teaching, so friendships outlast missionary transfers. Members onboard via SMS links, missionaries work from a per-ward Google Sheet (permanent design — they can't install non-approved apps), and leaders get dashboards. Live in 2 wards. **Lane: Church** — church-lane confidentiality applies: member/pastoral names never go in code, docs, or logs.
+
+The full original build specification is preserved below this current-state section (starting at "# Knit — Build Specification"). It remains the authoritative product spec; where it conflicts with this section on infrastructure facts, this section wins.
+
+## Infrastructure — VERIFY BEFORE ANY DB WRITE
+
+- **Supabase (primary):** SHARED project `isogetmvnpimcmouakeg` — schema/auth changes affect Magnify/Glean/Knit/Liken/Conduct/Duty and more. Confirm the ref before every DB write. Secret namespace is project-wide — grep other app dirs for `Deno.env.get('NAME')` before `supabase secrets set`. (The README's mention of a separate `knit-production` project is outdated — Knit was consolidated into the shared project in Phase 0.)
+- **Table prefix:** `knit_` on every table (e.g. `knit_members`, `knit_outings`, `knit_events`).
+- **Supabase (secondary):** server-side code also reads the Tidings project `jdlykebsqafcngpntxma` (member directory source of truth; SMS goes through the Tidings API, never Twilio directly). Two DBs — verify which client you're holding before any write.
+- **Vercel / domain:** https://knit.gatheredin.app (old host knit-together.vercel.app 301s there, api-safe). Vercel also runs the serverless `api/` routes and two crons (`sheets-morning-push` 12:00 UTC, `availability-refresh` 16:00 UTC — see `vercel.json`).
+- **GitHub:** `origin` → https://github.com/sendscott-del/knit-app (branch `main`).
+- **Google:** Sheets/Drive via a service account (missionary UI); Drive shares route through the service account, not personal Gmail OAuth.
+- **Secrets:** env var NAMES only — client: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`; server (Vercel env): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `TIDINGS_SUPABASE_URL`, `TIDINGS_SUPABASE_SERVICE_ROLE_KEY`, `TIDINGS_API_BASE`, `TIDINGS_API_KEY`, `TIDINGS_SMS_URL`, `TIDINGS_INTERNAL_FN_SECRET`, `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, `APP_BASE_URL`, `MAGIC_LINK_SECRET`, `CRON_SECRET`. One Supabase edge function: `supabase/functions/knit-sync-tidings-members`. Never commit secret values.
+
+## Architecture snapshot
+
+- Vite + React 19 + TypeScript SPA (Tailwind 4, i18next EN/ES, react-router) + Vercel serverless functions in `api/` (`admin/`, `cron/`, `me/`, `health.ts`, shared code in `api/_lib` and `shared/`).
+- Auth: Supabase magic-link for admins/leaders; members use no-login signed tokens via SMS links (`MAGIC_LINK_SECRET`).
+- Capacitor 8 iOS/Android shells (`ios/`, `android/`, fastlane) — App Store wrapper consolidated onto `main`.
+- Google Sheet per ward is the missionary interface: morning push cron + daytime pulls (batched — one `values.batchGet` per ward per pull since v0.52.1).
+- Monitoring: `/admin/insights` dashboard backed by the `knit_events` table (added v0.47.0).
+- Migrations in `supabase/migrations/`; version history in `src/constants/changelog.ts`.
+- Current version: v0.53.0 ("Try the demo" — one-tap isolated demo ward, fake data only).
+
+## Rules for this repo
+
+- Bump `package.json` version + append `src/constants/changelog.ts` with every user-facing change; commit messages carry the version (see git log style).
+- Deploy = push to GitHub `main`; Vercel builds automatically. Scott tests on the deployment, not locally.
+- Every user-visible string goes through i18next — full EN/ES coverage landed in v0.46.0; don't regress it.
+- Never send live SMS from dev — SMS paths must check for production or use DRY_RUN (spec §14.9).
+- Append a docs/SESSIONS.md entry at the end of every working session; update this current-state section the moment an infra fact changes.
+- No secrets in committed files (env var NAMES only).
+
+## Gotchas
+
+- **Shared-project cross-app leaks are real here:** `/admin/users` once showed other apps' signups (fixed v0.46.3), and Knit invites must be tagged `app=knit` so they skip Magnify (v0.44.6). Any query touching shared tables needs app/prefix scoping.
+- Server-generated invite links were once domain-less because `NEXT_PUBLIC_APP_URL` was empty and `??` didn't catch it (#32) — verify base-URL env vars on Vercel after env changes.
+- Google Sheet parsing assumptions bite: friend-removal pull checked row 1 for headers and missed the banner row (v0.45.1); don't trust `shared_emails` when Drive disagrees (v0.44.3).
+- Sheets API quota: reads are batched to one `values.batchGet` per ward per pull (v0.52.1) — don't reintroduce per-cell reads.
+- Members table is sourced from Tidings (read-only for Knit) — don't write member names/phones into Knit-owned tables beyond the spec'd fields, and never into logs.
+
+---
+
 # Knit — Build Specification
 
 > *"Their hearts were knit together in unity and in love one towards another."* — Mosiah 18:21
