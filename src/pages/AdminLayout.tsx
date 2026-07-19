@@ -130,7 +130,7 @@ export default function AdminLayout() {
           showInvitations={showInvitations}
         />
         <main className="flex-1 min-w-0 min-h-screen md:bg-white md:border-l md:border-gray-200 safe-pb-tabbar">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-8">
+          <div className="max-w-5xl lg:max-w-3xl mx-auto px-4 sm:px-6 py-6 md:py-8">
             <Outlet context={{ profile }} />
           </div>
         </main>

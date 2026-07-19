@@ -7,6 +7,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.54.1',
+    date: '2026-07-19',
+    summary:
+      'On large screens (1024px and up), admin pages now read as a comfortable centered column instead of stretching edge-to-edge across the whole window.',
+  },
+  {
     version: '0.54.0',
     date: '2026-07-06',
     summary: 'Added an Install page (/install.html) with one-tap, per-device instructions to add Knit to your home screen on iPhone, iPad, or Android — no app store needed. Share this link with people you invite.',
