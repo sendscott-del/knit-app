@@ -2,6 +2,12 @@
 
 Append-only, newest first. One entry per working session: date, what changed, any infra facts touched.
 
+## 2026-07-19 — v0.54.1: centered admin content column on desktop
+
+- Admin shell content stretched nearly edge-to-edge at >=1024px viewports (the `max-w-5xl` cap barely bit inside the 1056px main column at 1280px). Added `lg:max-w-3xl` to the content container in `src/pages/AdminLayout.tsx` — content is now a centered 48rem column on lg+; nothing changes below 1024px. Suite bar, top bar, sidebar, and mobile tab bar remain full width. Public member pages (/join, /m/...) untouched (they don't use AdminLayout).
+- Housekeeping: `package.json` was still 0.53.0 while the changelog's top entry was 0.54.0 (the install-page commit missed its bump) — caught it up by shipping this as 0.54.1.
+- tsc + build clean; pushed to main (`2c659a5`), Vercel deploys automatically. No infra facts changed.
+
 ## 2026-07-15 — Doc system initialized (history reconstructed from git)
 
 - v0.53.0 current: "Try the demo" button on sign-in — one-tap isolated demo ward, fake data only (`07403da`); `/install.html` PWA install page added (`4f6b942`).
