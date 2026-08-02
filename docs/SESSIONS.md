@@ -2,6 +2,12 @@
 
 Append-only, newest first. One entry per working session: date, what changed, any infra facts touched.
 
+## 2026-08-02 — v0.55.1: safe-area spacer when the Gathered suite bar is hidden
+
+- Suite-wide follow-up to the status-bar overlap Scott reported in Magnify/Conduct: when AppSwitcher had nothing to show (single-app users), it rendered nothing and the next element sat under the iPhone status bar / Dynamic Island.
+- Fix: `src/components/AppSwitcher.tsx` — the empty case now returns a chrome-colored spacer padded by `env(safe-area-inset-top)` (zero-height where there is no inset). Same change shipped across Steward/Glean/Knit/Tidings/Conduct/Liken this session.
+- Pushed to main (`24a5371`); Vercel deploys.
+
 ## 2026-08-02 — v0.55.0: idle sheet-pull does zero DB writes (Disk IO fix)
 
 - **Why:** Supabase flagged the shared project (`isogetmvnpimcmouakeg`) "running out of Disk IO Budget" (email 2026-07-22). Diagnosed from `pg_stat_statements`: Knit's 5-minute `sheets-pull` cron was the dominant write-IO source on the *whole shared instance*. Ranked by WAL bytes: the per-binding **claim UPDATE** (`last_pull_started_at`) = 31.3% of all instance WAL, the **finalize UPDATE** = 14.8% — together ~46% — fired for all 10 bindings every 5 minutes *regardless of activity*. The roster preload SELECT was also the #1 query by DB time (54%), but cached (little disk), so it was secondary for Disk IO. (pg_cron's own `job_run_details` logging was the other ~30% of WAL, dominated by the every-minute Duty cron — separate lane, flagged to Scott, not touched here.)
