@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.55.0',
+    date: '2026-08-02',
+    summary:
+      'The 5-minute sheet sync now does zero database work on quiet wards — it checks each sheet for a pending request first and only touches the database when there is actually something to sync. Cuts Knit\'s share of the shared database\'s write load dramatically. No change to how fast missionary requests are picked up.',
+    details: [
+      'Each binding is "peeked" (Google read only, no DB) for a pending Suggestion / Log an Outing / Add a Friend / Remove / Feedback row. Idle wards skip the claim + finalize writes entirely — those two per-binding UPDATEs, fired for every ward every 5 minutes regardless of activity, were the single largest source of write IO on the shared Supabase instance.',
+      'The hidden Member Roster + dropdowns now refresh at most hourly per ward instead of on every 5-minute pull (they only change on the nightly Tidings sync or an occasional opt-out). New knit_google_sheet_bindings.last_roster_refresh_at column throttles it.',
+      'Quiet wards still bump a lightweight last_pull_at heartbeat every ~30 min so /admin/sheet shows a live "last pulled" time. Real requests are still picked up on the next 5-minute pull, unchanged.',
+    ],
+  },
+  {
     version: '0.54.1',
     date: '2026-07-19',
     summary:

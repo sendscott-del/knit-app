@@ -2,6 +2,16 @@
 
 Append-only, newest first. One entry per working session: date, what changed, any infra facts touched.
 
+## 2026-08-02 — v0.55.0: idle sheet-pull does zero DB writes (Disk IO fix)
+
+- **Why:** Supabase flagged the shared project (`isogetmvnpimcmouakeg`) "running out of Disk IO Budget" (email 2026-07-22). Diagnosed from `pg_stat_statements`: Knit's 5-minute `sheets-pull` cron was the dominant write-IO source on the *whole shared instance*. Ranked by WAL bytes: the per-binding **claim UPDATE** (`last_pull_started_at`) = 31.3% of all instance WAL, the **finalize UPDATE** = 14.8% — together ~46% — fired for all 10 bindings every 5 minutes *regardless of activity*. The roster preload SELECT was also the #1 query by DB time (54%), but cached (little disk), so it was secondary for Disk IO. (pg_cron's own `job_run_details` logging was the other ~30% of WAL, dominated by the every-minute Duty cron — separate lane, flagged to Scott, not touched here.)
+- **Fix (all in `api/`, no schema-breaking change):**
+  - `api/cron/sheets-pull.ts`: each binding is now **peeked** first — `peekSheet()` fetches the tabs from Google (no DB) and checks for a pending Suggestion/Outing/Add-Friend/Remove/Feedback row. Idle wards skip the claim + finalize entirely (zero DB writes); they only get a throttled `last_pull_at` heartbeat every ~30 min. Claim is now taken only when there's work — still the atomic test-and-set guard for the case it protects (two runs seeing the same pending row).
+  - `api/_lib/sheetPull.ts`: added `hasPendingWork()` + `peekSheet()`; `pullSheet()` gained optional `prefetch` (reuses the peek's fetch so the sheet is read once) and `refreshRoster` (default true → admin "Sync now" + morning-push unchanged). The cron passes `refreshRoster` only on its hourly cadence, so the roster SELECT stops running every pull.
+- **Infra fact touched:** added nullable column `knit_google_sheet_bindings.last_roster_refresh_at` (migration `20260802120000_knit_bindings_roster_refresh_at.sql`, applied to the shared project via Supabase MCP). Throttles the hourly roster refresh; null reads as "due" so existing bindings refresh once then settle.
+- **Verify:** `npm run build` green (src); targeted `tsc --noEmit` on the two changed api files clean. Behavior unchanged for missionaries (requests still picked up on the next 5-min pull). Watch `pg_stat_statements` after deploy — the claim/finalize UPDATE call-rate should fall to near-zero on quiet wards.
+- Deployed by pushing to `main` (Vercel auto-builds). Left at v0.55.0.
+
 ## 2026-07-19 — v0.54.1: centered admin content column on desktop
 
 - Admin shell content stretched nearly edge-to-edge at >=1024px viewports (the `max-w-5xl` cap barely bit inside the 1056px main column at 1280px). Added `lg:max-w-3xl` to the content container in `src/pages/AdminLayout.tsx` — content is now a centered 48rem column on lg+; nothing changes below 1024px. Suite bar, top bar, sidebar, and mobile tab bar remain full width. Public member pages (/join, /m/...) untouched (they don't use AdminLayout).

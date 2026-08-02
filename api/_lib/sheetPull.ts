@@ -153,10 +153,70 @@ async function verifyAndRestoreHeaders(
   return { ok: false, repaired: true }
 }
 
+/**
+ * Cheap "is there anything to do?" check used by the 5-minute cron before it
+ * writes anything. Runs the same per-tab pending predicates the pull* helpers
+ * use, but against the already-prefetched rows — so a quiet ward (the common
+ * case) can be skipped without a single DB write. See sheets-pull.ts for why
+ * that matters: the per-binding claim + finalize UPDATEs were ~46% of the
+ * shared instance's write IO, almost all of it on idle cycles.
+ */
+export function hasPendingWork(prefetch: Map<string, TabPrefetch>): boolean {
+  const rowsFor = (tab: string) => prefetch.get(tab)?.rows ?? []
+  const truthy = (v: unknown) => String(v ?? '').trim().length > 0
+
+  // Suggestions: Generate checkbox (col E) checked AND result (col F) empty.
+  const suggestions = rowsFor(TABS.SUGGESTIONS).some(
+    (r) => String(r[4] ?? '').trim().toUpperCase() === 'TRUE' && !truthy(r[5]),
+  )
+  // Log an Outing: date (A) + friend (C) present AND Synced (G) empty.
+  const outings = rowsFor(TABS.LOG_OUTING).some(
+    (r) => truthy(r[0]) && truthy(r[2]) && !truthy(r[6]),
+  )
+  // Add a Friend: first name (A) present AND Synced at (G) empty.
+  const addFriend = rowsFor(TABS.ADD_FRIEND).some(
+    (r) => truthy(r[0]) && !truthy(r[6]),
+  )
+  // Friends We are Teaching: Remove? checkbox (col H) checked.
+  const friendRemovals = rowsFor(TABS.FRIENDS).some(
+    (r) => String(r[7] ?? '').trim().toUpperCase() === 'TRUE',
+  )
+  // Send Feedback: body (B) present AND Submitted at (D) empty.
+  const feedback = rowsFor(TABS.FEEDBACK).some(
+    (r) => truthy(r[1]) && !truthy(r[3]),
+  )
+
+  return suggestions || outings || addFriend || friendRemovals || feedback
+}
+
+/**
+ * Prefetch a sheet's tabs (Google read only, no DB) and report whether any tab
+ * has a pending missionary request. Lets the cron decide, per binding, whether
+ * it needs to touch the database at all — and reuse the prefetched rows for the
+ * actual pull so it never fetches the sheet twice.
+ */
+export async function peekSheet(spreadsheetId: string): Promise<{
+  prefetch: Map<string, TabPrefetch>
+  hasWork: boolean
+}> {
+  const sheets = getSheets()
+  const prefetch = await prefetchPullTabs(sheets, spreadsheetId)
+  return { prefetch, hasWork: hasPendingWork(prefetch) }
+}
+
 export async function pullSheet(args: {
   wardId: string
   spreadsheetId: string
+  /** Reuse a prefetch from peekSheet() so the cron doesn't fetch the sheet
+   *  twice. Omitted by the admin "Sync now" + morning-push paths, which fetch
+   *  their own. */
+  prefetch?: Map<string, TabPrefetch>
+  /** Refresh the hidden Member Roster + dropdowns. Default true (admin +
+   *  morning-push behavior). The 5-minute cron passes false except on its
+   *  hourly roster cadence, so the roster SELECT stops running every pull. */
+  refreshRoster?: boolean
 }): Promise<PullReport> {
+  const refreshRoster = args.refreshRoster ?? true
   const sb = supabaseAdmin()
   const sheets = getSheets()
   const report: PullReport = {
@@ -175,8 +235,9 @@ export async function pullSheet(args: {
 
   // One batched read for every tab's header + data rows (sees the lazy
   // ensureTabs repair inside). If even the repaired fetch fails, the whole
-  // pull fails and the cron marks the binding error — same as before.
-  const prefetch = await prefetchPullTabs(sheets, args.spreadsheetId)
+  // pull fails and the cron marks the binding error — same as before. Reuse
+  // the cron's prefetch when it passed one so the sheet is read once.
+  const prefetch = args.prefetch ?? (await prefetchPullTabs(sheets, args.spreadsheetId))
   const tabData = (tab: string): TabPrefetch =>
     prefetch.get(tab) ?? { header: [], rows: [] }
 
@@ -317,14 +378,20 @@ export async function pullSheet(args: {
 
   // Refresh the hidden Member Roster + dropdown ranges so any membership
   // change (Tidings sync, member self-opt-out) propagates into the sheet
-  // within the hour rather than waiting for the next morning push.
-  try {
-    await populateMemberRoster({
-      spreadsheetId: args.spreadsheetId,
-      wardId: args.wardId,
-    })
-  } catch (e) {
-    report.feedbackErrors.push(`roster refresh failed: ${errMsg(e)}`)
+  // within the hour rather than waiting for the next morning push. Gated on
+  // refreshRoster: the 5-minute cron only sets it on its hourly cadence, so
+  // this full roster SELECT (the single biggest query by DB time) stops
+  // running on every pull. The roster only changes on the nightly Tidings
+  // sync or an occasional opt-out, so hourly is ample.
+  if (refreshRoster) {
+    try {
+      await populateMemberRoster({
+        spreadsheetId: args.spreadsheetId,
+        wardId: args.wardId,
+      })
+    } catch (e) {
+      report.feedbackErrors.push(`roster refresh failed: ${errMsg(e)}`)
+    }
   }
 
   return report

@@ -23,10 +23,10 @@ The full original build specification is preserved below this current-state sect
 - Vite + React 19 + TypeScript SPA (Tailwind 4, i18next EN/ES, react-router) + Vercel serverless functions in `api/` (`admin/`, `cron/`, `me/`, `health.ts`, shared code in `api/_lib` and `shared/`).
 - Auth: Supabase magic-link for admins/leaders; members use no-login signed tokens via SMS links (`MAGIC_LINK_SECRET`).
 - Capacitor 8 iOS/Android shells (`ios/`, `android/`, fastlane) — App Store wrapper consolidated onto `main`.
-- Google Sheet per ward is the missionary interface: morning push cron + daytime pulls (batched — one `values.batchGet` per ward per pull since v0.52.1).
+- Google Sheet per ward is the missionary interface: morning push cron + daytime pulls (batched — one `values.batchGet` per ward per pull since v0.52.1). Since v0.55.0 the 5-min pull **peeks each sheet from Google first and does zero DB writes on idle wards** — it only claims/pulls/finalizes when a tab has a pending request, and refreshes the hidden roster at most hourly (throttled by `knit_google_sheet_bindings.last_roster_refresh_at`). This was to stop the per-binding claim+finalize UPDATEs, which were ~46% of the shared instance's write IO. If you change the pull, keep the idle path write-free.
 - Monitoring: `/admin/insights` dashboard backed by the `knit_events` table (added v0.47.0).
 - Migrations in `supabase/migrations/`; version history in `src/constants/changelog.ts`.
-- Current version: v0.53.0 ("Try the demo" — one-tap isolated demo ward, fake data only).
+- Current version: v0.55.0 (idle sheet-pull does zero DB writes — Disk IO fix; see docs/SESSIONS.md 2026-08-02).
 
 ## Rules for this repo
 
