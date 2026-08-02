@@ -7,6 +7,12 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.55.1',
+    date: '2026-08-02',
+    summary:
+      'Fixed: on iPhones, if Knit is your only Gathered app (no suite bar shown at the top), the screen could slide up behind the status bar / Dynamic Island — the app now always reserves that space.',
+  },
+  {
     version: '0.55.0',
     date: '2026-08-02',
     summary:

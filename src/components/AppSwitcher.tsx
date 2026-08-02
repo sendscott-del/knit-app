@@ -73,7 +73,17 @@ export default function AppSwitcher() {
     return () => { cancelled = true }
   }, [session?.user])
 
-  if (otherApps.length === 0) return null
+  // Even with no switcher bar to show, this is still the topmost element when
+  // the app is installed natively — keep a chrome-colored spacer behind the
+  // iOS status bar / Dynamic Island (renders zero-height when there is no inset).
+  if (otherApps.length === 0) {
+    return (
+      <div
+        aria-hidden="true"
+        style={{ paddingTop: 'env(safe-area-inset-top)', backgroundColor: 'var(--color-switcher-chrome)' }}
+      />
+    )
+  }
 
   const currentApp = APP_CATALOG.find(a => a.name === CURRENT_APP)!
 
