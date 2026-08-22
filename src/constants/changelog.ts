@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.55.2',
+    date: '2026-08-22',
+    summary:
+      'Fixed: "What you love" was blank when a member opened their personal link to update their profile — no interests could be picked or changed. Every other section was unaffected.',
+    details: [
+      'Members use a no-login link, so their browser talks to the database as an anonymous visitor. The June 12 security tightening left the interest-tag list readable only to signed-in admins, so the picker got back an empty list with no error and rendered nothing. Interests have been unchangeable by members since 2026-06-12 — this also blocked the interests step of new-member onboarding.',
+      'Members now read the interest list through a token-checked function, the same way they already save it. The tag table stays closed to anonymous readers.',
+      'The picker now says so when it has no options to show, instead of rendering an empty box with only Save and Cancel.',
+    ],
+  },
+  {
     version: '0.55.1',
     date: '2026-08-02',
     summary:

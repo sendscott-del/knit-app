@@ -458,7 +458,12 @@ function EditableInterests({
     >
       {editing ? (
         <div className="space-y-3">
-          <InterestChipPicker wardId={wardId} value={draft} onChange={setDraft} />
+          <InterestChipPicker
+            wardId={wardId}
+            value={draft}
+            onChange={setDraft}
+            memberAuth={auth}
+          />
           {error ? <p className="text-sm text-error">{error}</p> : null}
           <div className="flex gap-2">
             <button

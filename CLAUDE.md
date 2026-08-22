@@ -26,7 +26,7 @@ The full original build specification is preserved below this current-state sect
 - Google Sheet per ward is the missionary interface: morning push cron + daytime pulls (batched — one `values.batchGet` per ward per pull since v0.52.1). Since v0.55.0 the 5-min pull **peeks each sheet from Google first and does zero DB writes on idle wards** — it only claims/pulls/finalizes when a tab has a pending request, and refreshes the hidden roster at most hourly (throttled by `knit_google_sheet_bindings.last_roster_refresh_at`). This was to stop the per-binding claim+finalize UPDATEs, which were ~46% of the shared instance's write IO. If you change the pull, keep the idle path write-free.
 - Monitoring: `/admin/insights` dashboard backed by the `knit_events` table (added v0.47.0).
 - Migrations in `supabase/migrations/`; version history in `src/constants/changelog.ts`.
-- Current version: v0.55.0 (idle sheet-pull does zero DB writes — Disk IO fix; see docs/SESSIONS.md 2026-08-02).
+- Current version: v0.55.2 (member interest picker fixed — anon RLS; see docs/SESSIONS.md 2026-08-22).
 
 ## Rules for this repo
 
@@ -37,8 +37,19 @@ The full original build specification is preserved below this current-state sect
 - Append a docs/SESSIONS.md entry at the end of every working session; update this current-state section the moment an infra fact changes.
 - No secrets in committed files (env var NAMES only).
 
+## Delivery surfaces (verify EVERY one per release — see global tech-stack.md rule)
+
+| Surface | How it updates | Timeline | Verify by |
+|---|---|---|---|
+| Web (knit.gatheredin.app) | Vercel on git push | ~2 min | load site |
+| Installed PWA | same Vercel deploy; SW refresh on next open | minutes | reload twice |
+| iOS/Android (Capacitor shells) | load the LIVE SITE via `server.url` | same Vercel deploy, next app open | open the store app after deploy |
+
+The native shells render the deployed website — **one Vercel deploy updates every surface.** A store re-submission is only needed when native shell code/plugins change. This is the OPPOSITE of Magnify (embedded Expo bundle + OTA publish, where store users can silently go stale) — never conflate the two models.
+
 ## Gotchas
 
+- **Members are the `anon` role — RLS written `to authenticated` silently breaks them.** Member pages (dashboard, onboarding) use a no-login signed token, so every direct table read from those pages runs as `anon` and an `authenticated`-only policy returns *zero rows with no error* — the UI just renders empty. This killed the interest picker from 2026-06-12 to 2026-08-22 (v0.55.2). Member-facing reads belong in a `knit_member_self_*` SECURITY DEFINER RPC that checks `knit_member_token_is_valid`, granted to `anon` — not in a widened table policy. `knit_participation_styles` is the exception that has an `anon` read policy, which is why styles kept working.
 - **Shared-project cross-app leaks are real here:** `/admin/users` once showed other apps' signups (fixed v0.46.3), and Knit invites must be tagged `app=knit` so they skip Magnify (v0.44.6). Any query touching shared tables needs app/prefix scoping.
 - Server-generated invite links were once domain-less because `NEXT_PUBLIC_APP_URL` was empty and `??` didn't catch it (#32) — verify base-URL env vars on Vercel after env changes.
 - Google Sheet parsing assumptions bite: friend-removal pull checked row 1 for headers and missed the banner row (v0.45.1); don't trust `shared_emails` when Drive disagrees (v0.44.3).

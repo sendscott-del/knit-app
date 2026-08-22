@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/lib/database.types'
+import type { MemberAuth } from '@/lib/memberAuth'
 import { localizedTagName } from '@/lib/localizedLabel'
 
 type InterestTag = Database['public']['Tables']['knit_interest_tags']['Row']
@@ -13,10 +14,18 @@ export default function InterestChipPicker({
   wardId,
   value,
   onChange,
+  memberAuth,
 }: {
   wardId?: string | null
   value: string[]
   onChange: (next: string[]) => void
+  /**
+   * Members on the magic-link dashboard/onboarding are the `anon` role, and
+   * knit_interest_tags only grants SELECT to `authenticated` — a direct table
+   * read returns zero rows with no error. Pass the member's token so the picker
+   * reads through the token-checked RPC instead.
+   */
+  memberAuth?: MemberAuth | null
 }) {
   const { t, i18n } = useTranslation('common')
   const [tags, setTags] = useState<InterestTag[]>([])
@@ -31,27 +40,40 @@ export default function InterestChipPicker({
     culture: t('interest_picker.category_culture'),
   }
 
+  const memberId = memberAuth?.memberId ?? null
+  const memberToken = memberAuth?.token ?? null
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
+      setLoading(true)
+      setError(null)
       // Globals (ward_id null) + any tags for the member's ward.
-      const query = supabase
-        .from('knit_interest_tags')
-        .select('*')
-        .eq('active', true)
-        .order('name_en')
-      if (wardId) query.or(`ward_id.is.null,ward_id.eq.${wardId}`)
-      else query.is('ward_id', null)
-      const { data, error } = await query
+      const { data, error } =
+        memberId && memberToken
+          ? await supabase.rpc('knit_member_self_list_interest_tags', {
+              p_member_id: memberId,
+              p_token: memberToken,
+            })
+          : await (() => {
+              const query = supabase
+                .from('knit_interest_tags')
+                .select('*')
+                .eq('active', true)
+                .order('name_en')
+              if (wardId) query.or(`ward_id.is.null,ward_id.eq.${wardId}`)
+              else query.is('ward_id', null)
+              return query
+            })()
       if (cancelled) return
       if (error) setError(error.message)
-      else setTags(data ?? [])
+      else setTags((data as InterestTag[] | null) ?? [])
       setLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [wardId])
+  }, [wardId, memberId, memberToken])
 
   const byCategory = useMemo(() => {
     const map = new Map<Category, InterestTag[]>()
@@ -70,6 +92,10 @@ export default function InterestChipPicker({
 
   if (loading) return <p className="text-sm text-gray-500">{t('interest_picker.loading')}</p>
   if (error) return <p className="text-sm text-error">{error}</p>
+  // Never render an empty picker silently — a blank "What you love" with only
+  // Save/Cancel is what the RLS bug looked like to members for 10 weeks.
+  if (tags.length === 0)
+    return <p className="text-sm text-gray-500">{t('interest_picker.none_available')}</p>
 
   return (
     <div className="space-y-5">

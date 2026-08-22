@@ -779,6 +779,7 @@
   },
   "interest_picker": {
     "loading": "Cargando opciones…",
+    "none_available": "Las opciones de intereses no se están cargando ahora. Inténtalo de nuevo en un minuto o avisa a tu líder misional del barrio.",
     "category_hobby": "Pasatiempos",
     "category_sport": "Deportes y actividad",
     "category_life_stage": "Etapa de la vida",

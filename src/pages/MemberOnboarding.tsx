@@ -134,6 +134,7 @@ export default function MemberOnboarding({ auth, firstName, wardId, onDone }: Pr
 
           {step === 4 ? (
             <ScreenInterests
+              auth={auth}
               wardId={wardId}
               value={interestIds}
               onChange={setInterestIds}
@@ -274,10 +275,12 @@ function ScreenDays({
 }
 
 function ScreenInterests({
+  auth,
   wardId,
   value,
   onChange,
 }: {
+  auth: MemberAuth
   wardId: string | null
   value: string[]
   onChange: (next: string[]) => void
@@ -287,7 +290,7 @@ function ScreenInterests({
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold text-gray-900">{t('onboarding_inline.interests_title')}</h1>
       <p className="text-base text-gray-600">{t('onboarding_inline.interests_hint')}</p>
-      <InterestChipPicker wardId={wardId} value={value} onChange={onChange} />
+      <InterestChipPicker wardId={wardId} value={value} onChange={onChange} memberAuth={auth} />
     </div>
   )
 }

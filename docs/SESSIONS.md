@@ -2,6 +2,17 @@
 
 Append-only, newest first. One entry per working session: date, what changed, any infra facts touched.
 
+## 2026-08-22 — v0.55.2: member interest picker fixed (anon RLS)
+
+- **Bug (reported by Scott from a live weekly-check-in SMS):** on the member dashboard, tapping Edit on "What you love" showed "Loading options…" and then an empty box with only Save and Cancel. Availability and "How you like to help" worked.
+- **Root cause:** `knit_interest_tags`' only SELECT policy is `to authenticated` (migration `20260612091000`). Members use a no-login signed token, so `InterestChipPicker`'s direct table read ran as `anon`, and RLS returned zero rows *with no error* — the component rendered nothing. `knit_participation_styles` has an `{authenticated, anon}` read policy, which is why styles kept working.
+- **Blast radius:** confirmed in the DB — 90 `knit_member_interests` rows, all before 2026-06-09, zero since. Members could not set or change interests for ~10 weeks, and the interests step of new-member onboarding was equally dead. Matching quality degrades with stale interest data.
+- **Fix:** new `knit_member_self_list_interest_tags(p_member_id, p_token)` — SECURITY DEFINER, checks `knit_member_token_is_valid`, returns active global tags + the member's ward tags, EXECUTE granted to `anon`. Same pattern as the other `knit_member_self_*` RPCs. Table RLS unchanged (not widened to anon). Migration `supabase/migrations/20260822120000_knit_member_self_list_interest_tags.sql`, applied to shared project `isogetmvnpimcmouakeg`.
+- `InterestChipPicker` takes an optional `memberAuth` and uses the RPC when present; admin pages (AdminMembers, AdminFriends) keep the direct authenticated read. Wired into MemberDashboard + MemberOnboarding. The picker now shows a message when it has zero options instead of rendering an empty box — this bug was invisible precisely because it rendered nothing. New i18n key `interest_picker.none_available` (EN/ES).
+- **Verified:** migration applied; anon call through PostgREST with the live anon key returns `28000 Invalid or expired link` (function reachable by anon, token gate works — a valid token returns rows, SECURITY DEFINER bypasses RLS); `tsc --noEmit` and `npm run build` clean. Not yet verified end-to-end with a real member link — Scott to open his SMS link and confirm the chips appear.
+- **Housekeeping:** committed the delivery-surfaces table left uncommitted in CLAUDE.md last session; deleted the empty stray `docs/SESSIONS.md.tmp`. Added a CLAUDE.md gotcha: member-facing reads must go through token-checked `knit_member_self_*` RPCs, never direct table reads, because members are `anon`.
+- Left at v0.55.2, pushed to `main`; Vercel deploys all surfaces (web, PWA, Capacitor shells load the live site).
+
 ## 2026-08-02 — v0.55.1: safe-area spacer when the Gathered suite bar is hidden
 
 - Suite-wide follow-up to the status-bar overlap Scott reported in Magnify/Conduct: when AppSwitcher had nothing to show (single-app users), it rendered nothing and the next element sat under the iPhone status bar / Dynamic Island.

@@ -6947,6 +6947,10 @@ export type Database = {
         Args: { p_member_id: string; p_token: string }
         Returns: undefined
       }
+      knit_member_self_list_interest_tags: {
+        Args: { p_member_id: string; p_token: string }
+        Returns: Database["public"]["Tables"]["knit_interest_tags"]["Row"][]
+      }
       knit_member_self_opt_out: {
         Args: { p_member_id: string; p_opt_out?: boolean; p_token: string }
         Returns: undefined

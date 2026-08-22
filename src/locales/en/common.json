@@ -779,6 +779,7 @@
   },
   "interest_picker": {
     "loading": "Loading options…",
+    "none_available": "No interest options are loading right now. Try again in a minute, or tell your ward mission leader.",
     "category_hobby": "Hobbies",
     "category_sport": "Sports & activity",
     "category_life_stage": "Life stage",
