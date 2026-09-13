@@ -672,3 +672,4 @@ When Claude Code works on this project:
 ---
 
 *End of spec.*
+- **App Store distribution (2026-09-13):** still PUBLIC as of this date. Unlisted-distribution request submitted to Apple 2026-09-13. Apple emails ss@byu.net asking to "confirm intent"; Scott must reply, then it flips to Unlisted (same product-page URL). Verify in App Store Connect > Pricing and Availability > App Distribution Methods. Magnify, Glean, Tidings are already Unlisted (approved Jul 2026).

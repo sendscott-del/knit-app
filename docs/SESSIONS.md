@@ -46,3 +46,8 @@ Append-only, newest first. One entry per working session: date, what changed, an
 - v0.44–0.45: missionaries can remove friends from the Google Sheet; Knit invites tagged `app=knit` so they skip Magnify; Drive shares routed through the service account; stopped trusting `shared_emails` when Drive disagrees.
 - Long PR-based run (#1–#33) building the Google Sheets missionary workspace: provisioning, morning push + daytime pull crons, suggestions, outing logging.
 - Phase 0 (first commits): Vite + React + TS scaffold, then consolidation into the shared "Scott's Apps" Supabase project with the `knit_` prefix (`13558a7`, `9288fd6`).
+
+## 2026-09-13 — App Store unlisted distribution
+
+- Found the app was still PUBLIC on the App Store (App Store Connect > Pricing and Availability). Submitted the unlisted-distribution request form to Apple; awaiting Apple confirm-intent email (reply required).
+- No code changes; docs only. Not deployed.
